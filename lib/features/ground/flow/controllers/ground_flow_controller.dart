@@ -127,7 +127,11 @@ class GroundFlowController extends ChangeNotifier {
       'offerType': data.offerType?.name,
       'entityType': isAcademyFlow
           ? 'academy'
-          : (data.offerType == OfferType.sportsNeo ? 'sports_neo' : 'ground'),
+          : (data.offerType == OfferType.boxCricket
+            ? 'box_cricket'
+            : (data.offerType == OfferType.sportsNeo
+              ? 'sports_neo'
+              : 'ground')),
       'pinCode': data.pinCode,
       'daySlots': data.daySlots
           .map(
@@ -154,12 +158,6 @@ class GroundFlowController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final String role = switch (data.offerType) {
-        OfferType.boxCricket => 'box_cricket_owner',
-        OfferType.academyCoaching => 'academy_owner',
-        _ => 'ground_owner',
-      };
-
       final Map<String, dynamic> profile = await _api.updateOwnerProfile(
         _session.ownerId!,
         <String, dynamic>{
@@ -167,7 +165,7 @@ class GroundFlowController extends ChangeNotifier {
         'contactNumber': data.contactNumber,
         'email': data.email,
         'address': data.address,
-        'role': role,
+        'role': 'owner',
         },
       );
       _session.updateFromAuth(profile);

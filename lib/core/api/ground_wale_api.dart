@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import 'api_session.dart';
 import 'api_config.dart';
 
 class GroundWaleApi {
@@ -829,12 +830,18 @@ class GroundWaleApi {
   Future<Map<String, dynamic>> getAcademyDashboard(
     String ownerId, {
     String? batchId,
+    String? academyId,
+    String? monthKey,
   }) async {
     try {
+      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/dashboard',
         queryParameters: <String, dynamic>{
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
           if (batchId != null && batchId.isNotEmpty) 'batchId': batchId,
+          if (monthKey != null && monthKey.isNotEmpty) 'monthKey': monthKey,
         },
       );
       return Map<String, dynamic>.from(response.data as Map);
@@ -848,11 +855,15 @@ class GroundWaleApi {
     String? status,
     String? batchId,
     String? search,
+    String? academyId,
     int? page,
     int? limit,
   }) async {
     try {
+      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
       final Map<String, dynamic> queryParameters = <String, dynamic>{
+        if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+          'academyId': scopedAcademyId,
         if (status != null && status.isNotEmpty) 'status': status,
         if (batchId != null && batchId.isNotEmpty) 'batchId': batchId,
         if (search != null && search.isNotEmpty) 'search': search,
@@ -879,9 +890,18 @@ class GroundWaleApi {
     Map<String, dynamic> payload,
   ) async {
     try {
+      final String? payloadAcademyId = payload['academyId']?.toString();
+      final String? scopedAcademyId =
+          (payloadAcademyId != null && payloadAcademyId.isNotEmpty)
+          ? payloadAcademyId
+          : ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.post<dynamic>(
         '/academy/$ownerId/students',
-        data: payload,
+        data: <String, dynamic>{
+          ...payload,
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
+        },
       );
       return Map<String, dynamic>.from(response.data as Map);
     } catch (error) {
@@ -931,11 +951,15 @@ class GroundWaleApi {
     String ownerId, {
     String? status,
     String? search,
+    String? academyId,
   }) async {
     try {
+      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/batches',
         queryParameters: <String, dynamic>{
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
           if (status != null && status.isNotEmpty) 'status': status,
           if (search != null && search.isNotEmpty) 'search': search,
         },
@@ -970,9 +994,14 @@ class GroundWaleApi {
     Map<String, dynamic> payload,
   ) async {
     try {
+      final String? scopedAcademyId = ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.post<dynamic>(
         '/academy/$ownerId/batches',
-        data: payload,
+        data: <String, dynamic>{
+          ...payload,
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
+        },
       );
       return Map<String, dynamic>.from(response.data as Map);
     } catch (error) {
@@ -1023,11 +1052,15 @@ class GroundWaleApi {
     String? batchId,
     String? dateFrom,
     String? dateTo,
+    String? academyId,
   }) async {
     try {
+      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/attendance',
         queryParameters: <String, dynamic>{
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
           if (batchId != null && batchId.isNotEmpty) 'batchId': batchId,
           if (dateFrom != null && dateFrom.isNotEmpty) 'dateFrom': dateFrom,
           if (dateTo != null && dateTo.isNotEmpty) 'dateTo': dateTo,
@@ -1046,9 +1079,14 @@ class GroundWaleApi {
     Map<String, dynamic> payload,
   ) async {
     try {
+      final String? scopedAcademyId = ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.post<dynamic>(
         '/academy/$ownerId/attendance',
-        data: payload,
+        data: <String, dynamic>{
+          ...payload,
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
+        },
       );
       return Map<String, dynamic>.from(response.data as Map);
     } catch (error) {
@@ -1061,11 +1099,15 @@ class GroundWaleApi {
     String? studentId,
     String? status,
     String? monthKey,
+    String? academyId,
   }) async {
     try {
+      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/fees',
         queryParameters: <String, dynamic>{
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
           if (studentId != null && studentId.isNotEmpty) 'studentId': studentId,
           if (status != null && status.isNotEmpty) 'status': status,
           if (monthKey != null && monthKey.isNotEmpty) 'monthKey': monthKey,
@@ -1084,9 +1126,18 @@ class GroundWaleApi {
     Map<String, dynamic> payload,
   ) async {
     try {
+      final String? payloadAcademyId = payload['academyId']?.toString();
+      final String? scopedAcademyId =
+          (payloadAcademyId != null && payloadAcademyId.isNotEmpty)
+          ? payloadAcademyId
+          : ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.post<dynamic>(
         '/academy/$ownerId/fees',
-        data: payload,
+        data: <String, dynamic>{
+          ...payload,
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
+        },
       );
       return Map<String, dynamic>.from(response.data as Map);
     } catch (error) {
@@ -1128,11 +1179,15 @@ class GroundWaleApi {
     String ownerId, {
     String? audience,
     String? batchId,
+    String? academyId,
   }) async {
     try {
+      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/announcements',
         queryParameters: <String, dynamic>{
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
           if (audience != null && audience.isNotEmpty) 'audience': audience,
           if (batchId != null && batchId.isNotEmpty) 'batchId': batchId,
         },
@@ -1150,8 +1205,41 @@ class GroundWaleApi {
     Map<String, dynamic> payload,
   ) async {
     try {
+      final String? scopedAcademyId = ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.post<dynamic>(
         '/academy/$ownerId/announcements',
+        data: <String, dynamic>{
+          ...payload,
+          if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
+            'academyId': scopedAcademyId,
+        },
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> listAcademies(String ownerId) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/academy/$ownerId/academies',
+      );
+      return (response.data as List<dynamic>)
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> createAcademy(
+    String ownerId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/academy/$ownerId/academies',
         data: payload,
       );
       return Map<String, dynamic>.from(response.data as Map);

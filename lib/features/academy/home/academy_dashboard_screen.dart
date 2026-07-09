@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/ist_greeting.dart';
 import '../../../core/widgets/module_bottom_nav.dart';
 import 'academy_add_student_screen.dart';
 import 'academy_announcement_screen.dart';
@@ -14,7 +18,9 @@ import 'academy_profile_screen.dart';
 import 'academy_view_batch_screen.dart';
 
 class AcademyDashboardScreen extends StatefulWidget {
-  const AcademyDashboardScreen({super.key});
+  const AcademyDashboardScreen({super.key, this.showBottomNav = true});
+
+  final bool showBottomNav;
 
   @override
   State<AcademyDashboardScreen> createState() => _AcademyDashboardScreenState();
@@ -23,8 +29,215 @@ class AcademyDashboardScreen extends StatefulWidget {
 class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   bool _isLoading = true;
   Map<String, dynamic> _dashboard = <String, dynamic>{};
+  List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
+  String? _selectedAcademyId;
   List<Map<String, dynamic>> _batches = <Map<String, dynamic>>[];
   String _selectedBatchFilter = 'All';
+  DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+
+  String _academyId(Map<String, dynamic> academy) {
+    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
+  }
+
+  String _academyName(Map<String, dynamic> academy) {
+    final String name = academy['name']?.toString().trim() ?? '';
+    return name.isEmpty ? 'Academy' : name;
+  }
+
+  String? _academyImageUrl(Map<String, dynamic> academy) {
+    final List<String> keys = <String>[
+      'imageUrl',
+      'coverImage',
+      'bannerImage',
+      'photoUrl',
+      'image',
+    ];
+    for (final String key in keys) {
+      final String value = academy[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  String _monthKey(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}';
+  }
+
+  String _monthLabel(DateTime date) {
+    const List<String> months = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[date.month - 1]} ${date.year}';
+  }
+
+  List<int> _buildWeeklySeries(int monthEarnings, int paidStudents, int pendingStudents) {
+    final int base = math.max(monthEarnings, 1);
+    final int weeklyBase = math.max((base / 5).round(), 1);
+    final int momentum = (paidStudents - pendingStudents).clamp(-5, 5);
+    final List<int> values = <int>[
+      weeklyBase + momentum,
+      (weeklyBase * 2) + momentum,
+      (weeklyBase * 3) + momentum,
+      (weeklyBase * 4) + momentum,
+      base + momentum,
+    ];
+    return values.map((int value) => math.max(value, 1)).toList();
+  }
+
+  String _ordinalLabel(int index) {
+    switch (index) {
+      case 0:
+        return '1st';
+      case 1:
+        return '2nd';
+      case 2:
+        return '3rd';
+      case 3:
+        return '4th';
+      default:
+        return '5th';
+    }
+  }
+
+  List<String> _academyFacilities(Map<String, dynamic> academy) {
+    final List<dynamic> raw = (academy['facilities'] as List<dynamic>?) ??
+        (academy['amenities'] as List<dynamic>?) ??
+        (academy['features'] as List<dynamic>?) ??
+        <dynamic>[];
+
+    final List<String> values = raw
+        .map((dynamic item) => item.toString().trim())
+        .where((String item) => item.isNotEmpty)
+        .toList();
+
+    if (values.isNotEmpty) {
+      return values;
+    }
+
+    return <String>[
+      'Parking',
+      'Washroom',
+      'Water',
+      'Lighting',
+      'Ball Machine',
+      'Hard Court',
+    ];
+  }
+
+  String _facilityLabel(String value) {
+    final String key = value.trim().toLowerCase();
+    if (key.contains('park')) {
+      return '🅿️ Parking';
+    }
+    if (key.contains('wash')) {
+      return '🚻 Washroom';
+    }
+    if (key.contains('water')) {
+      return '💧 Water';
+    }
+    if (key.contains('light')) {
+      return '💡 Lighting';
+    }
+    if (key.contains('ball')) {
+      return '🎾 Ball Machine';
+    }
+    if (key.contains('court')) {
+      return '🎾 Hard Court';
+    }
+    return value;
+  }
+
+  int _academyMonthlyFee(Map<String, dynamic> academy) {
+    final dynamic direct = academy['monthlyFee'] ?? academy['monthlyFees'];
+    if (direct is int) {
+      return direct;
+    }
+    if (direct is double) {
+      return direct.round();
+    }
+    if (direct is String) {
+      return int.tryParse(direct) ?? 0;
+    }
+    return 0;
+  }
+
+  Widget _academyImageWidget(String? imageValue) {
+    if (imageValue == null || imageValue.trim().isEmpty) {
+      return Container(
+        color: const Color(0xFF1B2F38),
+        alignment: Alignment.center,
+        child: const Icon(
+          Icons.school_outlined,
+          color: Color(0xFF9FB9B3),
+          size: 30,
+        ),
+      );
+    }
+
+    final String source = imageValue.trim();
+
+    // Accept values like: data:image/png;base64,AAAA...
+    if (source.startsWith('data:image')) {
+      final int commaIndex = source.indexOf(',');
+      if (commaIndex > -1 && commaIndex < source.length - 1) {
+        try {
+          final String encoded = source.substring(commaIndex + 1);
+          return Image.memory(
+            base64Decode(encoded),
+            fit: BoxFit.contain,
+            errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
+          );
+        } catch (_) {
+          return _academyImageFallback();
+        }
+      }
+      return _academyImageFallback();
+    }
+
+    if (source.startsWith('http://') || source.startsWith('https://')) {
+      return Image.network(
+        source,
+        fit: BoxFit.contain,
+        errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
+      );
+    }
+
+    // Also support plain base64 payloads.
+    try {
+      return Image.memory(
+        base64Decode(source),
+        fit: BoxFit.contain,
+        errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
+      );
+    } catch (_) {
+      return _academyImageFallback();
+    }
+  }
+
+  Widget _academyImageFallback() {
+    return Container(
+      color: const Color(0xFF1B2F38),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.broken_image_outlined,
+        color: Color(0xFF9FB9B3),
+        size: 28,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -42,24 +255,58 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     }
 
     try {
+      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
+          .listAcademies(ownerId);
+      final String? preferredAcademyId =
+          ApiSession.instance.selectedAcademyId?.trim().isNotEmpty == true
+          ? ApiSession.instance.selectedAcademyId
+          : null;
+      String? selectedAcademyId;
+      if (preferredAcademyId != null &&
+          academies.any((Map<String, dynamic> item) =>
+              _academyId(item) == preferredAcademyId)) {
+        selectedAcademyId = preferredAcademyId;
+      } else if (academies.isNotEmpty) {
+        selectedAcademyId = _academyId(academies.first);
+      }
+
       final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
-          .listAcademyBatches(ownerId);
+          .listAcademyBatches(ownerId, academyId: selectedAcademyId);
       final String selectedFilter = _normalizeSelectedFilter(batches);
       final String? selectedBatchId = _batchIdByFilterLabel(
         selectedFilter,
         batches,
       );
       final Map<String, dynamic> dashboard = await GroundWaleApi.instance
-          .getAcademyDashboard(ownerId, batchId: selectedBatchId);
+          .getAcademyDashboard(
+            ownerId,
+            batchId: selectedBatchId,
+            academyId: selectedAcademyId,
+            monthKey: _monthKey(_selectedMonth),
+          );
       if (!mounted) {
         return;
       }
       setState(() {
+        _academies = academies;
+        _selectedAcademyId = selectedAcademyId;
         _dashboard = dashboard;
         _batches = batches;
         _selectedBatchFilter = selectedFilter;
         _isLoading = false;
       });
+      final Map<String, dynamic>? selectedAcademy = academies
+          .where((Map<String, dynamic> item) =>
+              _academyId(item) == _selectedAcademyId)
+          .cast<Map<String, dynamic>?>()
+          .firstWhere(
+            (Map<String, dynamic>? _) => true,
+            orElse: () => academies.isEmpty ? null : academies.first,
+          );
+      ApiSession.instance.setSelectedAcademy(
+        academyId: _selectedAcademyId,
+        academyName: selectedAcademy == null ? null : _academyName(selectedAcademy),
+      );
     } catch (error) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -69,6 +316,86 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _createAcademy() async {
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return;
+    }
+
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController cityController = TextEditingController();
+    final bool? shouldCreate = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF203A43),
+          title: const Text('Add Academy', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                controller: nameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'Academy Name',
+                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: cityController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'City (optional)',
+                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldCreate != true || !mounted) {
+      return;
+    }
+
+    final String name = nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Academy name is required')),
+      );
+      return;
+    }
+
+    try {
+      await GroundWaleApi.instance.createAcademy(ownerId, <String, dynamic>{
+        'name': name,
+        'city': cityController.text.trim(),
+      });
+      await _load();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
     }
   }
 
@@ -122,7 +449,119 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
     try {
       final Map<String, dynamic> dashboard = await GroundWaleApi.instance
-          .getAcademyDashboard(ownerId, batchId: batchId);
+          .getAcademyDashboard(
+            ownerId,
+            batchId: batchId,
+            academyId: _selectedAcademyId,
+            monthKey: _monthKey(_selectedMonth),
+          );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _dashboard = dashboard;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onAcademyFilterTap(String academyId) async {
+    if (_selectedAcademyId == academyId) {
+      return;
+    }
+
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _selectedAcademyId = academyId;
+      _selectedBatchFilter = 'All';
+      _isLoading = true;
+    });
+
+    try {
+      final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
+          .listAcademyBatches(ownerId, academyId: academyId);
+      final String selectedFilter = _normalizeSelectedFilter(batches);
+      final String? selectedBatchId = _batchIdByFilterLabel(
+        selectedFilter,
+        batches,
+      );
+      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
+          .getAcademyDashboard(
+            ownerId,
+            batchId: selectedBatchId,
+            academyId: academyId,
+            monthKey: _monthKey(_selectedMonth),
+          );
+
+      if (!mounted) {
+        return;
+      }
+      final Map<String, dynamic> selectedAcademy = _academies.firstWhere(
+        (Map<String, dynamic> item) => _academyId(item) == academyId,
+        orElse: () => <String, dynamic>{},
+      );
+      ApiSession.instance.setSelectedAcademy(
+        academyId: academyId,
+        academyName: _academyName(selectedAcademy),
+      );
+      setState(() {
+        _dashboard = dashboard;
+        _batches = batches;
+        _selectedBatchFilter = selectedFilter;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _changeMonth(int delta) async {
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty || _isLoading) {
+      return;
+    }
+
+    final DateTime next = DateTime(_selectedMonth.year, _selectedMonth.month + delta);
+    final String? selectedBatchId = _batchIdByFilterLabel(
+      _selectedBatchFilter,
+      _batches,
+    );
+
+    setState(() {
+      _selectedMonth = next;
+      _isLoading = true;
+    });
+
+    try {
+      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
+          .getAcademyDashboard(
+            ownerId,
+            batchId: selectedBatchId,
+            academyId: _selectedAcademyId,
+            monthKey: _monthKey(next),
+          );
       if (!mounted) {
         return;
       }
@@ -204,6 +643,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final String ownerName =
+        ApiSession.instance.ownerName?.trim().isNotEmpty == true
+            ? ApiSession.instance.ownerName!.trim()
+            : 'Owner';
+    final String greetingMessage = istGreetingMessage(ownerName);
+
     final Map<String, dynamic> students = Map<String, dynamic>.from(
       _dashboard['students'] as Map? ?? <String, dynamic>{},
     );
@@ -224,7 +669,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     final int paidStudents = _toInt(fees['paidStudents']);
     final int pendingStudents = _toInt(fees['pendingStudents']);
     final int monthEarnings = _toInt(
-      fees['collectedAmount'] ?? _dashboard['thisMonthEarnings'] ?? 0,
+      (fees['collectedAmount'] ?? 0) + (fees['pendingAmount'] ?? 0) ?? _dashboard['thisMonthEarnings'] ?? 0,
+    );
+    final List<int> weeklySeries = _buildWeeklySeries(
+      monthEarnings,
+      paidStudents,
+      pendingStudents,
     );
 
     final List<Map<String, dynamic>> filteredBatches = _filteredBatches();
@@ -265,12 +715,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                'Good Morning, Akash',
+                                greetingMessage,
                                 style: TextStyle(
                                   color: Color(0xFF7B8A97),
                                   fontSize: 13,
@@ -306,6 +756,306 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
+                    SizedBox(
+                      height: 52,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _academies.length + 1,
+                        itemBuilder: (BuildContext context, int index) {
+                          if (index == _academies.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: GestureDetector(
+                                onTap: _createAcademy,
+                                child: Container(
+                                  width: 48,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0x1FFFFFFF)),
+                                    color: const Color(0x0FFFFFFF),
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Color(0xFFE6F7F4),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                          final Map<String, dynamic> academy = _academies[index];
+                          final String academyId = _academyId(academy);
+                          final bool selected = academyId == _selectedAcademyId;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: GestureDetector(
+                              onTap: academyId.isEmpty
+                                  ? null
+                                  : () => _onAcademyFilterTap(academyId),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: selected
+                                        ? const Color(0xFF00C9A7)
+                                        : const Color(0x1FFFFFFF),
+                                  ),
+                                  color: selected
+                                      ? const Color(0x2200C9A7)
+                                      : const Color(0x0FFFFFFF),
+                                ),
+                                child: Row(
+                                  children: <Widget>[
+                                    const Icon(
+                                      Icons.school_outlined,
+                                      size: 16,
+                                      color: Color(0xFFE6F7F4),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _academyName(academy),
+                                      style: TextStyle(
+                                        color: selected
+                                            ? const Color(0xFF00C9A7)
+                                            : const Color(0xFFE6F7F4),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_academies.isNotEmpty)
+                      SizedBox(
+                        height: 460,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _academies.length,
+                          separatorBuilder: (_, int index) => const SizedBox(width: 12),
+                          itemBuilder: (BuildContext context, int index) {
+                            final Map<String, dynamic> academy = _academies[index];
+                            final String academyId = _academyId(academy);
+                            final bool selected = academyId == _selectedAcademyId;
+                            final String? imageUrl = _academyImageUrl(academy);
+                            final List<String> facilities = _academyFacilities(academy);
+                            final int monthlyFee = _academyMonthlyFee(academy);
+                            return GestureDetector(
+                              onTap: academyId.isEmpty
+                                  ? null
+                                  : () => _onAcademyFilterTap(academyId),
+                              child: Container(
+                                width: 300,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: selected
+                                        ? const Color(0xFF00C9A7)
+                                        : const Color(0x1FFFFFFF),
+                                  ),
+                                  color: const Color(0x0FFFFFFF),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(10),
+                                      ),
+                                      child: SizedBox(
+                                        height: 176,
+                                        width: double.infinity,
+                                        child: imageUrl == null
+                                            ? Container(
+                                                color: const Color(0xFF1B2F38),
+                                                alignment: Alignment.center,
+                                                child: const Icon(
+                                                  Icons.school_outlined,
+                                                  color: Color(0xFF9FB9B3),
+                                                  size: 30,
+                                                ),
+                                              )
+                                            : _academyImageWidget(imageUrl),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Text(
+                                            _academyName(academy),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            academy['city']?.toString().trim().isNotEmpty == true
+                                                ? academy['city'].toString().trim()
+                                                : 'Location not set',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Color(0xFF9FB9B3),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            children: facilities.map((String facility) {
+                                              return Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  color: const Color(0x0AFFFFFF),
+                                                ),
+                                                child: Text(
+                                                  _facilityLabel(facility),
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.only(top: 10),
+                                            decoration: const BoxDecoration(
+                                              border: Border(
+                                                top: BorderSide(color: Color(0x14000000)),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: <Widget>[
+                                                Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: <Widget>[
+                                                    const Text(
+                                                      'Monthly Fees',
+                                                      style: TextStyle(
+                                                        color: Color(0xFF667084),
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      'Rs $monthlyFee',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.w800,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                SizedBox(
+                                                  height: 38,
+                                                  child: ElevatedButton(
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .push(
+                                                            MaterialPageRoute<void>(
+                                                              builder: (_) => const AcademyBatchTimingsScreen(),
+                                                            ),
+                                                          )
+                                                          .then((_) => _load());
+                                                    },
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: const Color(0xFF2563EB),
+                                                      foregroundColor: Colors.white,
+                                                      elevation: 0,
+                                                    ),
+                                                    child: const Text(
+                                                      'View Batches',
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    if (_academies.isNotEmpty) const SizedBox(height: 12),
+                    if (_academies.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0x1FFFFFFF)),
+                          color: const Color(0x0FFFFFFF),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Text(
+                              'No Academy Found',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Create an academy to see dashboard data for this tab.',
+                              style: TextStyle(
+                                color: Color(0xCCFFFFFF),
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: _createAcademy,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF00C9A7),
+                                foregroundColor: const Color(0xFF06271F),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text('Add Academy'),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
                     SizedBox(
                       height: 44,
                       child: ListView(
@@ -349,84 +1099,214 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        gradient: const LinearGradient(
-                          colors: <Color>[Color(0xFF1E293B), Color(0xFF334155)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () => _changeMonth(-1),
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: const Color(0x0DFFFFFF),
+                                ),
+                                child: const Icon(
+                                  Icons.chevron_left,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              _monthLabel(_selectedMonth),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () => _changeMonth(1),
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: const Color(0x0DFFFFFF),
+                                ),
+                                child: const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0x333B82F6)),
+                        color: const Color(0x143B82F6),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          const Text(
-                            'This Month Earnings',
-                            style: TextStyle(
-                              color: Color(0xCCFFFFFF),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Rs $monthEarnings',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: <Widget>[
-                              Text(
-                                '$paidStudents Paid',
-                                style: const TextStyle(
-                                  color: Color(0xFF22C55E),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    'Rs $monthEarnings',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${_monthLabel(_selectedMonth)} Earning',
+                                    style: const TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
                               const Text(
-                                '•',
-                                style: TextStyle(color: Color(0x66FFFFFF)),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '$pendingStudents Pending',
-                                style: const TextStyle(
-                                  color: Color(0xFFF97316),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
+                                'Weekly Graph',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4),
-                              color: const Color(0x1AFFFFFF),
-                            ),
-                            child: const Text(
-                              '+12% from last month',
-                              style: TextStyle(
-                                color: Color(0xE6FFFFFF),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
+                          SizedBox(
+                            height: 94,
+                            child: LayoutBuilder(
+                              builder: (BuildContext context, BoxConstraints constraints) {
+                                final List<Color> barColors = <Color>[
+                                  const Color(0xFFFBB831),
+                                  const Color(0xFFFB569C),
+                                  const Color(0xFFE850E0),
+                                  const Color(0xFF8225E2),
+                                  const Color(0xFF9C27B0),
+                                ];
+                                final int maxValue = weeklySeries.reduce(math.max);
+                                return Stack(
+                                  children: <Widget>[
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      top: 2,
+                                      bottom: 22,
+                                      child: CustomPaint(
+                                        painter: _WeeklyTrendPainter(
+                                          values: weeklySeries,
+                                          maxValue: maxValue,
+                                          lineColor: const Color(0xFFBDBDBD),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 22,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: List<Widget>.generate(weeklySeries.length, (
+                                          int index,
+                                        ) {
+                                          final double ratio = weeklySeries[index] / maxValue;
+                                          final double height = 14 + (ratio * 44);
+                                          return Container(
+                                            width: 28,
+                                            height: height,
+                                            decoration: BoxDecoration(
+                                              borderRadius: const BorderRadius.vertical(
+                                                top: Radius.circular(6),
+                                              ),
+                                              color: barColors[index % barColors.length],
+                                            ),
+                                          );
+                                        }),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: List<Widget>.generate(weeklySeries.length, (
+                                          int index,
+                                        ) {
+                                          return SizedBox(
+                                            width: 28,
+                                            child: Text(
+                                              _ordinalLabel(index),
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: <Widget>[
+                        Text(
+                          '$paidStudents Paid',
+                          style: const TextStyle(
+                            color: Color(0xFF22C55E),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          '•',
+                          style: TextStyle(color: Color(0x66FFFFFF)),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$pendingStudents Pending',
+                          style: const TextStyle(
+                            color: Color(0xFFF97316),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     GridView.count(
@@ -456,8 +1336,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             Navigator.of(context)
                                 .push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyBatchTimingsScreen(),
+                                    builder: (_) => const AcademyBatchTimingsScreen(),
                                   ),
                                 )
                                 .then((_) => _load());
@@ -469,8 +1348,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    const AcademyManageStudentsScreen(),
+                                builder: (_) => const AcademyManageStudentsScreen(),
                               ),
                             );
                           },
@@ -603,8 +1481,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyMarkAttendanceScreen(),
+                                    builder: (_) => const AcademyMarkAttendanceScreen(),
                                   ),
                                 );
                               },
@@ -633,7 +1510,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           const Text(
-                            'Fees Collection',
+                            'Fees Overview',
                             style: TextStyle(
                               color: Color(0xFFE6F7F4),
                               fontSize: 15,
@@ -641,18 +1518,6 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          _kvRow(
-                            'Paid Students',
-                            '$paidStudents',
-                            const Color(0xFF22C55E),
-                          ),
-                          const SizedBox(height: 8),
-                          _kvRow(
-                            'Pending Fees',
-                            '$pendingStudents',
-                            const Color(0xFFF97316),
-                          ),
-                          const SizedBox(height: 8),
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
@@ -683,8 +1548,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyFeeDetailsScreen(),
+                                    builder: (_) => const AcademyFeeDetailsScreen(),
                                   ),
                                 );
                               },
@@ -722,8 +1586,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             Navigator.of(context)
                                 .push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyBatchTimingsScreen(),
+                                    builder: (_) => const AcademyBatchTimingsScreen(),
                                   ),
                                 )
                                 .then((_) => _load());
@@ -748,22 +1611,16 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         separatorBuilder: (BuildContext _, int index) =>
                             const SizedBox(width: 12),
                         itemBuilder: (BuildContext context, int index) {
-                          final Map<String, dynamic> batch =
-                              filteredBatches[index];
-                          final String name =
-                              batch['name']?.toString() ?? 'Batch';
-                          final String start =
-                              batch['startTime']?.toString() ?? '09:00';
-                          final String end =
-                              batch['endTime']?.toString() ?? '10:00';
-                          final String coach =
-                              batch['coachName']?.toString() ?? 'Rahul';
+                          final Map<String, dynamic> batch = filteredBatches[index];
+                          final String name = batch['name']?.toString() ?? 'Batch';
+                          final String start = batch['startTime']?.toString() ?? '09:00';
+                          final String end = batch['endTime']?.toString() ?? '10:00';
+                          final String coach = batch['coachName']?.toString() ?? 'Coach';
                           final int studentsCount = _toInt(
                             batch['capacity'] ?? batch['studentsCount'],
                           );
                           final String status =
-                              (batch['status']?.toString() ?? 'active')
-                                  .toLowerCase();
+                              (batch['status']?.toString() ?? 'active').toLowerCase();
 
                           return Container(
                             width: 286,
@@ -773,15 +1630,18 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: <Widget>[
-                                    Text(
-                                      name,
-                                      style: const TextStyle(
-                                        color: Color(0xFFE6F7F4),
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
+                                    Expanded(
+                                      child: Text(
+                                        name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFFE6F7F4),
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                     ),
                                     Container(
@@ -811,49 +1671,31 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                _batchMeta(
-                                  Icons.schedule_rounded,
-                                  '$start - $end',
-                                ),
+                                _batchMeta(Icons.schedule_rounded, '$start - $end'),
                                 const SizedBox(height: 10),
-                                _batchMeta(
-                                  Icons.calendar_month_outlined,
-                                  _batchDays(batch),
-                                ),
+                                _batchMeta(Icons.calendar_month_outlined, _batchDays(batch)),
                                 const SizedBox(height: 10),
-                                _batchMeta(
-                                  Icons.person_outline_rounded,
-                                  'Coach: $coach',
-                                ),
+                                _batchMeta(Icons.person_outline_rounded, 'Coach: $coach'),
                                 const SizedBox(height: 10),
-                                _batchMeta(
-                                  Icons.groups_outlined,
-                                  'Students: $studentsCount',
-                                ),
+                                _batchMeta(Icons.groups_outlined, 'Students: $studentsCount'),
                                 const Spacer(),
                                 Row(
                                   children: <Widget>[
                                     Expanded(
-                                      child: _darkActionButton(
-                                        'View Batch',
-                                        () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute<void>(
-                                              builder: (_) =>
-                                                  AcademyViewBatchScreen(
-                                                    batchId:
-                                                        batch['_id']
-                                                            ?.toString() ??
-                                                        batch['id']?.toString(),
-                                                    batchName: name,
-                                                    coachName: coach,
-                                                    time: '$start - $end',
-                                                    days: _batchDays(batch),
-                                                  ),
+                                      child: _darkActionButton('View Batch', () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) => AcademyViewBatchScreen(
+                                              batchId: batch['_id']?.toString() ??
+                                                  batch['id']?.toString(),
+                                              batchName: name,
+                                              coachName: coach,
+                                              time: '$start - $end',
+                                              days: _batchDays(batch),
                                             ),
-                                          );
-                                        },
-                                      ),
+                                          ),
+                                        );
+                                      }),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -861,47 +1703,30 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                         Navigator.of(context)
                                             .push(
                                               MaterialPageRoute<void>(
-                                                builder: (_) =>
-                                                    AcademyEditBatchScreen(
-                                                      batchId:
-                                                          batch['_id']
-                                                              ?.toString() ??
-                                                          batch['id']
-                                                              ?.toString(),
-                                                      batchName: name,
-                                                      coachName: coach,
-                                                      startTime: start,
-                                                      endTime: end,
-                                                      days:
-                                                          (batch['days']
-                                                                      as List<
-                                                                        dynamic
-                                                                      >? ??
-                                                                  <dynamic>[])
-                                                              .map(
-                                                                (
-                                                                  dynamic value,
-                                                                ) => value
-                                                                    .toString(),
-                                                              )
-                                                              .toList(),
-                                                      capacity: _toInt(
-                                                        batch['capacity'],
-                                                      ),
-                                                      status:
-                                                          batch['status']
-                                                              ?.toString() ??
-                                                          'active',
-                                                      monthlyFee:
-                                                          (batch['monthlyFee']
-                                                                  as num?)
+                                                builder: (_) => AcademyEditBatchScreen(
+                                                  batchId: batch['_id']?.toString() ??
+                                                      batch['id']?.toString(),
+                                                  batchName: name,
+                                                  coachName: coach,
+                                                  startTime: start,
+                                                  endTime: end,
+                                                  days: (batch['days'] as List<dynamic>? ??
+                                                          <dynamic>[])
+                                                      .map((dynamic value) =>
+                                                          value.toString())
+                                                      .toList(),
+                                                  capacity: _toInt(batch['capacity']),
+                                                  status: batch['status']?.toString() ??
+                                                      'active',
+                                                  monthlyFee:
+                                                      (batch['monthlyFee'] as num?)
                                                               ?.toDouble() ??
                                                           0,
-                                                      enrolledStudents: _toInt(
-                                                        batch['studentsCount'] ??
-                                                            batch['capacity'],
-                                                      ),
-                                                    ),
+                                                  enrolledStudents: _toInt(
+                                                    batch['studentsCount'] ??
+                                                        batch['capacity'],
+                                                  ),
+                                                ),
                                               ),
                                             )
                                             .then((_) => _load());
@@ -919,7 +1744,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 ),
               ),
       ),
-      bottomNavigationBar: ModuleBottomNav(
+      bottomNavigationBar: widget.showBottomNav
+          ? ModuleBottomNav(
         currentIndex: 0,
         activeColor: const Color(0xFF00C9A7),
         inactiveColor: const Color(0xFF9FB9B3),
@@ -956,7 +1782,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
             },
           ),
         ],
-      ),
+      )
+          : null,
     );
   }
 
@@ -1004,30 +1831,6 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     );
   }
 
-  Widget _kvRow(String key, String value, Color valueColor) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: <Widget>[
-        Text(
-          key,
-          style: const TextStyle(
-            color: Color(0xFF9FB9B3),
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: valueColor,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _batchMeta(IconData icon, String text) {
     return Row(
       children: <Widget>[
@@ -1061,5 +1864,62 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         ),
       ),
     );
+  }
+}
+
+class _WeeklyTrendPainter extends CustomPainter {
+  _WeeklyTrendPainter({
+    required this.values,
+    required this.maxValue,
+    required this.lineColor,
+  });
+
+  final List<int> values;
+  final int maxValue;
+  final Color lineColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty || maxValue <= 0) {
+      return;
+    }
+
+    final Paint linePaint = Paint()
+      ..color = lineColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    final Paint pointPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final Path path = Path();
+    final double stepX = values.length == 1 ? 0 : size.width / (values.length - 1);
+    for (int index = 0; index < values.length; index++) {
+      final double x = stepX * index;
+      final double ratio = values[index] / maxValue;
+      final double y = size.height - (ratio * (size.height - 6)) - 3;
+      if (index == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    canvas.drawPath(path, linePaint);
+
+    for (int index = 0; index < values.length; index++) {
+      final double x = stepX * index;
+      final double ratio = values[index] / maxValue;
+      final double y = size.height - (ratio * (size.height - 6)) - 3;
+      canvas.drawCircle(Offset(x, y), 2.2, pointPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeeklyTrendPainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.maxValue != maxValue ||
+        oldDelegate.lineColor != lineColor;
   }
 }

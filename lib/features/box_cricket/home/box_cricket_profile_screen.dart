@@ -19,7 +19,9 @@ import 'box_cricket_terms_policy_screen.dart';
 import 'box_cricket_upcoming_bookings_screen.dart';
 
 class BoxCricketProfileScreen extends StatefulWidget {
-  const BoxCricketProfileScreen({super.key});
+  const BoxCricketProfileScreen({super.key, this.showBottomNav = true});
+
+  final bool showBottomNav;
 
   @override
   State<BoxCricketProfileScreen> createState() =>
@@ -500,7 +502,8 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
                 ),
               ),
       ),
-      bottomNavigationBar: BoxCricketBottomNav(
+      bottomNavigationBar: widget.showBottomNav
+          ? BoxCricketBottomNav(
         currentIndex: 3,
         onHome: () {
           Navigator.of(context).pushAndRemoveUntil(
@@ -525,7 +528,8 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
           );
         },
         onProfile: () {},
-      ),
+      )
+          : null,
     );
   }
 

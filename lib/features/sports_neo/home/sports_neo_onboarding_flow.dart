@@ -5,9 +5,7 @@ import 'package:ground_wale/core/widgets/app_text_field.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import '../../academy/home/academy_dashboard_screen.dart';
-import '../../box_cricket/home/box_cricket_dashboard_screen.dart';
-import '../../ground/dashboard/dashboard_turf_screen.dart';
+import '../../ground_court/home/ground_court_owner_shell_screen.dart';
 import '../../ground/flow/controllers/ground_flow_controller.dart';
 import '../../ground/flow/models/ground_registration_data.dart';
 import '../../ground/flow/screens/register_ground_flow_screen.dart';
@@ -71,11 +69,11 @@ String _normalizeRole(dynamic raw) {
       role == 'box_cricket' ||
       role == 'boxcricket' ||
       role == 'box') {
-    return 'box_cricket_owner';
+    return 'owner';
   }
 
   if (role == 'academy_owner' || role == 'academy' || role == 'coach') {
-    return 'academy_owner';
+    return 'owner';
   }
 
   if (role == 'ground_owner' ||
@@ -83,7 +81,7 @@ String _normalizeRole(dynamic raw) {
       role == 'ground' ||
       role == 'turf' ||
       role == 'turf_owner') {
-    return 'ground_owner';
+    return 'owner';
   }
 
   if (role == 'player' ||
@@ -98,16 +96,8 @@ String _normalizeRole(dynamic raw) {
   return role;
 }
 
-bool _isAcademyOwnerRole(String role) {
-  return role == 'academy_owner';
-}
-
-bool _isBoxCricketOwnerRole(String role) {
-  return role == 'box_cricket_owner';
-}
-
-bool _isGroundOwnerRole(String role) {
-  return role == 'ground_owner';
+bool _isOwnerRole(String role) {
+  return role == 'owner';
 }
 
 bool _isSportsPlayerRole(String role) {
@@ -159,25 +149,11 @@ Future<bool> _routeExistingUserToDashboard(
     return true;
   }
 
-  if (_isAcademyOwnerRole(role)) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const AcademyDashboardScreen()),
-      (Route<dynamic> route) => false,
-    );
-    return true;
-  }
-  if (_isBoxCricketOwnerRole(role)) {
+  if (_isOwnerRole(role)) {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => const BoxCricketDashboardScreen(),
+        builder: (_) => const GroundCourtOwnerShellScreen(),
       ),
-      (Route<dynamic> route) => false,
-    );
-    return true;
-  }
-  if (_isGroundOwnerRole(role)) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const DashboardTurfScreen()),
       (Route<dynamic> route) => false,
     );
     return true;
@@ -311,6 +287,7 @@ class SportsNeoWelcomeScreen extends StatelessWidget {
                   textColor: const Color(0xFF2563EB),
                   borderColor: const Color(0xFF2563EB),
                   onPressed: () {
+                    ApiSession.instance.setGuest();
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute<void>(
                         builder: (_) => const SportsNeoDashboardScreen(),
@@ -954,20 +931,6 @@ class _SportsNeoCompleteProfileScreenState
                     onTap: () => setState(() => _selectedRole = 'Player'),
                   ),
                   _RoleCard(
-                    emoji: '👨‍✈️',
-                    title: 'Captain',
-                    subtitle: 'Manage teams &\nschedules',
-                    selected: _selectedRole == 'Captain',
-                    onTap: () => setState(() => _selectedRole = 'Captain'),
-                  ),
-                  _RoleCard(
-                    emoji: '🎓',
-                    title: 'Academy',
-                    subtitle: 'Track attendance &\ntraining',
-                    selected: _selectedRole == 'Academy',
-                    onTap: () => setState(() => _selectedRole = 'Academy'),
-                  ),
-                  _RoleCard(
                     emoji: '🏟️',
                     title: 'Owner',
                     subtitle: 'Manage slots &\nbookings',
@@ -1051,19 +1014,16 @@ class _SportsNeoCompleteProfileScreenState
 
                         setState(() => _isSaving = true);
                         try {
-                          final bool isPlayerLike =
-                              _selectedRole == 'Player' ||
-                              _selectedRole == 'Captain';
+                          final String normalizedRole =
+                              _selectedRole == 'Owner' ? 'owner' : 'player';
                           final Map<String, dynamic> payload = <String, dynamic>{
                             'ownerName': _fullNameController.text.trim(),
                             'email': widget.prefillEmail,
                             'address': _cityController.text.trim(),
                             'sports': _sportsController.text.trim(),
                             'dob': _dobController.text.trim(),
-                            'sportsNeoRole': _selectedRole.toLowerCase(),
-                            if (isPlayerLike) 'role': 'player',
-                            if (isPlayerLike)
-                              'isCaptain': _selectedRole == 'Captain',
+                            'sportsNeoRole': normalizedRole,
+                            'role': normalizedRole,
                           };
                           await _api.updateOwnerProfile(
                             ApiSession.instance.ownerId!,
@@ -1073,7 +1033,7 @@ class _SportsNeoCompleteProfileScreenState
                             return;
                           }
 
-                          if (isPlayerLike) {
+                          if (normalizedRole == 'player') {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (_) => const SportsNeoLocationScreen(),

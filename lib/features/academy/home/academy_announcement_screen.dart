@@ -12,10 +12,12 @@ class AcademyAnnouncementScreen extends StatefulWidget {
     super.key,
     this.onHomeTap,
     this.onProfileTap,
+    this.showBottomNav = true,
   });
 
   final VoidCallback? onHomeTap;
   final VoidCallback? onProfileTap;
+  final bool showBottomNav;
 
   @override
   State<AcademyAnnouncementScreen> createState() =>
@@ -26,8 +28,14 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
   int _selectedFilter = 0;
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
+  String? _selectedAcademyId;
 
   final List<_AcademyAnnouncement> _announcements = <_AcademyAnnouncement>[];
+
+  String _academyId(Map<String, dynamic> academy) {
+    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
+  }
 
   @override
   void initState() {
@@ -58,13 +66,26 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
     }
 
     try {
+      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
+          .listAcademies(ownerId);
+      String? academyId = _selectedAcademyId;
+      if (academyId == null ||
+          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+        academyId = ApiSession.instance.selectedAcademyId;
+      }
+      if (academyId == null ||
+          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+        academyId = academies.isEmpty ? null : _academyId(academies.first);
+      }
       final List<Map<String, dynamic>> items = await GroundWaleApi.instance
-          .listAcademyAnnouncements(ownerId);
+          .listAcademyAnnouncements(ownerId, academyId: academyId);
       if (!mounted) {
         return;
       }
 
       setState(() {
+        _academies = academies;
+        _selectedAcademyId = academyId;
         _announcements
           ..clear()
           ..addAll(
@@ -74,6 +95,7 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
           );
         _isLoading = false;
       });
+      ApiSession.instance.setSelectedAcademy(academyId: academyId);
     } catch (error) {
       if (!mounted) {
         return;
@@ -151,6 +173,56 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
                       controller: _searchController,
                       hint: 'Search announcement',
                       onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedAcademyId,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Color(0x99FFFFFF),
+                      ),
+                      dropdownColor: const Color(0xFF203A43),
+                      decoration: InputDecoration(
+                        labelText: 'Select Academy',
+                        labelStyle: const TextStyle(
+                          color: Color(0xB3E6F7F4),
+                          fontSize: 13,
+                        ),
+                        isDense: true,
+                        filled: true,
+                        fillColor: const Color(0x0FFFFFFF),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0x1FFFFFFF)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+                        ),
+                      ),
+                      items: _academies.map((Map<String, dynamic> academy) {
+                        final String id = _academyId(academy);
+                        final String name = academy['name']?.toString() ?? 'Academy';
+                        return DropdownMenuItem<String>(
+                          value: id,
+                          child: Text(
+                            name,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? value) {
+                        if (value == null || value == _selectedAcademyId) {
+                          return;
+                        }
+                        setState(() => _selectedAcademyId = value);
+                        ApiSession.instance.setSelectedAcademy(academyId: value);
+                        _loadAnnouncements();
+                      },
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
@@ -237,7 +309,8 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: ModuleBottomNav(
+      bottomNavigationBar: widget.showBottomNav
+          ? ModuleBottomNav(
         currentIndex: 1,
         activeColor: const Color(0xFF00C9A7),
         inactiveColor: const Color(0xFF9FB9B3),
@@ -262,7 +335,8 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
             onTap: _handleProfileTap,
           ),
         ],
-      ),
+      )
+          : null,
     );
   }
 

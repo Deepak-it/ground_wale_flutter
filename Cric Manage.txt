@@ -1,0 +1,25 @@
+Cric Manage
+
+1. Figma: https://www.figma.com/design/DOJtxMR9RNgvEy37Zj2sCR/CricManage-App--Copy-?node-id=2212-388&t=EiCr1xKBN3nvTiA9-0
+
+2. Only two roles for application: 
+   a. player 
+   b. owner
+
+3. Only two views 
+   player: Sports neo 
+   owner: new view
+
+don't change/modify existing view, keep a seperate view new view, named: Ground-Court
+
+4. For Owner view: only 2 tabs(Grounds/Courts, Academies). Default selected tab will be Grounds/Courts. the bottom navigation view will also change, when switched b/w the tabs. 
+   Academy navigation options: Home, Announcement, Profile
+   (Ground/Court) navigation options: Home, Bookings, Slots, Profile
+
+5. 08-07-26 changes: 1. all 3 login buttons(not there in figma) phone, google, guest(if he tries to perform any action, he should be asked to Login).
+                     2. There will be only 2 roles, player & owner, when owner is logged in, on dashboard there will be 2 tabs, (Ground/Court, Academies).
+                     3. Box Cricket section  should be used for Ground/Court tab(basically both are same). i. Dashboard should have a sliding ground/court view that user can use (after last card give a + icon, which should show add ground          process). ii. Calendar per month colourful view. iii. the user can have multiple no. of ground/court. iv. When slot is defined/edited, and pricing is getting selected for slot, then there should be a feature that when a weekday 1st price             is selected, then by default it should be applied to all weekday slots. 
+                       Same feature for weekend slots. But even after default price apply, he can edit price for particular slots. 
+                     4. Academy section should be used for Academy tab. i. Dashboard should have a sliding academies view that user can use(after last card give a + icon, which should show add academy process). ii. the user can have multiple no. of ground/court. iii. each section like Student View, Batch View, Attendance View should have a select academy dropdown, We will show an academy selected based on where user is clicking from. iv. iii. When adding a student for a batch, the selected batch fee should be shown by default. If the user wants to edit it, they can edit it.
+
+6. all these changes be it academy/ground/turf make required changes in both flutter and express. 

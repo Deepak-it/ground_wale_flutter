@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/ist_greeting.dart';
 import 'box_cricket_add_booking_screen.dart';
 import 'box_cricket_booking_details_screen.dart';
 import 'box_cricket_bottom_nav.dart';
@@ -11,7 +12,9 @@ import 'box_cricket_profile_screen.dart';
 import 'box_cricket_upcoming_bookings_screen.dart';
 
 class BoxCricketDashboardScreen extends StatefulWidget {
-  const BoxCricketDashboardScreen({super.key});
+  const BoxCricketDashboardScreen({super.key, this.showBottomNav = true});
+
+  final bool showBottomNav;
 
   @override
   State<BoxCricketDashboardScreen> createState() =>
@@ -100,6 +103,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
         ApiSession.instance.ownerName?.trim().isNotEmpty == true
         ? ApiSession.instance.ownerName!.trim()
         : 'Owner';
+    final String greetingMessage = istGreetingMessage(ownerName);
 
     final List<Map<String, dynamic>> bookings = _upcomingBookings();
 
@@ -150,7 +154,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                'Good Morning, $ownerName',
+                                greetingMessage,
                                 style: const TextStyle(
                                   color: Color(0xFF7B8A97),
                                   fontSize: 13,
@@ -441,7 +445,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                 ),
               ),
       ),
-      bottomNavigationBar: BoxCricketBottomNav(
+      bottomNavigationBar: widget.showBottomNav
+          ? BoxCricketBottomNav(
         currentIndex: 0,
         onHome: () {},
         onAnnouncement: () {
@@ -465,7 +470,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
             ),
           );
         },
-      ),
+      )
+          : null,
     );
   }
 

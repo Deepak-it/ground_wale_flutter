@@ -9,7 +9,12 @@ import 'box_cricket_manage_slots_screen.dart';
 import 'box_cricket_profile_screen.dart';
 
 class BoxCricketUpcomingBookingsScreen extends StatefulWidget {
-  const BoxCricketUpcomingBookingsScreen({super.key});
+  const BoxCricketUpcomingBookingsScreen({
+    super.key,
+    this.showBottomNav = true,
+  });
+
+  final bool showBottomNav;
 
   @override
   State<BoxCricketUpcomingBookingsScreen> createState() =>
@@ -178,7 +183,8 @@ class _BoxCricketUpcomingBookingsScreenState
                 ],
               ),
       ),
-      bottomNavigationBar: BoxCricketBottomNav(
+      bottomNavigationBar: widget.showBottomNav
+          ? BoxCricketBottomNav(
         currentIndex: 1,
         onHome: () {
           Navigator.of(context).pushAndRemoveUntil(
@@ -203,7 +209,8 @@ class _BoxCricketUpcomingBookingsScreenState
             ),
           );
         },
-      ),
+      )
+          : null,
     );
   }
 

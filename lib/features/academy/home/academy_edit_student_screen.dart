@@ -41,8 +41,18 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
   late String _feeStatus;
   late String _paymentMode;
   bool _isSaving = false;
+  List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
+  String? _selectedAcademyId;
   List<Map<String, dynamic>> _batches = <Map<String, dynamic>>[];
   String? _selectedBatchId;
+
+  String _academyId(Map<String, dynamic> academy) {
+    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
+  }
+
+  String _batchId(Map<String, dynamic> batch) {
+    return batch['_id']?.toString() ?? batch['id']?.toString() ?? '';
+  }
 
   @override
   void initState() {
@@ -54,48 +64,104 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
     _joiningDateController = TextEditingController(text: widget.joiningDate);
     _feeStatus = widget.feeStatus == 'Pending' ? 'Pending' : 'Paid';
     _paymentMode = widget.paymentMode;
-    _loadBatches();
+    _loadAcademiesAndBatches();
   }
 
-  Future<void> _loadBatches() async {
+  Future<void> _loadAcademiesAndBatches() async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
       return;
     }
     try {
+      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
+          .listAcademies(ownerId);
+      final Map<String, dynamic> student = await GroundWaleApi.instance
+          .getAcademyStudent(ownerId, widget.studentId);
+      final String? studentAcademyId = student['academyId']?.toString();
+      String? selectedAcademyId = studentAcademyId;
+      if (selectedAcademyId == null ||
+          selectedAcademyId.isEmpty ||
+          !academies.any(
+            (Map<String, dynamic> academy) =>
+                _academyId(academy) == selectedAcademyId,
+          )) {
+        selectedAcademyId = ApiSession.instance.selectedAcademyId;
+      }
+      if (selectedAcademyId == null ||
+          selectedAcademyId.isEmpty ||
+          !academies.any(
+            (Map<String, dynamic> academy) =>
+                _academyId(academy) == selectedAcademyId,
+          )) {
+        selectedAcademyId = academies.isEmpty ? null : _academyId(academies.first);
+      }
+
       final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
-          .listAcademyBatches(ownerId);
+          .listAcademyBatches(ownerId, academyId: selectedAcademyId);
       if (!mounted) {
         return;
       }
       setState(() {
+        _academies = academies;
+        _selectedAcademyId = selectedAcademyId;
         _batches = batches;
+        final String? studentBatchId = student['batchId']?.toString();
         final Map<String, dynamic> matched = batches.firstWhere(
           (Map<String, dynamic> item) =>
+              _batchId(item) == studentBatchId ||
               (item['name']?.toString() ?? '').toLowerCase() ==
-              _batchController.text.trim().toLowerCase(),
+                  _batchController.text.trim().toLowerCase(),
           orElse: () => <String, dynamic>{},
         );
-        _selectedBatchId =
-            matched['_id']?.toString() ?? matched['id']?.toString();
+        _selectedBatchId = _batchId(matched);
         if (_selectedBatchId == null || _selectedBatchId!.isEmpty) {
           final Map<String, dynamic> firstValid = batches.firstWhere(
-            (Map<String, dynamic> item) =>
-                (item['_id']?.toString() ?? item['id']?.toString() ?? '')
-                    .isNotEmpty,
+            (Map<String, dynamic> item) => _batchId(item).isNotEmpty,
             orElse: () => <String, dynamic>{},
           );
-          _selectedBatchId =
-              firstValid['_id']?.toString() ?? firstValid['id']?.toString();
+          _selectedBatchId = _batchId(firstValid);
         }
         if (_selectedBatchId != null && _selectedBatchId!.isNotEmpty) {
           final Map<String, dynamic> selectedBatch = batches.firstWhere(
-            (Map<String, dynamic> item) =>
-                (item['_id']?.toString() ?? item['id']?.toString()) ==
-                _selectedBatchId,
+            (Map<String, dynamic> item) => _batchId(item) == _selectedBatchId,
             orElse: () => <String, dynamic>{},
           );
           _batchController.text = selectedBatch['name']?.toString() ?? _batchController.text;
+        } else {
+          _batchController.text = '';
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _onAcademyChanged(String? academyId) async {
+    if (academyId == null || academyId == _selectedAcademyId) {
+      return;
+    }
+
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return;
+    }
+
+    try {
+      final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
+          .listAcademyBatches(ownerId, academyId: academyId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _selectedAcademyId = academyId;
+        _batches = batches;
+        final Map<String, dynamic> firstValid = batches.firstWhere(
+          (Map<String, dynamic> item) => _batchId(item).isNotEmpty,
+          orElse: () => <String, dynamic>{},
+        );
+        _selectedBatchId = _batchId(firstValid);
+        if ((_selectedBatchId ?? '').isNotEmpty) {
+          _batchController.text = firstValid['name']?.toString() ?? '';
+        } else {
+          _batchController.text = '';
         }
       });
     } catch (_) {}
@@ -216,6 +282,14 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
                     const SizedBox(height: 12),
                     _TextFieldBox(controller: _phoneController),
                     const SizedBox(height: 24),
+                    _FieldLabel(label: 'Select Academy'),
+                    const SizedBox(height: 12),
+                    _AcademyDropdownField(
+                      academies: _academies,
+                      selectedAcademyId: _selectedAcademyId,
+                      onChanged: _onAcademyChanged,
+                    ),
+                    const SizedBox(height: 24),
                     _FieldLabel(label: 'Select Batch'),
                     const SizedBox(height: 12),
                     _BatchDropdownField(
@@ -226,8 +300,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
                           return;
                         }
                         final Map<String, dynamic> batch = _batches.firstWhere(
-                          (Map<String, dynamic> item) =>
-                              (item['_id']?.toString() ?? item['id']?.toString()) == value,
+                          (Map<String, dynamic> item) => _batchId(item) == value,
                           orElse: () => <String, dynamic>{},
                         );
                         setState(() {
@@ -464,6 +537,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
 
       await GroundWaleApi.instance
           .updateAcademyStudent(ownerId, widget.studentId, <String, dynamic>{
+            'academyId': _selectedAcademyId,
             'fullName': _nameController.text.trim(),
             'phone': _phoneController.text.trim(),
             if (_selectedBatchId != null && _selectedBatchId!.isNotEmpty)
@@ -473,7 +547,11 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
           });
 
       final List<Map<String, dynamic>> fees = await GroundWaleApi.instance
-          .listAcademyFees(ownerId, studentId: widget.studentId);
+          .listAcademyFees(
+            ownerId,
+            studentId: widget.studentId,
+            academyId: _selectedAcademyId,
+          );
       if (fees.isNotEmpty) {
         final String feeId = fees.first['_id']?.toString() ?? '';
         if (feeId.isNotEmpty) {
@@ -490,6 +568,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
         final String monthKey =
             '${now.year}-${now.month.toString().padLeft(2, '0')}';
         await GroundWaleApi.instance.createAcademyFee(ownerId, <String, dynamic>{
+          'academyId': _selectedAcademyId,
           'studentId': widget.studentId,
           'monthKey': monthKey,
           'amount': amount,
@@ -516,6 +595,94 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
         setState(() => _isSaving = false);
       }
     }
+  }
+}
+
+class _AcademyDropdownField extends StatelessWidget {
+  const _AcademyDropdownField({
+    required this.academies,
+    required this.selectedAcademyId,
+    required this.onChanged,
+  });
+
+  final List<Map<String, dynamic>> academies;
+  final String? selectedAcademyId;
+  final ValueChanged<String?> onChanged;
+
+  String _academyId(Map<String, dynamic> academy) {
+    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Map<String, String>> options = academies
+        .map((Map<String, dynamic> academy) {
+          return <String, String>{
+            'id': _academyId(academy),
+            'name': academy['name']?.toString() ?? 'Academy',
+          };
+        })
+        .where((Map<String, String> item) => item['id']!.isNotEmpty)
+        .toList();
+
+    final String? normalizedValue = options.any(
+      (Map<String, String> item) => item['id'] == selectedAcademyId,
+    )
+        ? selectedAcademyId
+        : null;
+
+    if (options.isEmpty) {
+      return Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0x1FFFFFFF)),
+          color: const Color(0x0FFFFFFF),
+        ),
+        alignment: Alignment.centerLeft,
+        child: const Text(
+          'No academies available',
+          style: TextStyle(color: Color(0x99FFFFFF), fontSize: 15),
+        ),
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey<String>('${normalizedValue ?? 'none'}_${options.length}'),
+      initialValue: normalizedValue,
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: Color(0x99FFFFFF),
+      ),
+      dropdownColor: const Color(0xFF203A43),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        filled: true,
+        fillColor: const Color(0x0FFFFFFF),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0x1FFFFFFF)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+        ),
+      ),
+      items: options.map((Map<String, String> item) {
+        return DropdownMenuItem<String>(
+          value: item['id'],
+          child: Text(item['name']!, style: const TextStyle(color: Colors.white)),
+        );
+      }).toList(),
+      onChanged: onChanged,
+    );
   }
 }
 

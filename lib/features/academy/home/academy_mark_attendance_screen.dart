@@ -15,6 +15,8 @@ class _AcademyMarkAttendanceScreenState
     extends State<AcademyMarkAttendanceScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
+  List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
+  String? _selectedAcademyId;
   List<Map<String, dynamic>> _batches = <Map<String, dynamic>>[];
   List<_AttendanceStudent> _students = <_AttendanceStudent>[];
   String? _selectedBatchId;
@@ -30,6 +32,10 @@ class _AcademyMarkAttendanceScreenState
 
   String _batchId(Map<String, dynamic> batch) {
     return batch['_id']?.toString() ?? batch['id']?.toString() ?? '';
+  }
+
+  String _academyId(Map<String, dynamic> academy) {
+    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
   }
 
   Map<String, dynamic>? get _selectedBatch {
@@ -54,15 +60,29 @@ class _AcademyMarkAttendanceScreenState
     }
 
     try {
+      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
+          .listAcademies(ownerId);
+      String? academyId = _selectedAcademyId;
+      if (academyId == null ||
+          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+        academyId = ApiSession.instance.selectedAcademyId;
+      }
+      if (academyId == null ||
+          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+        academyId = academies.isEmpty ? null : _academyId(academies.first);
+      }
       final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
-          .listAcademyBatches(ownerId);
+          .listAcademyBatches(ownerId, academyId: academyId);
       if (!mounted) {
         return;
       }
       setState(() {
+        _academies = academies;
+        _selectedAcademyId = academyId;
         _batches = batches;
         _selectedBatchId = batches.isNotEmpty ? _batchId(batches.first) : null;
       });
+      ApiSession.instance.setSelectedAcademy(academyId: academyId);
       await _loadStudents();
     } catch (error) {
       if (mounted) {
@@ -98,7 +118,12 @@ class _AcademyMarkAttendanceScreenState
 
     try {
       final Map<String, dynamic> response = await GroundWaleApi.instance
-          .listAcademyStudents(ownerId, batchId: batchId, limit: 200);
+          .listAcademyStudents(
+            ownerId,
+            batchId: batchId,
+            limit: 200,
+            academyId: _selectedAcademyId,
+          );
       final List<dynamic> itemsRaw =
           response['items'] as List<dynamic>? ?? <dynamic>[];
       final List<_AttendanceStudent> students = itemsRaw.asMap().entries.map((
@@ -305,6 +330,67 @@ class _AcademyMarkAttendanceScreenState
                             ],
                           ),
                           const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedAcademyId,
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: Color(0x99FFFFFF),
+                            ),
+                            dropdownColor: const Color(0xFF203A43),
+                            decoration: InputDecoration(
+                              labelText: 'Select Academy',
+                              labelStyle: const TextStyle(
+                                color: Color(0xB3E6F7F4),
+                                fontSize: 13,
+                              ),
+                              isDense: true,
+                              filled: true,
+                              fillColor: const Color(0x0FFFFFFF),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0x1FFFFFFF),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: Color(0x33FFFFFF),
+                                ),
+                              ),
+                            ),
+                            items: _academies.map((Map<String, dynamic> academy) {
+                              final String id = _academyId(academy);
+                              final String name =
+                                  academy['name']?.toString() ?? 'Academy';
+                              return DropdownMenuItem<String>(
+                                value: id,
+                                child: Text(
+                                  name,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (String? value) async {
+                              if (value == null || value == _selectedAcademyId) {
+                                return;
+                              }
+                              setState(() {
+                                _selectedAcademyId = value;
+                                _selectedBatchId = null;
+                                _batches = <Map<String, dynamic>>[];
+                              });
+                              ApiSession.instance.setSelectedAcademy(
+                                academyId: value,
+                              );
+                              await _loadBatches();
+                            },
+                          ),
+                          const SizedBox(height: 12),
                           SizedBox(
                             height: 44,
                             child: ListView.separated(

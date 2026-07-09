@@ -21,7 +21,13 @@ class _AcademyManageStudentsScreenState
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
 
+  List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
+  String? _selectedAcademyId;
   List<_StudentItem> _students = <_StudentItem>[];
+
+  String _academyId(Map<String, dynamic> academy) {
+    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
+  }
 
   @override
   void initState() {
@@ -49,12 +55,37 @@ class _AcademyManageStudentsScreenState
 
     setState(() => _isLoading = true);
     try {
+      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
+          .listAcademies(ownerId);
+      String? academyId = _selectedAcademyId;
+      if (academyId == null ||
+          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+        academyId = ApiSession.instance.selectedAcademyId;
+      }
+      if (academyId == null ||
+          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+        academyId = academies.isEmpty ? null : _academyId(academies.first);
+      }
+
       final List<dynamic> responses =
           await Future.wait<dynamic>(<Future<dynamic>>[
-            GroundWaleApi.instance.listAcademyStudents(ownerId, limit: 200),
-            GroundWaleApi.instance.listAcademyBatches(ownerId),
-            GroundWaleApi.instance.listAcademyFees(ownerId),
-            GroundWaleApi.instance.listAcademyAttendance(ownerId),
+            GroundWaleApi.instance.listAcademyStudents(
+              ownerId,
+              limit: 200,
+              academyId: academyId,
+            ),
+            GroundWaleApi.instance.listAcademyBatches(
+              ownerId,
+              academyId: academyId,
+            ),
+            GroundWaleApi.instance.listAcademyFees(
+              ownerId,
+              academyId: academyId,
+            ),
+            GroundWaleApi.instance.listAcademyAttendance(
+              ownerId,
+              academyId: academyId,
+            ),
           ]);
 
       final Map<String, dynamic> studentResponse =
@@ -178,9 +209,12 @@ class _AcademyManageStudentsScreenState
       }
 
       setState(() {
+        _academies = academies;
+        _selectedAcademyId = academyId;
         _students = mapped;
         _isLoading = false;
       });
+      ApiSession.instance.setSelectedAcademy(academyId: academyId);
     } catch (error) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -238,6 +272,19 @@ class _AcademyManageStudentsScreenState
                 ],
               ),
               const SizedBox(height: 16),
+              _AcademyDropdown(
+                academies: _academies,
+                selectedAcademyId: _selectedAcademyId,
+                onChanged: (String? value) {
+                  if (value == null || value == _selectedAcademyId) {
+                    return;
+                  }
+                  setState(() => _selectedAcademyId = value);
+                  ApiSession.instance.setSelectedAcademy(academyId: value);
+                  _loadStudents();
+                },
+              ),
+              const SizedBox(height: 12),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -580,6 +627,76 @@ class _AcademyManageStudentsScreenState
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AcademyDropdown extends StatelessWidget {
+  const _AcademyDropdown({
+    required this.academies,
+    required this.selectedAcademyId,
+    required this.onChanged,
+  });
+
+  final List<Map<String, dynamic>> academies;
+  final String? selectedAcademyId;
+  final ValueChanged<String?> onChanged;
+
+  String _academyId(Map<String, dynamic> academy) {
+    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Map<String, String>> options = academies
+        .map((Map<String, dynamic> academy) => <String, String>{
+              'id': _academyId(academy),
+              'name': academy['name']?.toString() ?? 'Academy',
+            })
+        .where((Map<String, String> academy) => academy['id']!.isNotEmpty)
+        .toList();
+
+    final String? normalizedValue = options.any(
+      (Map<String, String> item) => item['id'] == selectedAcademyId,
+    )
+        ? selectedAcademyId
+        : null;
+
+    return DropdownButtonFormField<String>(
+      initialValue: normalizedValue,
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: Color(0x99FFFFFF),
+      ),
+      dropdownColor: const Color(0xFF203A43),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        labelText: 'Select Academy',
+        labelStyle: const TextStyle(color: Color(0xB3E6F7F4), fontSize: 13),
+        isDense: true,
+        filled: true,
+        fillColor: const Color(0x0FFFFFFF),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0x1FFFFFFF)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+        ),
+      ),
+      items: options.map((Map<String, String> item) {
+        return DropdownMenuItem<String>(
+          value: item['id'],
+          child: Text(item['name']!, style: const TextStyle(color: Colors.white)),
+        );
+      }).toList(),
+      onChanged: onChanged,
     );
   }
 }

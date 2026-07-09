@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'core/api/api_session.dart';
 import 'core/theme/app_theme.dart';
-import 'features/academy/home/academy_dashboard_screen.dart';
-import 'features/box_cricket/home/box_cricket_dashboard_screen.dart';
-import 'features/ground/dashboard/dashboard_turf_screen.dart';
+import 'features/ground_court/home/ground_court_owner_shell_screen.dart';
 import 'features/sports_neo/home/sports_neo_dashboard_screen.dart';
 import 'features/sports_neo/home/sports_neo_onboarding_flow.dart';
 
@@ -27,11 +25,11 @@ class GroundWaleApp extends StatelessWidget {
         role == 'box_cricket' ||
         role == 'boxcricket' ||
         role == 'box') {
-      return 'box_cricket_owner';
+      return 'owner';
     }
 
     if (role == 'academy_owner' || role == 'academy' || role == 'coach') {
-      return 'academy_owner';
+      return 'owner';
     }
 
     if (role == 'ground_owner' ||
@@ -39,7 +37,7 @@ class GroundWaleApp extends StatelessWidget {
         role == 'ground' ||
         role == 'turf' ||
         role == 'turf_owner') {
-      return 'ground_owner';
+      return 'owner';
     }
 
     if (role == 'player' ||
@@ -60,14 +58,8 @@ class GroundWaleApp extends StatelessWidget {
     }
 
     final String role = _normalizeRole(ApiSession.instance.role);
-    if (role == 'academy_owner') {
-      return const AcademyDashboardScreen();
-    }
-    if (role == 'box_cricket_owner') {
-      return const BoxCricketDashboardScreen();
-    }
-    if (role == 'ground_owner') {
-      return const DashboardTurfScreen();
+    if (role == 'owner') {
+      return const GroundCourtOwnerShellScreen();
     }
 
     return const SportsNeoDashboardScreen();

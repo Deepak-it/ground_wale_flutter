@@ -21,7 +21,9 @@ import 'academy_payment_methods_screen.dart';
 import '../../sports_neo/home/sports_neo_onboarding_flow.dart';
 
 class AcademyProfileScreen extends StatefulWidget {
-  const AcademyProfileScreen({super.key});
+  const AcademyProfileScreen({super.key, this.showBottomNav = true});
+
+  final bool showBottomNav;
 
   @override
   State<AcademyProfileScreen> createState() => _AcademyProfileScreenState();
@@ -352,7 +354,8 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: ModuleBottomNav(
+      bottomNavigationBar: widget.showBottomNav
+          ? ModuleBottomNav(
         currentIndex: 2,
         activeColor: const Color(0xFF00C9A7),
         inactiveColor: const Color(0xFF9FB9B3),
@@ -393,7 +396,8 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
             onTap: () {},
           ),
         ],
-      ),
+      )
+          : null,
     );
   }
 

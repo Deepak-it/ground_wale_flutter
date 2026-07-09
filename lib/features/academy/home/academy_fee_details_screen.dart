@@ -16,6 +16,8 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
   bool _isLoading = true;
   bool _isSendingBulkReminder = false;
   String _status = 'All';
+  List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
+  String? _selectedAcademyId;
   String? _selectedBatchId;
 
   final TextEditingController _searchController = TextEditingController();
@@ -65,6 +67,10 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
 
   String _batchId(Map<String, dynamic> batch) {
     return batch['_id']?.toString() ?? batch['id']?.toString() ?? '';
+  }
+
+  String _academyId(Map<String, dynamic> academy) {
+    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
   }
 
   String _studentId(Map<String, dynamic> student) {
@@ -138,10 +144,22 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
+          .listAcademies(ownerId);
+      String? academyId = _selectedAcademyId;
+      if (academyId == null ||
+          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+        academyId = ApiSession.instance.selectedAcademyId;
+      }
+      if (academyId == null ||
+          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+        academyId = academies.isEmpty ? null : _academyId(academies.first);
+      }
+
       final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
-          .listAcademyBatches(ownerId);
+          .listAcademyBatches(ownerId, academyId: academyId);
       final Map<String, dynamic> studentsResponse = await GroundWaleApi.instance
-          .listAcademyStudents(ownerId, limit: 500);
+          .listAcademyStudents(ownerId, limit: 500, academyId: academyId);
       final List<dynamic> studentItems =
           studentsResponse['items'] as List<dynamic>? ?? <dynamic>[];
       final List<Map<String, dynamic>> students = studentItems
@@ -149,13 +167,15 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
           .map((Map item) => _safeStringMap(item))
           .toList();
       final List<Map<String, dynamic>> fees = await GroundWaleApi.instance
-          .listAcademyFees(ownerId);
+          .listAcademyFees(ownerId, academyId: academyId);
 
       if (!mounted) {
         return;
       }
 
       setState(() {
+        _academies = academies;
+        _selectedAcademyId = academyId;
         _batches = batches;
         if (_selectedBatchId == null && _batches.isNotEmpty) {
           _selectedBatchId = _batchId(_batches.first);
@@ -167,6 +187,7 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
         });
         _isLoading = false;
       });
+      ApiSession.instance.setSelectedAcademy(academyId: academyId);
     } catch (error) {
       if (!mounted) {
         return;
@@ -662,6 +683,60 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedAcademyId,
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Color(0x99FFFFFF),
+                    ),
+                    dropdownColor: const Color(0xFF203A43),
+                    decoration: InputDecoration(
+                      labelText: 'Select Academy',
+                      labelStyle: const TextStyle(
+                        color: Color(0xB3E6F7F4),
+                        fontSize: 13,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0x0FFFFFFF),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0x1FFFFFFF)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0x33FFFFFF)),
+                      ),
+                    ),
+                    items: _academies.map((Map<String, dynamic> academy) {
+                      final String id = _academyId(academy);
+                      final String name = academy['name']?.toString() ?? 'Academy';
+                      return DropdownMenuItem<String>(
+                        value: id,
+                        child: Text(
+                          name,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? value) {
+                      if (value == null || value == _selectedAcademyId) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedAcademyId = value;
+                        _selectedBatchId = null;
+                        _selectedReminderFeeIds.clear();
+                      });
+                      ApiSession.instance.setSelectedAcademy(academyId: value);
+                      _load();
+                    },
                   ),
                   const SizedBox(height: 12),
                   if (_batches.isNotEmpty)
