@@ -83,7 +83,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     return '${months[date.month - 1]} ${date.year}';
   }
 
-  List<int> _buildWeeklySeries(int monthEarnings, int paidStudents, int pendingStudents) {
+  List<int> _buildWeeklySeries(
+    int monthEarnings,
+    int paidStudents,
+    int pendingStudents,
+  ) {
     final int base = math.max(monthEarnings, 1);
     final int weeklyBase = math.max((base / 5).round(), 1);
     final int momentum = (paidStudents - pendingStudents).clamp(-5, 5);
@@ -113,7 +117,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   }
 
   List<String> _academyFacilities(Map<String, dynamic> academy) {
-    final List<dynamic> raw = (academy['facilities'] as List<dynamic>?) ??
+    final List<dynamic> raw =
+        (academy['facilities'] as List<dynamic>?) ??
         (academy['amenities'] as List<dynamic>?) ??
         (academy['features'] as List<dynamic>?) ??
         <dynamic>[];
@@ -194,7 +199,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       final int commaIndex = source.indexOf(',');
       if (commaIndex > -1 && commaIndex < source.length - 1) {
         try {
-          final String encoded = source.substring(commaIndex + 1);
+          final String encoded = _normalizeBase64(
+            source.substring(commaIndex + 1),
+          );
           return Image.memory(
             base64Decode(encoded),
             fit: BoxFit.contain,
@@ -217,14 +224,34 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
     // Also support plain base64 payloads.
     try {
+      final String encoded = _normalizeBase64(source);
       return Image.memory(
-        base64Decode(source),
+        base64Decode(encoded),
         fit: BoxFit.contain,
         errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
       );
     } catch (_) {
       return _academyImageFallback();
     }
+  }
+
+  String _normalizeBase64(String input) {
+    String normalized = input.trim().replaceAll(RegExp(r'\s+'), '');
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    normalized = normalized.replaceAll('-', '+').replaceAll('_', '/');
+
+    final int remainder = normalized.length % 4;
+    if (remainder != 0) {
+      normalized = normalized.padRight(
+        normalized.length + (4 - remainder),
+        '=',
+      );
+    }
+
+    return normalized;
   }
 
   Widget _academyImageFallback() {
@@ -263,8 +290,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           : null;
       String? selectedAcademyId;
       if (preferredAcademyId != null &&
-          academies.any((Map<String, dynamic> item) =>
-              _academyId(item) == preferredAcademyId)) {
+          academies.any(
+            (Map<String, dynamic> item) =>
+                _academyId(item) == preferredAcademyId,
+          )) {
         selectedAcademyId = preferredAcademyId;
       } else if (academies.isNotEmpty) {
         selectedAcademyId = _academyId(academies.first);
@@ -296,8 +325,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         _isLoading = false;
       });
       final Map<String, dynamic>? selectedAcademy = academies
-          .where((Map<String, dynamic> item) =>
-              _academyId(item) == _selectedAcademyId)
+          .where(
+            (Map<String, dynamic> item) =>
+                _academyId(item) == _selectedAcademyId,
+          )
           .cast<Map<String, dynamic>?>()
           .firstWhere(
             (Map<String, dynamic>? _) => true,
@@ -305,7 +336,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           );
       ApiSession.instance.setSelectedAcademy(
         academyId: _selectedAcademyId,
-        academyName: selectedAcademy == null ? null : _academyName(selectedAcademy),
+        academyName: selectedAcademy == null
+            ? null
+            : _academyName(selectedAcademy),
       );
     } catch (error) {
       if (mounted) {
@@ -332,7 +365,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF203A43),
-          title: const Text('Add Academy', style: TextStyle(color: Colors.white)),
+          title: const Text(
+            'Add Academy',
+            style: TextStyle(color: Colors.white),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -375,9 +411,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
     final String name = nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Academy name is required')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Academy name is required')));
       return;
     }
 
@@ -543,7 +579,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       return;
     }
 
-    final DateTime next = DateTime(_selectedMonth.year, _selectedMonth.month + delta);
+    final DateTime next = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + delta,
+    );
     final String? selectedBatchId = _batchIdByFilterLabel(
       _selectedBatchFilter,
       _batches,
@@ -645,8 +684,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   Widget build(BuildContext context) {
     final String ownerName =
         ApiSession.instance.ownerName?.trim().isNotEmpty == true
-            ? ApiSession.instance.ownerName!.trim()
-            : 'Owner';
+        ? ApiSession.instance.ownerName!.trim()
+        : 'Owner';
     final String greetingMessage = istGreetingMessage(ownerName);
 
     final Map<String, dynamic> students = Map<String, dynamic>.from(
@@ -669,7 +708,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     final int paidStudents = _toInt(fees['paidStudents']);
     final int pendingStudents = _toInt(fees['pendingStudents']);
     final int monthEarnings = _toInt(
-      (fees['collectedAmount'] ?? 0) + (fees['pendingAmount'] ?? 0) ?? _dashboard['thisMonthEarnings'] ?? 0,
+      (fees['collectedAmount'] ?? 0) + (fees['pendingAmount'] ?? 0) ??
+          _dashboard['thisMonthEarnings'] ??
+          0,
     );
     final List<int> weeklySeries = _buildWeeklySeries(
       monthEarnings,
@@ -771,7 +812,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   width: 48,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0x1FFFFFFF)),
+                                    border: Border.all(
+                                      color: const Color(0x1FFFFFFF),
+                                    ),
                                     color: const Color(0x0FFFFFFF),
                                   ),
                                   child: const Icon(
@@ -782,7 +825,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               ),
                             );
                           }
-                          final Map<String, dynamic> academy = _academies[index];
+                          final Map<String, dynamic> academy =
+                              _academies[index];
                           final String academyId = _academyId(academy);
                           final bool selected = academyId == _selectedAcademyId;
                           return Padding(
@@ -840,13 +884,18 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _academies.length,
-                          separatorBuilder: (_, int index) => const SizedBox(width: 12),
+                          separatorBuilder: (_, int index) =>
+                              const SizedBox(width: 12),
                           itemBuilder: (BuildContext context, int index) {
-                            final Map<String, dynamic> academy = _academies[index];
+                            final Map<String, dynamic> academy =
+                                _academies[index];
                             final String academyId = _academyId(academy);
-                            final bool selected = academyId == _selectedAcademyId;
+                            final bool selected =
+                                academyId == _selectedAcademyId;
                             final String? imageUrl = _academyImageUrl(academy);
-                            final List<String> facilities = _academyFacilities(academy);
+                            final List<String> facilities = _academyFacilities(
+                              academy,
+                            );
                             final int monthlyFee = _academyMonthlyFee(academy);
                             return GestureDetector(
                               onTap: academyId.isEmpty
@@ -889,7 +938,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                     Padding(
                                       padding: const EdgeInsets.all(12),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: <Widget>[
                                           Text(
                                             _academyName(academy),
@@ -903,8 +953,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
-                                            academy['city']?.toString().trim().isNotEmpty == true
-                                                ? academy['city'].toString().trim()
+                                            academy['city']
+                                                        ?.toString()
+                                                        .trim()
+                                                        .isNotEmpty ==
+                                                    true
+                                                ? academy['city']
+                                                      .toString()
+                                                      .trim()
                                                 : 'Location not set',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
@@ -917,15 +973,21 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                           Wrap(
                                             spacing: 8,
                                             runSpacing: 8,
-                                            children: facilities.map((String facility) {
+                                            children: facilities.map((
+                                              String facility,
+                                            ) {
                                               return Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 6,
-                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  borderRadius: BorderRadius.circular(6),
-                                                  color: const Color(0x0AFFFFFF),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  color: const Color(
+                                                    0x0AFFFFFF,
+                                                  ),
                                                 ),
                                                 child: Text(
                                                   _facilityLabel(facility),
@@ -941,24 +1003,34 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                           const SizedBox(height: 12),
                                           Container(
                                             width: double.infinity,
-                                            padding: const EdgeInsets.only(top: 10),
+                                            padding: const EdgeInsets.only(
+                                              top: 10,
+                                            ),
                                             decoration: const BoxDecoration(
                                               border: Border(
-                                                top: BorderSide(color: Color(0x14000000)),
+                                                top: BorderSide(
+                                                  color: Color(0x14000000),
+                                                ),
                                               ),
                                             ),
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: <Widget>[
                                                 Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: <Widget>[
                                                     const Text(
                                                       'Monthly Fees',
                                                       style: TextStyle(
-                                                        color: Color(0xFF667084),
+                                                        color: Color(
+                                                          0xFF667084,
+                                                        ),
                                                         fontSize: 12,
-                                                        fontWeight: FontWeight.w500,
+                                                        fontWeight:
+                                                            FontWeight.w500,
                                                       ),
                                                     ),
                                                     const SizedBox(height: 2),
@@ -967,7 +1039,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                                       style: const TextStyle(
                                                         color: Colors.white,
                                                         fontSize: 18,
-                                                        fontWeight: FontWeight.w800,
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                       ),
                                                     ),
                                                   ],
@@ -978,22 +1051,31 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                                     onPressed: () {
                                                       Navigator.of(context)
                                                           .push(
-                                                            MaterialPageRoute<void>(
-                                                              builder: (_) => const AcademyBatchTimingsScreen(),
+                                                            MaterialPageRoute<
+                                                              void
+                                                            >(
+                                                              builder: (_) =>
+                                                                  const AcademyBatchTimingsScreen(),
                                                             ),
                                                           )
                                                           .then((_) => _load());
                                                     },
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: const Color(0xFF2563EB),
-                                                      foregroundColor: Colors.white,
-                                                      elevation: 0,
-                                                    ),
+                                                    style:
+                                                        ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              const Color(
+                                                                0xFF2563EB,
+                                                              ),
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                          elevation: 0,
+                                                        ),
                                                     child: const Text(
                                                       'View Batches',
                                                       style: TextStyle(
                                                         fontSize: 13,
-                                                        fontWeight: FontWeight.w600,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
                                                     ),
                                                   ),
@@ -1056,48 +1138,48 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         ),
                       )
                     else
-                    SizedBox(
-                      height: 44,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: batchFilterLabels.map((String label) {
-                          final bool selected = _selectedBatchFilter == label;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: GestureDetector(
-                              onTap: () => _onBatchFilterTap(label),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: selected
-                                        ? const Color(0xFF1C333B)
-                                        : const Color(0x1F242424),
+                      SizedBox(
+                        height: 44,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: batchFilterLabels.map((String label) {
+                            final bool selected = _selectedBatchFilter == label;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: GestureDetector(
+                                onTap: () => _onBatchFilterTap(label),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
                                   ),
-                                  color: selected
-                                      ? const Color(0xFF00C9A7)
-                                      : const Color(0x0FFFFFFF),
-                                ),
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: selected
+                                          ? const Color(0xFF1C333B)
+                                          : const Color(0x1F242424),
+                                    ),
                                     color: selected
-                                        ? const Color(0xFF242424)
-                                        : Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
+                                        ? const Color(0xFF00C9A7)
+                                        : const Color(0x0FFFFFFF),
+                                  ),
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      color: selected
+                                          ? const Color(0xFF242424)
+                                          : Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1200,82 +1282,104 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           SizedBox(
                             height: 94,
                             child: LayoutBuilder(
-                              builder: (BuildContext context, BoxConstraints constraints) {
-                                final List<Color> barColors = <Color>[
-                                  const Color(0xFFFBB831),
-                                  const Color(0xFFFB569C),
-                                  const Color(0xFFE850E0),
-                                  const Color(0xFF8225E2),
-                                  const Color(0xFF9C27B0),
-                                ];
-                                final int maxValue = weeklySeries.reduce(math.max);
-                                return Stack(
-                                  children: <Widget>[
-                                    Positioned(
-                                      left: 0,
-                                      right: 0,
-                                      top: 2,
-                                      bottom: 22,
-                                      child: CustomPaint(
-                                        painter: _WeeklyTrendPainter(
-                                          values: weeklySeries,
-                                          maxValue: maxValue,
-                                          lineColor: const Color(0xFFBDBDBD),
+                              builder:
+                                  (
+                                    BuildContext context,
+                                    BoxConstraints constraints,
+                                  ) {
+                                    final List<Color> barColors = <Color>[
+                                      const Color(0xFFFBB831),
+                                      const Color(0xFFFB569C),
+                                      const Color(0xFFE850E0),
+                                      const Color(0xFF8225E2),
+                                      const Color(0xFF9C27B0),
+                                    ];
+                                    final int maxValue = weeklySeries.reduce(
+                                      math.max,
+                                    );
+                                    return Stack(
+                                      children: <Widget>[
+                                        Positioned(
+                                          left: 0,
+                                          right: 0,
+                                          top: 2,
+                                          bottom: 22,
+                                          child: CustomPaint(
+                                            painter: _WeeklyTrendPainter(
+                                              values: weeklySeries,
+                                              maxValue: maxValue,
+                                              lineColor: const Color(
+                                                0xFFBDBDBD,
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      left: 0,
-                                      right: 0,
-                                      bottom: 22,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: List<Widget>.generate(weeklySeries.length, (
-                                          int index,
-                                        ) {
-                                          final double ratio = weeklySeries[index] / maxValue;
-                                          final double height = 14 + (ratio * 44);
-                                          return Container(
-                                            width: 28,
-                                            height: height,
-                                            decoration: BoxDecoration(
-                                              borderRadius: const BorderRadius.vertical(
-                                                top: Radius.circular(6),
-                                              ),
-                                              color: barColors[index % barColors.length],
+                                        Positioned(
+                                          left: 0,
+                                          right: 0,
+                                          bottom: 22,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: List<Widget>.generate(
+                                              weeklySeries.length,
+                                              (int index) {
+                                                final double ratio =
+                                                    weeklySeries[index] /
+                                                    maxValue;
+                                                final double height =
+                                                    14 + (ratio * 44);
+                                                return Container(
+                                                  width: 28,
+                                                  height: height,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        const BorderRadius.vertical(
+                                                          top: Radius.circular(
+                                                            6,
+                                                          ),
+                                                        ),
+                                                    color:
+                                                        barColors[index %
+                                                            barColors.length],
+                                                  ),
+                                                );
+                                              },
                                             ),
-                                          );
-                                        }),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      left: 0,
-                                      right: 0,
-                                      bottom: 0,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: List<Widget>.generate(weeklySeries.length, (
-                                          int index,
-                                        ) {
-                                          return SizedBox(
-                                            width: 28,
-                                            child: Text(
-                                              _ordinalLabel(index),
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          left: 0,
+                                          right: 0,
+                                          bottom: 0,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: List<Widget>.generate(
+                                              weeklySeries.length,
+                                              (int index) {
+                                                return SizedBox(
+                                                  width: 28,
+                                                  child: Text(
+                                                    _ordinalLabel(index),
+                                                    textAlign: TextAlign.center,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                             ),
-                                          );
-                                        }),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                             ),
                           ),
                         ],
@@ -1336,7 +1440,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             Navigator.of(context)
                                 .push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) => const AcademyBatchTimingsScreen(),
+                                    builder: (_) =>
+                                        const AcademyBatchTimingsScreen(),
                                   ),
                                 )
                                 .then((_) => _load());
@@ -1348,7 +1453,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => const AcademyManageStudentsScreen(),
+                                builder: (_) =>
+                                    const AcademyManageStudentsScreen(),
                               ),
                             );
                           },
@@ -1481,7 +1587,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) => const AcademyMarkAttendanceScreen(),
+                                    builder: (_) =>
+                                        const AcademyMarkAttendanceScreen(),
                                   ),
                                 );
                               },
@@ -1548,7 +1655,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) => const AcademyFeeDetailsScreen(),
+                                    builder: (_) =>
+                                        const AcademyFeeDetailsScreen(),
                                   ),
                                 );
                               },
@@ -1586,7 +1694,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             Navigator.of(context)
                                 .push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) => const AcademyBatchTimingsScreen(),
+                                    builder: (_) =>
+                                        const AcademyBatchTimingsScreen(),
                                   ),
                                 )
                                 .then((_) => _load());
@@ -1611,16 +1720,22 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         separatorBuilder: (BuildContext _, int index) =>
                             const SizedBox(width: 12),
                         itemBuilder: (BuildContext context, int index) {
-                          final Map<String, dynamic> batch = filteredBatches[index];
-                          final String name = batch['name']?.toString() ?? 'Batch';
-                          final String start = batch['startTime']?.toString() ?? '09:00';
-                          final String end = batch['endTime']?.toString() ?? '10:00';
-                          final String coach = batch['coachName']?.toString() ?? 'Coach';
+                          final Map<String, dynamic> batch =
+                              filteredBatches[index];
+                          final String name =
+                              batch['name']?.toString() ?? 'Batch';
+                          final String start =
+                              batch['startTime']?.toString() ?? '09:00';
+                          final String end =
+                              batch['endTime']?.toString() ?? '10:00';
+                          final String coach =
+                              batch['coachName']?.toString() ?? 'Coach';
                           final int studentsCount = _toInt(
                             batch['capacity'] ?? batch['studentsCount'],
                           );
                           final String status =
-                              (batch['status']?.toString() ?? 'active').toLowerCase();
+                              (batch['status']?.toString() ?? 'active')
+                                  .toLowerCase();
 
                           return Container(
                             width: 286,
@@ -1630,7 +1745,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: <Widget>[
                                     Expanded(
                                       child: Text(
@@ -1671,31 +1787,49 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                _batchMeta(Icons.schedule_rounded, '$start - $end'),
+                                _batchMeta(
+                                  Icons.schedule_rounded,
+                                  '$start - $end',
+                                ),
                                 const SizedBox(height: 10),
-                                _batchMeta(Icons.calendar_month_outlined, _batchDays(batch)),
+                                _batchMeta(
+                                  Icons.calendar_month_outlined,
+                                  _batchDays(batch),
+                                ),
                                 const SizedBox(height: 10),
-                                _batchMeta(Icons.person_outline_rounded, 'Coach: $coach'),
+                                _batchMeta(
+                                  Icons.person_outline_rounded,
+                                  'Coach: $coach',
+                                ),
                                 const SizedBox(height: 10),
-                                _batchMeta(Icons.groups_outlined, 'Students: $studentsCount'),
+                                _batchMeta(
+                                  Icons.groups_outlined,
+                                  'Students: $studentsCount',
+                                ),
                                 const Spacer(),
                                 Row(
                                   children: <Widget>[
                                     Expanded(
-                                      child: _darkActionButton('View Batch', () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute<void>(
-                                            builder: (_) => AcademyViewBatchScreen(
-                                              batchId: batch['_id']?.toString() ??
-                                                  batch['id']?.toString(),
-                                              batchName: name,
-                                              coachName: coach,
-                                              time: '$start - $end',
-                                              days: _batchDays(batch),
+                                      child: _darkActionButton(
+                                        'View Batch',
+                                        () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute<void>(
+                                              builder: (_) =>
+                                                  AcademyViewBatchScreen(
+                                                    batchId:
+                                                        batch['_id']
+                                                            ?.toString() ??
+                                                        batch['id']?.toString(),
+                                                    batchName: name,
+                                                    coachName: coach,
+                                                    time: '$start - $end',
+                                                    days: _batchDays(batch),
+                                                  ),
                                             ),
-                                          ),
-                                        );
-                                      }),
+                                          );
+                                        },
+                                      ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -1703,30 +1837,47 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                         Navigator.of(context)
                                             .push(
                                               MaterialPageRoute<void>(
-                                                builder: (_) => AcademyEditBatchScreen(
-                                                  batchId: batch['_id']?.toString() ??
-                                                      batch['id']?.toString(),
-                                                  batchName: name,
-                                                  coachName: coach,
-                                                  startTime: start,
-                                                  endTime: end,
-                                                  days: (batch['days'] as List<dynamic>? ??
-                                                          <dynamic>[])
-                                                      .map((dynamic value) =>
-                                                          value.toString())
-                                                      .toList(),
-                                                  capacity: _toInt(batch['capacity']),
-                                                  status: batch['status']?.toString() ??
-                                                      'active',
-                                                  monthlyFee:
-                                                      (batch['monthlyFee'] as num?)
+                                                builder: (_) =>
+                                                    AcademyEditBatchScreen(
+                                                      batchId:
+                                                          batch['_id']
+                                                              ?.toString() ??
+                                                          batch['id']
+                                                              ?.toString(),
+                                                      batchName: name,
+                                                      coachName: coach,
+                                                      startTime: start,
+                                                      endTime: end,
+                                                      days:
+                                                          (batch['days']
+                                                                      as List<
+                                                                        dynamic
+                                                                      >? ??
+                                                                  <dynamic>[])
+                                                              .map(
+                                                                (
+                                                                  dynamic value,
+                                                                ) => value
+                                                                    .toString(),
+                                                              )
+                                                              .toList(),
+                                                      capacity: _toInt(
+                                                        batch['capacity'],
+                                                      ),
+                                                      status:
+                                                          batch['status']
+                                                              ?.toString() ??
+                                                          'active',
+                                                      monthlyFee:
+                                                          (batch['monthlyFee']
+                                                                  as num?)
                                                               ?.toDouble() ??
                                                           0,
-                                                  enrolledStudents: _toInt(
-                                                    batch['studentsCount'] ??
-                                                        batch['capacity'],
-                                                  ),
-                                                ),
+                                                      enrolledStudents: _toInt(
+                                                        batch['studentsCount'] ??
+                                                            batch['capacity'],
+                                                      ),
+                                                    ),
                                               ),
                                             )
                                             .then((_) => _load());
@@ -1746,43 +1897,43 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       ),
       bottomNavigationBar: widget.showBottomNav
           ? ModuleBottomNav(
-        currentIndex: 0,
-        activeColor: const Color(0xFF00C9A7),
-        inactiveColor: const Color(0xFF9FB9B3),
-        backgroundColor: const Color(0x0FFFFFFF),
-        borderColor: const Color(0x1FFFFFFF),
-        horizontalPadding: 26,
-        bottomPadding: 20,
-        items: <ModuleBottomNavItem>[
-          ModuleBottomNavItem(
-            icon: Icons.home_outlined,
-            label: 'Home',
-            onTap: () {},
-          ),
-          ModuleBottomNavItem(
-            icon: Icons.campaign_outlined,
-            label: 'Announcement',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const AcademyAnnouncementScreen(),
+              currentIndex: 0,
+              activeColor: const Color(0xFF00C9A7),
+              inactiveColor: const Color(0xFF9FB9B3),
+              backgroundColor: const Color(0x0FFFFFFF),
+              borderColor: const Color(0x1FFFFFFF),
+              horizontalPadding: 26,
+              bottomPadding: 20,
+              items: <ModuleBottomNavItem>[
+                ModuleBottomNavItem(
+                  icon: Icons.home_outlined,
+                  label: 'Home',
+                  onTap: () {},
                 ),
-              );
-            },
-          ),
-          ModuleBottomNavItem(
-            icon: Icons.person_outline_rounded,
-            label: 'Profile',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const AcademyProfileScreen(),
+                ModuleBottomNavItem(
+                  icon: Icons.campaign_outlined,
+                  label: 'Announcement',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AcademyAnnouncementScreen(),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-        ],
-      )
+                ModuleBottomNavItem(
+                  icon: Icons.person_outline_rounded,
+                  label: 'Profile',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AcademyProfileScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            )
           : null,
     );
   }
@@ -1894,7 +2045,9 @@ class _WeeklyTrendPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final Path path = Path();
-    final double stepX = values.length == 1 ? 0 : size.width / (values.length - 1);
+    final double stepX = values.length == 1
+        ? 0
+        : size.width / (values.length - 1);
     for (int index = 0; index < values.length; index++) {
       final double x = stepX * index;
       final double ratio = values[index] / maxValue;

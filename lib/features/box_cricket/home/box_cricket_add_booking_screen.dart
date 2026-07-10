@@ -13,7 +13,8 @@ class BoxCricketAddBookingScreen extends StatefulWidget {
       _BoxCricketAddBookingScreenState();
 }
 
-class _BoxCricketAddBookingScreenState extends State<BoxCricketAddBookingScreen> {
+class _BoxCricketAddBookingScreenState
+    extends State<BoxCricketAddBookingScreen> {
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
@@ -25,11 +26,33 @@ class _BoxCricketAddBookingScreenState extends State<BoxCricketAddBookingScreen>
     _loadSlots();
   }
 
+  Future<String?> _resolveGroundId() async {
+    final String? currentGroundId = ApiSession.instance.groundId;
+    if (currentGroundId != null && currentGroundId.isNotEmpty) {
+      return currentGroundId;
+    }
+
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return null;
+    }
+
+    final String? resolved = await GroundWaleApi.instance
+        .ensureGroundIdForOwner(ownerId);
+    if (resolved != null && resolved.isNotEmpty) {
+      ApiSession.instance.setGroundId(resolved);
+    }
+    return resolved;
+  }
+
   Future<void> _loadSlots() async {
-    final String? groundId = ApiSession.instance.groundId;
+    final String? groundId = await _resolveGroundId();
     if (groundId == null || groundId.isEmpty) {
       if (mounted) {
         setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No grounds found for this owner.')),
+        );
       }
       return;
     }
@@ -37,10 +60,8 @@ class _BoxCricketAddBookingScreenState extends State<BoxCricketAddBookingScreen>
     setState(() => _isLoading = true);
 
     try {
-      final List<Map<String, dynamic>> slots = await GroundWaleApi.instance.listSlots(
-        groundId,
-        date: _apiDate(_selectedDate),
-      );
+      final List<Map<String, dynamic>> slots = await GroundWaleApi.instance
+          .listSlots(groundId, date: _apiDate(_selectedDate));
       if (!mounted) {
         return;
       }
@@ -55,7 +76,9 @@ class _BoxCricketAddBookingScreenState extends State<BoxCricketAddBookingScreen>
       }
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
       );
     }
   }
@@ -75,7 +98,15 @@ class _BoxCricketAddBookingScreenState extends State<BoxCricketAddBookingScreen>
   }
 
   String _weekDay(DateTime date) {
-    const List<String> days = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const List<String> days = <String>[
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
     return days[date.weekday - 1];
   }
 
@@ -167,7 +198,9 @@ class _BoxCricketAddBookingScreenState extends State<BoxCricketAddBookingScreen>
         title: const Text('Add Booking'),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF08B36A)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF08B36A)),
+            )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
               children: <Widget>[
@@ -187,9 +220,13 @@ class _BoxCricketAddBookingScreenState extends State<BoxCricketAddBookingScreen>
                     itemCount: 7,
                     separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (BuildContext context, int index) {
-                      final DateTime date = DateTime.now().add(Duration(days: index));
-                      final bool selectedDate =
-                          DateUtils.isSameDay(date, _selectedDate);
+                      final DateTime date = DateTime.now().add(
+                        Duration(days: index),
+                      );
+                      final bool selectedDate = DateUtils.isSameDay(
+                        date,
+                        _selectedDate,
+                      );
                       return InkWell(
                         onTap: () {
                           setState(() => _selectedDate = date);
@@ -376,7 +413,10 @@ class _BoxCricketAddBookingScreenState extends State<BoxCricketAddBookingScreen>
                       : null,
                   child: Container(
                     width: 104,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 9,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       color: _slotBg(status, selected),

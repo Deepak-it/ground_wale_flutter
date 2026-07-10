@@ -1220,10 +1220,18 @@ class GroundWaleApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> listAcademies(String ownerId) async {
+  Future<List<Map<String, dynamic>>> listAcademies(
+    String ownerId, {
+    bool includeImage = false,
+  }) async {
     try {
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/academies',
+        options: Options(
+          receiveTimeout: const Duration(minutes: 2),
+          sendTimeout: const Duration(seconds: 20),
+          contentType: 'application/json',
+        ),
       );
       return (response.data as List<dynamic>)
           .map((dynamic item) => Map<String, dynamic>.from(item as Map))

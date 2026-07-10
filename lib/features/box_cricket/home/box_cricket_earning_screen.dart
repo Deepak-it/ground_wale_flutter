@@ -28,11 +28,33 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
     _load();
   }
 
+  Future<String?> _resolveGroundId() async {
+    final String? currentGroundId = ApiSession.instance.groundId;
+    if (currentGroundId != null && currentGroundId.isNotEmpty) {
+      return currentGroundId;
+    }
+
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return null;
+    }
+
+    final String? resolved = await GroundWaleApi.instance
+        .ensureGroundIdForOwner(ownerId);
+    if (resolved != null && resolved.isNotEmpty) {
+      ApiSession.instance.setGroundId(resolved);
+    }
+    return resolved;
+  }
+
   Future<void> _load() async {
-    final String? groundId = ApiSession.instance.groundId;
+    final String? groundId = await _resolveGroundId();
     if (groundId == null || groundId.isEmpty) {
       if (mounted) {
         setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No grounds found for this owner.')),
+        );
       }
       return;
     }

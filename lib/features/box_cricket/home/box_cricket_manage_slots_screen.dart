@@ -61,6 +61,24 @@ class _BoxCricketManageSlotsScreenState
     return '${date.year}-$month-$day';
   }
 
+  String _shortDateLabel(DateTime date) {
+    const List<String> monthNames = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${date.day} ${monthNames[date.month - 1]} ${date.year}';
+  }
+
   DateTime _parseDate(dynamic value) {
     if (value is DateTime) {
       return DateTime(value.year, value.month, value.day);
@@ -198,7 +216,8 @@ class _BoxCricketManageSlotsScreenState
       text: '10:00 AM',
     );
     final TextEditingController priceCtrl = TextEditingController(text: '0');
-    DateTime selectedDate = _today;
+    DateTime rangeStartDate = _today;
+    DateTime rangeEndDate = _today;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -225,114 +244,185 @@ class _BoxCricketManageSlotsScreenState
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: <Widget>[
-                            const Text(
-                              'Add Slot',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w500,
-                              ),
+                        const Center(
+                          child: Text(
+                            'Create New Availability',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w500,
                             ),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                color: const Color(0x1F08B36A),
-                              ),
-                              child: const Icon(
-                                Icons.add,
-                                color: Color(0xFF08B36A),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Create New Availability',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Define a new booking window for your clients.',
-                          style: TextStyle(
-                            color: Color(0x99FFFFFF),
-                            fontSize: 16,
                           ),
                         ),
                         const SizedBox(height: 16),
+                        const SizedBox(height: 8),
                         const Text(
-                          'Select Date',
+                          'Select Date Range',
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                         const SizedBox(height: 10),
-                        SizedBox(
-                          height: 72,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: 4,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 12),
-                            itemBuilder: (_, int index) {
-                              final DateTime d = _today.add(
-                                Duration(days: index),
-                              );
-                              final bool selected =
-                                  _dateKey(d) == _dateKey(selectedDate);
-                              const List<String> dayNames = <String>[
-                                'Mon',
-                                'Tue',
-                                'Wed',
-                                'Thu',
-                                'Fri',
-                                'Sat',
-                                'Sun',
-                              ];
-                              return GestureDetector(
-                                onTap: () =>
-                                    setModalState(() => selectedDate = d),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final DateTime? picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: rangeStartDate,
+                                    firstDate: _today,
+                                    lastDate: _today.add(
+                                      const Duration(days: 365),
+                                    ),
+                                  );
+                                  if (picked == null) {
+                                    return;
+                                  }
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  setModalState(() {
+                                    rangeStartDate = DateTime(
+                                      picked.year,
+                                      picked.month,
+                                      picked.day,
+                                    );
+                                    if (rangeEndDate.isBefore(rangeStartDate)) {
+                                      rangeEndDate = rangeStartDate;
+                                    }
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(12),
                                 child: Container(
-                                  width: 64,
+                                  height: 56,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: const Color(0x3DFFFFFF),
                                     ),
-                                    color: selected
-                                        ? const Color(0xFF08B36A)
-                                        : Colors.transparent,
+                                    color: const Color(0x08FFFFFF),
                                   ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: <Widget>[
-                                      Text(
-                                        dayNames[d.weekday - 1],
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                        ),
+                                      Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          const Text(
+                                            'From',
+                                            style: TextStyle(
+                                              color: Color(0x99FFFFFF),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          Text(
+                                            _shortDateLabel(rangeStartDate),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${d.day}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      const Icon(
+                                        Icons.calendar_today,
+                                        size: 18,
+                                        color: Color(0xFF08B36A),
                                       ),
                                     ],
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final DateTime initialDate =
+                                      rangeEndDate.isBefore(rangeStartDate)
+                                      ? rangeStartDate
+                                      : rangeEndDate;
+                                  final DateTime? picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: initialDate,
+                                    firstDate: rangeStartDate,
+                                    lastDate: _today.add(
+                                      const Duration(days: 365),
+                                    ),
+                                  );
+                                  if (picked == null) {
+                                    return;
+                                  }
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  setModalState(() {
+                                    rangeEndDate = DateTime(
+                                      picked.year,
+                                      picked.month,
+                                      picked.day,
+                                    );
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  height: 56,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color(0x3DFFFFFF),
+                                    ),
+                                    color: const Color(0x08FFFFFF),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: <Widget>[
+                                      Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          const Text(
+                                            'To',
+                                            style: TextStyle(
+                                              color: Color(0x99FFFFFF),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          Text(
+                                            _shortDateLabel(rangeEndDate),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const Icon(
+                                        Icons.calendar_today,
+                                        size: 18,
+                                        color: Color(0xFF08B36A),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -345,7 +435,7 @@ class _BoxCricketManageSlotsScreenState
                           ],
                         ),
                         const SizedBox(height: 16),
-                        _fieldCard('Hourly Rate', priceCtrl, prefix: 'Rs '),
+                        _fieldCard('Add New Slot', priceCtrl, prefix: 'Rs '),
                         const SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,
@@ -387,7 +477,9 @@ class _BoxCricketManageSlotsScreenState
                               try {
                                 await GroundWaleApi.instance
                                     .createSlot(groundId, <String, dynamic>{
-                                      'date': _dateKey(selectedDate),
+                                      'date': _dateKey(rangeStartDate),
+                                      'dateFrom': _dateKey(rangeStartDate),
+                                      'dateTo': _dateKey(rangeEndDate),
                                       'startTime': startCtrl.text.trim(),
                                       'endTime': endCtrl.text.trim(),
                                       'price': _toInt(priceCtrl.text.trim()),
@@ -416,7 +508,7 @@ class _BoxCricketManageSlotsScreenState
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF08B36A),
-                              foregroundColor: Colors.white,
+                              foregroundColor: Colors.black,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),

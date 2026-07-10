@@ -46,11 +46,33 @@ class _BoxCricketUpcomingBookingsScreenState
     }
   }
 
+  Future<String?> _resolveGroundId() async {
+    final String? currentGroundId = ApiSession.instance.groundId;
+    if (currentGroundId != null && currentGroundId.isNotEmpty) {
+      return currentGroundId;
+    }
+
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return null;
+    }
+
+    final String? resolved = await GroundWaleApi.instance
+        .ensureGroundIdForOwner(ownerId);
+    if (resolved != null && resolved.isNotEmpty) {
+      ApiSession.instance.setGroundId(resolved);
+    }
+    return resolved;
+  }
+
   Future<void> _load() async {
-    final String? groundId = ApiSession.instance.groundId;
+    final String? groundId = await _resolveGroundId();
     if (groundId == null || groundId.isEmpty) {
       if (mounted) {
         setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No grounds found for this owner.')),
+        );
       }
       return;
     }
@@ -185,31 +207,31 @@ class _BoxCricketUpcomingBookingsScreenState
       ),
       bottomNavigationBar: widget.showBottomNav
           ? BoxCricketBottomNav(
-        currentIndex: 1,
-        onHome: () {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketDashboardScreen(),
-            ),
-            (Route<dynamic> route) => false,
-          );
-        },
-        onAnnouncement: () {},
-        onSlots: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketManageSlotsScreen(),
-            ),
-          );
-        },
-        onProfile: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketProfileScreen(),
-            ),
-          );
-        },
-      )
+              currentIndex: 1,
+              onHome: () {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const BoxCricketDashboardScreen(),
+                  ),
+                  (Route<dynamic> route) => false,
+                );
+              },
+              onAnnouncement: () {},
+              onSlots: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const BoxCricketManageSlotsScreen(),
+                  ),
+                );
+              },
+              onProfile: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const BoxCricketProfileScreen(),
+                  ),
+                );
+              },
+            )
           : null,
     );
   }
