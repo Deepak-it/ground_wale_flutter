@@ -26,6 +26,8 @@ class _BoxCricketUpcomingBookingsScreenState
   int _tabIndex = 0;
   bool _isLoading = true;
   bool _hasLoadError = false;
+  List<Map<String, dynamic>> _grounds = <Map<String, dynamic>>[];
+  String? _selectedGroundId;
   List<Map<String, dynamic>> _bookings = <Map<String, dynamic>>[];
   Map<String, dynamic> _summary = <String, dynamic>{};
 
@@ -46,10 +48,21 @@ class _BoxCricketUpcomingBookingsScreenState
     }
   }
 
+  String _groundId(Map<String, dynamic> ground) {
+    return ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
+  }
+
+  String _groundName(Map<String, dynamic> ground) {
+    final String name = ground['groundName']?.toString().trim() ?? '';
+    if (name.isNotEmpty) {
+      return name;
+    }
+    return 'Unnamed Ground';
+  }
+
   Future<String?> _resolveGroundId() async {
-    final String? currentGroundId = ApiSession.instance.groundId;
-    if (currentGroundId != null && currentGroundId.isNotEmpty) {
-      return currentGroundId;
+    if (_selectedGroundId != null && _selectedGroundId!.isNotEmpty) {
+      return _selectedGroundId;
     }
 
     final String? ownerId = ApiSession.instance.ownerId;
@@ -57,19 +70,42 @@ class _BoxCricketUpcomingBookingsScreenState
       return null;
     }
 
-    final String? resolved = await GroundWaleApi.instance
-        .ensureGroundIdForOwner(ownerId);
-    if (resolved != null && resolved.isNotEmpty) {
-      ApiSession.instance.setGroundId(resolved);
+    final List<Map<String, dynamic>> grounds = await GroundWaleApi.instance
+        .listGrounds(ownerId: ownerId);
+    if (grounds.isEmpty) {
+      return null;
     }
-    return resolved;
+
+    final String preferred = ApiSession.instance.groundId ?? '';
+    String selected = _groundId(grounds.first);
+    if (preferred.isNotEmpty) {
+      for (final Map<String, dynamic> ground in grounds) {
+        if (_groundId(ground) == preferred) {
+          selected = preferred;
+          break;
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _grounds = grounds;
+        _selectedGroundId = selected;
+      });
+    }
+    ApiSession.instance.setGroundId(selected);
+    return selected;
   }
 
   Future<void> _load() async {
     final String? groundId = await _resolveGroundId();
     if (groundId == null || groundId.isEmpty) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _bookings = <Map<String, dynamic>>[];
+          _summary = <String, dynamic>{};
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No grounds found for this owner.')),
         );
@@ -167,6 +203,54 @@ class _BoxCricketUpcomingBookingsScreenState
                     ],
                   ),
                   const SizedBox(height: 24),
+                  const Text(
+                    'Select Ground',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0x0AFFFFFF),
+                      border: Border.all(color: const Color(0x1FFFFFFF)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedGroundId,
+                        isExpanded: true,
+                        dropdownColor: const Color(0xFF1B1F1B),
+                        iconEnabledColor: const Color(0xCCFFFFFF),
+                        hint: const Text(
+                          'Choose ground',
+                          style: TextStyle(color: Color(0x99FFFFFF)),
+                        ),
+                        items: _grounds.map((Map<String, dynamic> ground) {
+                          final String id = _groundId(ground);
+                          return DropdownMenuItem<String>(
+                            value: id,
+                            child: Text(
+                              _groundName(ground),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (String? value) {
+                          if (value == null || value == _selectedGroundId) {
+                            return;
+                          }
+                          setState(() => _selectedGroundId = value);
+                          ApiSession.instance.setGroundId(value);
+                          _load();
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: <Widget>[
                       Expanded(child: _tabChip('Upcoming', 0)),
@@ -187,7 +271,7 @@ class _BoxCricketUpcomingBookingsScreenState
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: <Widget>[
-                        _summaryBlock('Total Booking', '$totalBookings Slots'),
+                        _summaryBlock('Total Booking', '$totalBookings'),
                         _summaryBlock('Total Revenue', 'Rs $totalRevenue'),
                       ],
                     ),

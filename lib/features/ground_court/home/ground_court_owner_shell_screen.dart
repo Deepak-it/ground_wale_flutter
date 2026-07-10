@@ -19,6 +19,10 @@ class GroundCourtOwnerShellScreen extends StatefulWidget {
 }
 
 class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScreen> {
+  final GlobalKey<NavigatorState> _groundNavigatorKey =
+      GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _academyNavigatorKey =
+      GlobalKey<NavigatorState>();
   int _topTabIndex = 0;
   int _groundNavIndex = 0;
   int _academyNavIndex = 0;
@@ -332,25 +336,48 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
   }
 
   Widget _groundBody() {
-    return IndexedStack(
-      index: _groundNavIndex,
-      children: const <Widget>[
-        BoxCricketDashboardScreen(showBottomNav: false),
-        BoxCricketUpcomingBookingsScreen(showBottomNav: false),
-        BoxCricketManageSlotsScreen(showBottomNav: false),
-        BoxCricketProfileScreen(showBottomNav: false),
-      ],
+    return Navigator(
+      key: _groundNavigatorKey,
+      onGenerateRoute: (RouteSettings settings) {
+        return MaterialPageRoute<void>(
+          builder: (_) {
+            return IndexedStack(
+              index: _groundNavIndex,
+              children: <Widget>[
+                BoxCricketDashboardScreen(
+                  showBottomNav: false,
+                  onOpenBookings: () => setState(() => _groundNavIndex = 1),
+                  onOpenSlots: () => setState(() => _groundNavIndex = 2),
+                  onOpenProfile: () => setState(() => _groundNavIndex = 3),
+                ),
+                BoxCricketUpcomingBookingsScreen(showBottomNav: false),
+                BoxCricketManageSlotsScreen(showBottomNav: false),
+                BoxCricketProfileScreen(showBottomNav: false),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _academyBody() {
-    return IndexedStack(
-      index: _academyNavIndex,
-      children: const <Widget>[
-        AcademyDashboardScreen(showBottomNav: false),
-        AcademyAnnouncementScreen(showBottomNav: false),
-        AcademyProfileScreen(showBottomNav: false),
-      ],
+    return Navigator(
+      key: _academyNavigatorKey,
+      onGenerateRoute: (RouteSettings settings) {
+        return MaterialPageRoute<void>(
+          builder: (_) {
+            return IndexedStack(
+              index: _academyNavIndex,
+              children: const <Widget>[
+                AcademyDashboardScreen(showBottomNav: false),
+                AcademyAnnouncementScreen(showBottomNav: false),
+                AcademyProfileScreen(showBottomNav: false),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

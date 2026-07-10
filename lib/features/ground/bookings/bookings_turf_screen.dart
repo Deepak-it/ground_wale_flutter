@@ -176,7 +176,7 @@ class _BookingsTurfScreenState extends State<BookingsTurfScreen> {
                         children: <Widget>[
                           const Text('Total Revenue', style: TextStyle(color: Colors.white70)),
                           const SizedBox(height: 3),
-                          Text('₹${summary['totalRevenue'] ?? 0}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                          Text('₹${summary['totalRevenue'] ?? 0}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300)),
                         ],
                       ),
                     ),
