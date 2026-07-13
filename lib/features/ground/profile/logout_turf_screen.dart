@@ -15,7 +15,7 @@ class LogoutTurfScreen extends StatelessWidget {
     } finally {
       ApiSession.instance.clear();
       if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
           MaterialPageRoute<void>(builder: (_) => const SportsNeoWelcomeScreen()),
           (Route<dynamic> route) => false,
         );

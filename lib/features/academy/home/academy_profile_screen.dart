@@ -477,7 +477,7 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
       return;
     }
 
-    Navigator.of(context).pushAndRemoveUntil(
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
       MaterialPageRoute<void>(
         builder: (_) => const SportsNeoWelcomeScreen(),
       ),

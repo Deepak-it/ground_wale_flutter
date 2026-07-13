@@ -151,7 +151,7 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
     if (!mounted) {
       return;
     }
-    Navigator.of(context).pushAndRemoveUntil(
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
       MaterialPageRoute<void>(
         builder: (_) => const SportsNeoWelcomeScreen(),
       ),
