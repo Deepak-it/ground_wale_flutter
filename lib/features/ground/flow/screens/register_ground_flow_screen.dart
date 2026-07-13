@@ -106,7 +106,7 @@ class _RegisterGroundFlowScreenState extends State<RegisterGroundFlowScreen> {
             offerType: OfferType.boxCricket,
             onFinish: widget.onFinish ?? () {
               controller.reset();
-              Navigator.of(context).pushAndRemoveUntil(
+              Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                 MaterialPageRoute<void>(
                   builder: (_) => const GroundCourtOwnerShellScreen(),
                 ),
@@ -122,7 +122,7 @@ class _RegisterGroundFlowScreenState extends State<RegisterGroundFlowScreen> {
             offerType: OfferType.academyCoaching,
             onFinish: widget.onFinish ?? () {
               controller.reset();
-              Navigator.of(context).pushAndRemoveUntil(
+              Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
                 MaterialPageRoute<void>(
                   builder: (_) => const GroundCourtOwnerShellScreen(),
                 ),
