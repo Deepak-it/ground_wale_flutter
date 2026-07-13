@@ -3,9 +3,6 @@ import 'package:ground_wale/core/widgets/app_text_field.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import '../../../core/widgets/module_bottom_nav.dart';
-import 'academy_dashboard_screen.dart';
-import 'academy_profile_screen.dart';
 
 class AcademyAnnouncementScreen extends StatefulWidget {
   const AcademyAnnouncementScreen({
@@ -118,57 +115,39 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
       body: SafeArea(
         child: Column(
           children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-              child: Row(
-                children: <Widget>[
-                  _IconTap(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    onTap: () => Navigator.of(context).maybePop(),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Announcement',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: 44,
-                    child: ElevatedButton.icon(
-                      onPressed: _onCreateTap,
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: const Color(0xFF00C9A7),
-                        foregroundColor: const Color(0xFF242424),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: Color(0xFF1C333B)),
-                        ),
-                      ),
-                      icon: const Icon(Icons.add_rounded, size: 20),
-                      label: const Text(
-                        'Create',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        height: 44,
+                        child: ElevatedButton.icon(
+                          onPressed: _onCreateTap,
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: const Color(0xFF00C9A7),
+                            foregroundColor: const Color(0xFF242424),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: Color(0xFF1C333B)),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 20),
+                          label: const Text(
+                            'Create',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     _SearchBox(
                       controller: _searchController,
                       hint: 'Search announcement',
@@ -229,12 +208,13 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
                       height: 44,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
+                        itemCount: _filters.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 12),
                         itemBuilder: (BuildContext context, int index) {
                           final String label = _filters[index];
                           final bool selected = index == _selectedFilter;
                           return GestureDetector(
-                            onTap: () =>
-                                setState(() => _selectedFilter = index),
+                            onTap: () => setState(() => _selectedFilter = index),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -264,8 +244,6 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
                             ),
                           );
                         },
-                        separatorBuilder: (_, _) => const SizedBox(width: 12),
-                        itemCount: _filters.length,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -309,57 +287,7 @@ class _AcademyAnnouncementScreenState extends State<AcademyAnnouncementScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: widget.showBottomNav
-          ? ModuleBottomNav(
-        currentIndex: 1,
-        activeColor: const Color(0xFF00C9A7),
-        inactiveColor: const Color(0xFF9FB9B3),
-        backgroundColor: const Color(0x0FFFFFFF),
-        borderColor: const Color(0x1FFFFFFF),
-        horizontalPadding: 22,
-        bottomPadding: 20,
-        items: <ModuleBottomNavItem>[
-          ModuleBottomNavItem(
-            icon: Icons.home_outlined,
-            label: 'Home',
-            onTap: _handleHomeTap,
-          ),
-          ModuleBottomNavItem(
-            icon: Icons.campaign_outlined,
-            label: 'Announcement',
-            onTap: () {},
-          ),
-          ModuleBottomNavItem(
-            icon: Icons.person_outline_rounded,
-            label: 'Profile',
-            onTap: _handleProfileTap,
-          ),
-        ],
-      )
-          : null,
-    );
-  }
-
-  void _handleHomeTap() {
-    if (widget.onHomeTap != null) {
-      widget.onHomeTap!.call();
-      return;
-    }
-
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const AcademyDashboardScreen()),
-      (Route<dynamic> route) => route.isFirst,
-    );
-  }
-
-  void _handleProfileTap() {
-    if (widget.onProfileTap != null) {
-      widget.onProfileTap!.call();
-      return;
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const AcademyProfileScreen()),
+      bottomNavigationBar: null,
     );
   }
 

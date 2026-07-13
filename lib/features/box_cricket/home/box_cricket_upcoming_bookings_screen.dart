@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import 'box_cricket_booking_details_screen.dart';
-import 'box_cricket_bottom_nav.dart';
-import 'box_cricket_dashboard_screen.dart';
-import 'box_cricket_manage_slots_screen.dart';
-import 'box_cricket_profile_screen.dart';
 
 class BoxCricketUpcomingBookingsScreen extends StatefulWidget {
   const BoxCricketUpcomingBookingsScreen({
@@ -174,35 +170,8 @@ class _BoxCricketUpcomingBookingsScreenState
                 child: CircularProgressIndicator(color: Color(0xFF08B36A)),
               )
             : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          onPressed: () {
-                            Navigator.of(context).maybePop();
-                          },
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Bookings',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
                   const Text(
                     'Select Ground',
                     style: TextStyle(
@@ -289,34 +258,7 @@ class _BoxCricketUpcomingBookingsScreenState
                 ],
               ),
       ),
-      bottomNavigationBar: widget.showBottomNav
-          ? BoxCricketBottomNav(
-              currentIndex: 1,
-              onHome: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const BoxCricketDashboardScreen(),
-                  ),
-                  (Route<dynamic> route) => false,
-                );
-              },
-              onAnnouncement: () {},
-              onSlots: () {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const BoxCricketManageSlotsScreen(),
-                  ),
-                );
-              },
-              onProfile: () {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const BoxCricketProfileScreen(),
-                  ),
-                );
-              },
-            )
-          : null,
+      bottomNavigationBar: null,
     );
   }
 

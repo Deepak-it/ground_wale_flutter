@@ -46,7 +46,7 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
   String _selectedSport = 'Cricket';
   final Set<String> _selectedSports = <String>{'Cricket'};
   // ignore: unused_field
-  String _sportSearch = '';
+  final String _sportSearch = '';
   final TextEditingController _sportSearchController = TextEditingController();
 
   static const List<Map<String, String>> _allSports =

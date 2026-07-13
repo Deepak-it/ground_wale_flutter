@@ -5,18 +5,15 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import '../../../core/widgets/module_bottom_nav.dart';
 import '../../ground/flow/controllers/ground_flow_controller.dart';
 import '../../ground/flow/models/ground_registration_data.dart';
 import '../../ground/flow/screens/register_ground_flow_screen.dart';
 import 'academy_add_student_screen.dart';
-import 'academy_announcement_screen.dart';
 import 'academy_batch_timings_screen.dart';
 import 'academy_edit_batch_screen.dart';
 import 'academy_fee_details_screen.dart';
 import 'academy_manage_students_screen.dart';
 import 'academy_mark_attendance_screen.dart';
-import 'academy_profile_screen.dart';
 import 'academy_view_batch_screen.dart';
 
 class AcademyDashboardScreen extends StatefulWidget {
@@ -845,47 +842,6 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 92),
                   children: <Widget>[
-                    if (widget.showBottomNav) ...<Widget>[
-                      Row(
-                        children: <Widget>[
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0x1FFFFFFF)),
-                            ),
-                            child: IconButton(
-                              onPressed: () {
-                                Navigator.of(context).maybePop();
-                              },
-                              icon: const Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                size: 18,
-                                color: Color(0xFFDDF730),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0x0FFFFFFF),
-                              border: Border.all(color: const Color(0x1FFFFFFF)),
-                            ),
-                            child: const Icon(
-                              Icons.notifications_none_rounded,
-                              color: Color(0xFFE6F7F4),
-                              size: 20,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                    ],
- 
                     const SizedBox(height: 12),
                     if (_academies.isNotEmpty)
                       SizedBox(
@@ -1965,46 +1921,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 ),
               ),
       ),
-      bottomNavigationBar: widget.showBottomNav
-          ? ModuleBottomNav(
-              currentIndex: 0,
-              activeColor: const Color(0xFF00C9A7),
-              inactiveColor: const Color(0xFF9FB9B3),
-              backgroundColor: const Color(0x0FFFFFFF),
-              borderColor: const Color(0x1FFFFFFF),
-              horizontalPadding: 26,
-              bottomPadding: 20,
-              items: <ModuleBottomNavItem>[
-                ModuleBottomNavItem(
-                  icon: Icons.home_outlined,
-                  label: 'Home',
-                  onTap: () {},
-                ),
-                ModuleBottomNavItem(
-                  icon: Icons.campaign_outlined,
-                  label: 'Announcement',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AcademyAnnouncementScreen(),
-                      ),
-                    );
-                  },
-                ),
-                ModuleBottomNavItem(
-                  icon: Icons.person_outline_rounded,
-                  label: 'Profile',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AcademyProfileScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            )
-          : null,
+      bottomNavigationBar: null,
     );
   }
 

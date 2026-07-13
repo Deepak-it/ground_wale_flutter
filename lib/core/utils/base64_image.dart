@@ -43,7 +43,7 @@ Widget buildBase64OrNetworkImage({
     return Image.network(
       source,
       fit: fit,
-      errorBuilder: (_, __, ___) => fallback,
+      errorBuilder: (_, error, stackTrace) => fallback,
     );
   }
 
@@ -55,6 +55,6 @@ Widget buildBase64OrNetworkImage({
   return Image.memory(
     bytes,
     fit: fit,
-    errorBuilder: (_, __, ___) => fallback,
+    errorBuilder: (_, error, stackTrace) => fallback,
   );
 }

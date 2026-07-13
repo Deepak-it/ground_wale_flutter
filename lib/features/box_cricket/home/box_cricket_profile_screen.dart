@@ -2,22 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import '../../../core/utils/base64_image.dart';
 import '../../sports_neo/home/sports_neo_onboarding_flow.dart';
 import 'box_cricket_bank_account_screen.dart';
-import 'box_cricket_bottom_nav.dart';
-import 'box_cricket_dashboard_screen.dart';
 import 'box_cricket_earning_screen.dart';
 import 'box_cricket_edit_ground_screen.dart';
 import 'box_cricket_help_support_screen.dart';
-import 'box_cricket_edit_profile_screen.dart';
 import 'box_cricket_manage_slots_screen.dart';
 import 'box_cricket_notification_screen.dart';
 import 'box_cricket_payment_settings_screen.dart';
 import 'box_cricket_pricing_charges_screen.dart';
 import 'box_cricket_reports_earnings_screen.dart';
 import 'box_cricket_terms_policy_screen.dart';
-import 'box_cricket_upcoming_bookings_screen.dart';
 
 class BoxCricketProfileScreen extends StatefulWidget {
   const BoxCricketProfileScreen({super.key, this.showBottomNav = true});
@@ -31,7 +26,6 @@ class BoxCricketProfileScreen extends StatefulWidget {
 
 class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
   bool _isLoading = true;
-  Map<String, dynamic> _profile = <String, dynamic>{};
   Map<String, dynamic> _ground = <String, dynamic>{};
   Map<String, dynamic> _bankAccount = <String, dynamic>{};
 
@@ -73,8 +67,6 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final Map<String, dynamic> profile = await GroundWaleApi.instance
-          .getOwnerProfile(ownerId);
       final String? groundId = await _resolveGroundId();
 
       Map<String, dynamic> ground = <String, dynamic>{};
@@ -101,7 +93,6 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
         return;
       }
       setState(() {
-        _profile = profile;
         _ground = ground;
         _bankAccount = bankAccount;
         _isLoading = false;
@@ -136,17 +127,6 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
       return '$bankName linked';
     }
     return 'No bank account linked';
-  }
-
-  Future<void> _openEditProfile() async {
-    final bool? updated = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => const BoxCricketEditProfileScreen(),
-      ),
-    );
-    if (updated == true) {
-      await _load();
-    }
   }
 
   Future<void> _openEditGround() async {
@@ -289,15 +269,6 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String ownerName =
-        _profile['ownerName']?.toString().trim().isNotEmpty == true
-        ? _profile['ownerName'].toString().trim()
-        : (ApiSession.instance.ownerName ?? 'Owner');
-    final String contact =
-        _profile['contactNumber']?.toString() ??
-        ApiSession.instance.contactNumber ??
-        '';
-
     final String groundName =
         _ground['groundName']?.toString().trim().isNotEmpty == true
         ? _ground['groundName'].toString().trim()
@@ -319,15 +290,8 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
                 onRefresh: _load,
                 color: const Color(0xFF08B36A),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   children: <Widget>[
-                    _HeaderCard(
-                      ownerName: ownerName,
-                      contactNumber: contact,
-                      profileImage: _profile['profileImage']?.toString(),
-                      onEditTap: _openEditProfile,
-                    ),
-                    const SizedBox(height: 16),
                     _GroundCard(
                       groundName: groundName,
                       subtitle: groundSubtitle,
@@ -376,8 +340,9 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    const BoxCricketManageSlotsScreen(),
+                                builder: (_) => BoxCricketManageSlotsScreen(
+                                  showBottomNav: widget.showBottomNav,
+                                ),
                               ),
                             );
                           },
@@ -504,34 +469,7 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
                 ),
               ),
       ),
-      bottomNavigationBar: widget.showBottomNav
-          ? BoxCricketBottomNav(
-        currentIndex: 3,
-        onHome: () {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketDashboardScreen(),
-            ),
-            (Route<dynamic> route) => false,
-          );
-        },
-        onAnnouncement: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketUpcomingBookingsScreen(),
-            ),
-          );
-        },
-        onSlots: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketManageSlotsScreen(),
-            ),
-          );
-        },
-        onProfile: () {},
-      )
-          : null,
+      bottomNavigationBar: null,
     );
   }
 
@@ -540,139 +478,6 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
       margin: const EdgeInsets.symmetric(vertical: 2),
       height: 1,
       color: const Color(0x33FFFFFF),
-    );
-  }
-}
-
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({
-    required this.ownerName,
-    required this.contactNumber,
-    required this.profileImage,
-    required this.onEditTap,
-  });
-
-  final String ownerName;
-  final String contactNumber;
-  final String? profileImage;
-  final VoidCallback onEditTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 194,
-      decoration: const BoxDecoration(
-        color: Color(0x08FFFFFF),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-      ),
-      child: Stack(
-        children: <Widget>[
-          Positioned(
-            right: -30,
-            top: 14,
-            child: Container(
-              width: 191,
-              height: 191,
-              decoration: const BoxDecoration(
-                color: Color(0x0AFFFFFF),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 44,
-            top: 88,
-            child: Container(
-              width: 126,
-              height: 126,
-              decoration: const BoxDecoration(
-                color: Color(0x0AFFFFFF),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 58, 16, 16),
-            child: Row(
-              children: <Widget>[
-                Container(
-                  width: 56,
-                  height: 56,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: const BoxDecoration(
-                    color: Color(0x2208B36A),
-                    shape: BoxShape.circle,
-                  ),
-                  child: buildBase64OrNetworkImage(
-                    value: profileImage,
-                    fit: BoxFit.cover,
-                    fallback: const Icon(
-                      Icons.person_outline_rounded,
-                      color: Color(0xFF08B36A),
-                      size: 32,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        ownerName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        contactNumber,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                InkWell(
-                  onTap: onEditTap,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: const Color(0x3DFFFFFF),
-                    ),
-                    child: const Text(
-                      'Edit',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

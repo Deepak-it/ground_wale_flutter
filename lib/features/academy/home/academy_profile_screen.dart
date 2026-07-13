@@ -2,14 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import '../../../core/utils/base64_image.dart';
-import '../../../core/widgets/module_bottom_nav.dart';
 
 import 'academy_communication_settings_screen.dart';
-import 'academy_announcement_screen.dart';
 import 'academy_change_password_screen.dart';
 import 'academy_batch_timings_screen.dart';
-import 'academy_dashboard_screen.dart';
 import 'academy_contact_support_screen.dart';
 import 'academy_edit_academy_info_screen.dart';
 import 'academy_edit_profile_screen.dart';
@@ -32,7 +28,6 @@ class AcademyProfileScreen extends StatefulWidget {
 
 class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
   bool _isLoadingAcademyInfo = true;
-  Map<String, dynamic> _profile = <String, dynamic>{};
   String _academyName = 'Omninos Academy';
   String _academyAddress = 'Sector 118, Mohali near flower shop, airport road';
   String _academyPhone = '011-23456789';
@@ -80,7 +75,6 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
           : _academyPhone;
 
       setState(() {
-        _profile = profile;
         _academyName = academyName;
         _academyAddress = academyAddress;
         _academyPhone = academyPhone;
@@ -100,27 +94,12 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
       body: SafeArea(
         child: Column(
           children: <Widget>[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
-              child: Center(
-                child: Text(
-                  'Profile',
-                  style: TextStyle(
-                    color: Color(0xFFE6F7F4),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Center(child: _ProfileHeaderCard(profile: _profile)),
-                    const SizedBox(height: 24),
                     _Section(
                       title: 'Academy Info',
                       trailing: GestureDetector(
@@ -165,8 +144,7 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      const AcademyEditProfileScreen(),
+                                  builder: (_) => const AcademyEditProfileScreen(),
                                 ),
                               );
                             },
@@ -179,8 +157,7 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      const AcademyChangePasswordScreen(),
+                                  builder: (_) => const AcademyChangePasswordScreen(),
                                 ),
                               );
                             },
@@ -357,50 +334,7 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: widget.showBottomNav
-          ? ModuleBottomNav(
-        currentIndex: 2,
-        activeColor: const Color(0xFF00C9A7),
-        inactiveColor: const Color(0xFF9FB9B3),
-        backgroundColor: const Color(0x0FFFFFFF),
-        borderColor: const Color(0x1FFFFFFF),
-        horizontalPadding: 22,
-        bottomPadding: 20,
-        items: <ModuleBottomNavItem>[
-          ModuleBottomNavItem(
-            icon: Icons.home_outlined,
-            label: 'Home',
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          ModuleBottomNavItem(
-            icon: Icons.campaign_outlined,
-            label: 'Announcement',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => AcademyAnnouncementScreen(
-                    onHomeTap: () {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AcademyDashboardScreen(),
-                        ),
-                        (Route<dynamic> route) => route.isFirst,
-                      );
-                    },
-                    onProfileTap: () => Navigator.of(context).maybePop(),
-                  ),
-                ),
-              );
-            },
-          ),
-          ModuleBottomNavItem(
-            icon: Icons.person_outline_rounded,
-            label: 'Profile',
-            onTap: () {},
-          ),
-        ],
-      )
-          : null,
+      bottomNavigationBar: null,
     );
   }
 
@@ -553,122 +487,6 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
     if (mounted) {
       setState(() => _isLoggingOut = false);
     }
-  }
-}
-
-class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard({required this.profile});
-
-  final Map<String, dynamic> profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final String ownerName =
-      profile['ownerName']?.toString().trim().isNotEmpty == true
-      ? profile['ownerName'].toString().trim()
-      : 'Akash';
-    final String contact =
-      profile['contactNumber']?.toString().trim().isNotEmpty == true
-      ? profile['contactNumber'].toString().trim()
-      : '+91 98765 43210';
-    final String email =
-      profile['email']?.toString().trim().isNotEmpty == true
-      ? profile['email'].toString().trim()
-      : 'akash@cricketturf.com';
-    final String initials = ownerName.isNotEmpty
-      ? ownerName
-          .split(RegExp(r'\s+'))
-          .where((String part) => part.isNotEmpty)
-          .take(2)
-          .map((String part) => part[0].toUpperCase())
-          .join()
-      : 'AK';
-
-    return Column(
-      children: <Widget>[
-        Stack(
-          children: <Widget>[
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0x0FFFFFFF), width: 3),
-                color: const Color(0xFF203A43),
-              ),
-              alignment: Alignment.center,
-              clipBehavior: Clip.antiAlias,
-              child: buildBase64OrNetworkImage(
-                value: profile['profileImage']?.toString(),
-                fit: BoxFit.cover,
-                fallback: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: Color(0xFFE6F7F4),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00C9A7),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF0F2027), width: 2),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.edit_rounded,
-                  color: Colors.white,
-                  size: 14,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          ownerName,
-          style: const TextStyle(
-            color: Color(0xFFE6F7F4),
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0x2600C9A7),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: const Text(
-            'Coach / Admin',
-            style: TextStyle(
-              color: Color(0xFF00C9A7),
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '$contact  •  $email',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF9FB9B3),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
   }
 }
 

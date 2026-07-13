@@ -5,15 +5,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import '../../../core/utils/ist_greeting.dart';
 import '../../ground/flow/controllers/ground_flow_controller.dart';
 import '../../ground/flow/screens/register_ground_flow_screen.dart';
 import 'box_cricket_add_booking_screen.dart';
 import 'box_cricket_booking_details_screen.dart';
-import 'box_cricket_bottom_nav.dart';
 import 'box_cricket_earning_screen.dart';
 import 'box_cricket_manage_slots_screen.dart';
-import 'box_cricket_profile_screen.dart';
 import 'box_cricket_upcoming_bookings_screen.dart';
 
 class BoxCricketDashboardScreen extends StatefulWidget {
@@ -595,18 +592,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     );
   }
 
-  void _openProfile() {
-    if (!widget.showBottomNav && widget.onOpenProfile != null) {
-      widget.onOpenProfile!.call();
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const BoxCricketProfileScreen(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final int todaysEarnings = _toInt(_dashboard['todaysEarnings']);
@@ -620,12 +605,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       ? _toInt(_dashboard['slotStatus']?['blocked'])
       : (_selectedGroundSlotSummary['blocked'] ?? 0);
     final int totalSlots = availableSlots + bookedSlots + blockedSlots;
-
-    final String ownerName =
-        ApiSession.instance.ownerName?.trim().isNotEmpty == true
-        ? ApiSession.instance.ownerName!.trim()
-        : 'Owner';
-    final String greetingMessage = istGreetingMessage(ownerName);
 
     final List<Map<String, dynamic>> bookings = _selectedGroundId == null
         ? _upcomingBookings()
@@ -664,55 +643,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 92),
                   children: <Widget>[
-                    if (widget.showBottomNav) ...<Widget>[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: const Color(0x14FFFFFF),
-                                  ),
-                                ),
-                                child: IconButton(
-                                  onPressed: () {
-                                    Navigator.of(context).maybePop();
-                                  },
-                                  icon: const Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    size: 18,
-                                    color: Color(0xFFDDF730),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                greetingMessage,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: <Widget>[
-                              _iconChip(Icons.campaign_outlined),
-                              const SizedBox(width: 12),
-                              _iconChip(Icons.notifications_none_rounded),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
                     if (_isGroundDataLoading) ...<Widget>[
                       const SizedBox(height: 8),
                       const LinearProgressIndicator(
@@ -1063,15 +993,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                 ),
               ),
       ),
-      bottomNavigationBar: widget.showBottomNav
-          ? BoxCricketBottomNav(
-              currentIndex: 0,
-              onHome: () {},
-              onAnnouncement: _openBookings,
-              onSlots: _openSlots,
-              onProfile: _openProfile,
-            )
-          : null,
+      bottomNavigationBar: null,
     );
   }
 
@@ -1080,19 +1002,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: const Color(0x1FFFFFFF)),
       color: const Color(0x0AFFFFFF),
-    );
-  }
-
-  Widget _iconChip(IconData icon) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: const Color(0x0AFFFFFF),
-        border: Border.all(color: const Color(0x1FFFFFFF)),
-      ),
-      child: Icon(icon, size: 21, color: const Color(0xFFE6F7F4)),
     );
   }
 
@@ -1456,9 +1365,9 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     final String location =
         ground['location']?.toString() ?? 'Location not available';
     final String rating = ground['rating']?.toString() ?? '4.6';
-    final String _imgA = ground['image']?.toString() ?? '';
-    final String _imgB = ground['imageUrl']?.toString() ?? '';
-    final String imageValue = _imgA.isNotEmpty ? _imgA : _imgB;
+    final String imgA = ground['image']?.toString() ?? '';
+    final String imgB = ground['imageUrl']?.toString() ?? '';
+    final String imageValue = imgA.isNotEmpty ? imgA : imgB;
     final String groundId =
         ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
     final List<dynamic> rawFacilities =
@@ -1608,7 +1517,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                             ),
                           ),
                         )
-                        .toList(),
+                        ,
                     // +Add facilities chip
                     GestureDetector(
                       onTap: () => _addFacilityToGround(groundId, facilities),

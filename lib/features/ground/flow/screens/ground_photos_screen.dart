@@ -160,7 +160,7 @@ class _GroundPhotosScreenState extends State<GroundPhotosScreen> {
       return Image.memory(
         base64Decode(normalized),
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const Center(
+        errorBuilder: (_, error, stackTrace) => const Center(
           child: Icon(Icons.broken_image_outlined, color: Colors.white54),
         ),
       );

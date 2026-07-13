@@ -187,17 +187,17 @@ class _SportsNeoSettingsScreenState extends State<SportsNeoSettingsScreen> {
       await _api.logout();
     } catch (_) {
       // Clear session even if server logout fails.
-    } finally {
-      ApiSession.instance.clear();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _isSaving = false);
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const SportsNeoWelcomeScreen()),
-        (Route<dynamic> route) => false,
-      );
     }
+
+    ApiSession.instance.clear();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isSaving = false);
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const SportsNeoWelcomeScreen()),
+      (Route<dynamic> route) => false,
+    );
   }
 
   void _togglePushNotification(bool value) {
@@ -479,7 +479,7 @@ class _SettingRow extends StatelessWidget {
             child: Switch(
               value: value,
               onChanged: onChanged,
-              activeColor: Colors.white,
+              activeThumbColor: Colors.white,
               activeTrackColor: const Color(0xFF2563EB),
               inactiveThumbColor: Colors.white,
               inactiveTrackColor: const Color(0xFF3A4568),

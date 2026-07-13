@@ -403,7 +403,7 @@ class _FormFieldCard extends StatelessWidget {
               decoration: InputDecoration(border: InputBorder.none, hintText: hintText, hintStyle: const TextStyle(color: Color(0x99FFFFFF), fontFamily: 'Poppins', fontWeight: FontWeight.w500)),
             ),
           ),
-          if (trailing != null) trailing!,
+          if (trailing case final Widget trailingWidget) trailingWidget,
         ],
       ),
     );

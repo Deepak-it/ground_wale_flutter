@@ -3,10 +3,6 @@ import 'package:ground_wale/core/widgets/app_text_field.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import 'box_cricket_bottom_nav.dart';
-import 'box_cricket_dashboard_screen.dart';
-import 'box_cricket_profile_screen.dart';
-import 'box_cricket_upcoming_bookings_screen.dart';
 
 class BoxCricketManageSlotsScreen extends StatefulWidget {
   const BoxCricketManageSlotsScreen({
@@ -898,54 +894,27 @@ class _BoxCricketManageSlotsScreenState
                 onRefresh: _load,
                 color: const Color(0xFF08B36A),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   children: <Widget>[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            SizedBox(
-                              width: 44,
-                              height: 44,
-                              child: IconButton(
-                                onPressed: () =>
-                                    Navigator.of(context).maybePop(),
-                                icon: const Icon(
-                                  Icons.arrow_back_ios_new_rounded,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Manage Slots',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        InkWell(
-                          onTap: _showAddSheet,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: const Color(0x1F08B36A),
-                            ),
-                            child: const Icon(
-                              Icons.add,
-                              color: Color(0xFF08B36A),
-                            ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: InkWell(
+                        onTap: _showAddSheet,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0x1F08B36A),
+                          ),
+                          child: const Icon(
+                            Icons.add,
+                            color: Color(0xFF08B36A),
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     const Text(
                       'Select Ground',
                       style: TextStyle(
@@ -1044,34 +1013,7 @@ class _BoxCricketManageSlotsScreenState
                 ),
               ),
       ),
-      bottomNavigationBar: widget.showBottomNav
-          ? BoxCricketBottomNav(
-        currentIndex: 2,
-        onHome: () {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketDashboardScreen(),
-            ),
-            (Route<dynamic> route) => false,
-          );
-        },
-        onAnnouncement: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketUpcomingBookingsScreen(),
-            ),
-          );
-        },
-        onSlots: () {},
-        onProfile: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketProfileScreen(),
-            ),
-          );
-        },
-      )
-          : null,
+      bottomNavigationBar: null,
     );
   }
 

@@ -200,12 +200,14 @@ class _BoxCricketAddBookingScreenState
     }
 
     final String? groundId = await _resolveGroundId();
+    if (!mounted) {
+      return;
+    }
+
     if (groundId == null || groundId.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a ground first.')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a ground first.')),
+      );
       return;
     }
     ApiSession.instance.setGroundId(groundId);
@@ -224,9 +226,11 @@ class _BoxCricketAddBookingScreenState
       ),
     );
 
-    if (mounted) {
-      _loadSlots();
+    if (!mounted) {
+      return;
     }
+
+    _loadSlots();
   }
 
   @override
