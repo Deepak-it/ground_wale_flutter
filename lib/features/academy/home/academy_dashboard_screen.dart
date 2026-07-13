@@ -194,6 +194,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     return 0;
   }
 
+  // ignore: unused_element
   List<Map<String, String>> _academyFeePlans(Map<String, dynamic> academy) {
     final dynamic batchRaw = academy['batch'];
     if (batchRaw is Map) {

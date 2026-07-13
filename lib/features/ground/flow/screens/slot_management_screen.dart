@@ -144,6 +144,11 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
   }
 
   Future<void> _loadFromApi() async {
+    // Registration mode: no ground exists yet, skip API load.
+    if (widget.controller != null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     final String? groundId = await _resolveGroundId();
     if (groundId == null || groundId.isEmpty) {
       if (mounted) {
@@ -445,10 +450,18 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
     try {
       _syncToFlowData();
 
-      String? groundId = await _resolveGroundId();
-      if ((groundId == null || groundId.isEmpty) && widget.controller != null) {
-        groundId = await widget.controller!.ensureDraftGroundId();
+      // ── Registration mode: no API calls, just navigate ────────────────
+      if (widget.controller != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pricing saved.')),
+        );
+        widget.controller!.nextStep();
+        return;
       }
+
+      // ── Standalone / post-login mode: full API sync ───────────────────
+      String? groundId = await _resolveGroundId();
       if (groundId != null && groundId.isNotEmpty) {
         await _persistGroundConfiguration(groundId);
         await _syncSlotsCollection(groundId);
@@ -496,7 +509,7 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
     if (configured.isNotEmpty) {
       return configured;
     }
-    return 'Day-wise Slots';
+    return 'Day-wise Pricing';
   }
 
   String _dateRangeLabel() {

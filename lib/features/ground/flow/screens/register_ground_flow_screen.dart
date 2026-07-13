@@ -9,7 +9,6 @@ import 'academy_details_screen.dart';
 import 'academy_facilities_screen.dart';
 import 'add_custom_slots_screen.dart';
 import 'basic_details_screen.dart';
-import 'choose_sports_screen.dart';
 import 'choose_role_screen.dart';
 import 'configure_slots_screen.dart';
 import 'ground_details_screen.dart';
@@ -17,7 +16,7 @@ import 'ground_photos_screen.dart';
 import 'ground_review_screen.dart';
 import 'ownership_verification_screen.dart';
 import 'shared_details_screen.dart';
-import 'slot_view_screen.dart';
+import 'slot_management_screen.dart';
 import 'under_review_screen.dart';
 import 'what_to_offer_screen.dart';
 
@@ -27,6 +26,7 @@ class RegisterGroundFlowScreen extends StatefulWidget {
     this.initialController,
     this.initialStep,
     this.onFinish,
+    this.skipUnderReview = false,
   });
 
   final GroundFlowController? initialController;
@@ -34,6 +34,9 @@ class RegisterGroundFlowScreen extends StatefulWidget {
   /// Called when the final Under Review screen's Done button is pressed.
   /// If null the default navigation is used (push GroundCourtOwnerShellScreen).
   final VoidCallback? onFinish;
+  /// When true, step 12 (Under Review) is skipped and [onFinish] is invoked
+  /// immediately so the caller can pop back without showing the review screen.
+  final bool skipUnderReview;
 
   @override
   State<RegisterGroundFlowScreen> createState() =>
@@ -52,10 +55,25 @@ class _RegisterGroundFlowScreenState extends State<RegisterGroundFlowScreen> {
     if (widget.initialStep != null) {
       controller.jumpToStep(widget.initialStep!);
     }
+    if (widget.skipUnderReview) {
+      controller.addListener(_skipUnderReviewListener);
+    }
+  }
+
+  void _skipUnderReviewListener() {
+    // Step 12 = UnderReview for box cricket. Skip it and call onFinish.
+    if (controller.currentStep == 12 && widget.onFinish != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onFinish!();
+      });
+    }
   }
 
   @override
   void dispose() {
+    if (widget.skipUnderReview) {
+      controller.removeListener(_skipUnderReviewListener);
+    }
     if (_ownsController) {
       controller.dispose();
     }
@@ -75,10 +93,10 @@ class _RegisterGroundFlowScreenState extends State<RegisterGroundFlowScreen> {
           SharedDetailsScreen(controller: controller),
           GroundPhotosScreen(controller: controller),
           GroundReviewScreen(controller: controller),
-          ChooseSportsScreen(controller: controller),
+          AcademyFacilitiesScreen(controller: controller),    // 7 — Ground Facilities
           ConfigureSlotsScreen(data: controller.data, controller: controller),
           AddCustomSlotsScreen(data: controller.data, controller: controller),
-          const SlotViewScreen(),
+          SlotManagementScreen(controller: controller),            // 10 — Day-wise Pricing
           OwnershipVerificationScreen(controller: controller),   // 11
           UnderReviewScreen(                                        // 12
             offerType: OfferType.boxCricket,

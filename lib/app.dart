@@ -72,6 +72,13 @@ class GroundWaleApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: _homeForCurrentSession(),
+      builder: (BuildContext context, Widget? child) {
+        return SafeArea(
+          top: true,
+          bottom: true,
+          child: child!,
+        );
+      },
     );
   }
 }

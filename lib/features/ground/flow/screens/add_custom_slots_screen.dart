@@ -171,6 +171,11 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
   }
 
   Future<void> _loadExisting() async {
+    // Registration mode: no ground exists yet, skip API load.
+    if (widget.controller != null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     try {
       final String? groundId = await _resolveGroundId();
       if (groundId == null || groundId.isEmpty) {
@@ -337,6 +342,12 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
   }
 
   Future<void> _editItem(int index) async {
+    // In registration mode: open day-wise pricing screen.
+    if (widget.controller != null) {
+      widget.controller!.jumpToStep(10);
+      return;
+    }
+    // Standalone mode: inline dialog.
     final _CustomSlotDraft item = _items[index];
     final TextEditingController nameCtrl = TextEditingController(
       text: item.slotName,
@@ -511,14 +522,34 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
         ? widget.data.slotViewName
         : _slotNameCtrl.text.trim();
 
-    String? groundId = await _resolveGroundId();
-    if ((groundId == null || groundId.isEmpty) && widget.controller != null) {
-      try {
-        groundId = await widget.controller!.ensureDraftGroundId();
-      } catch (_) {
-        // If draft creation fails, fall through to existing error handling below.
+    // ── Registration mode: store in memory, no API ──────────────────────
+    if (widget.controller != null) {
+      widget.data.customSlotDrafts
+        ..clear()
+        ..addAll(
+          _items.map(
+            (_CustomSlotDraft item) => <String, dynamic>{
+              'name':      item.slotName,
+              'dateFrom':  _apiDate(item.from),
+              'dateTo':    _apiDate(item.to),
+              'startTime': _fmtTime(item.startTime),
+              'endTime':   _fmtTime(item.endTime),
+              'price':     item.price,
+            },
+          ),
+        );
+      widget.data.totalCreatedSlots = _items.length;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Slots saved.')),
+        );
       }
+      widget.controller!.nextStep();
+      return;
     }
+
+    // ── Standalone / post-login mode: full API sync ───────────────────────
+    String? groundId = await _resolveGroundId();
     if (groundId == null || groundId.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -593,6 +624,7 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       if (!mounted) {
         return;
       }
+      widget.data.totalCreatedSlots = _items.length;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('All slots saved successfully.')),
       );
@@ -1204,6 +1236,7 @@ class _CustomSlotDraft {
     required this.startTime,
     required this.endTime,
     required this.isPersisted,
+    this.price = 0,
   });
 
   final String? id;
@@ -1213,6 +1246,7 @@ class _CustomSlotDraft {
   final TimeOfDay startTime;
   final TimeOfDay endTime;
   final bool isPersisted;
+  final int price;
 
   _CustomSlotDraft copyWith({
     String? id,
@@ -1222,6 +1256,7 @@ class _CustomSlotDraft {
     TimeOfDay? startTime,
     TimeOfDay? endTime,
     bool? isPersisted,
+    int? price,
   }) {
     return _CustomSlotDraft(
       id: id ?? this.id,
@@ -1231,6 +1266,7 @@ class _CustomSlotDraft {
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       isPersisted: isPersisted ?? this.isPersisted,
+      price: price ?? this.price,
     );
   }
 }

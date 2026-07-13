@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/ist_greeting.dart';
+import '../../ground/flow/screens/register_ground_flow_screen.dart';
 import 'box_cricket_add_booking_screen.dart';
 import 'box_cricket_booking_details_screen.dart';
 import 'box_cricket_bottom_nav.dart';
@@ -1454,8 +1455,9 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     final String location =
         ground['location']?.toString() ?? 'Location not available';
     final String rating = ground['rating']?.toString() ?? '4.6';
-    final String imageValue =
-        ground['image']?.toString() ?? ground['imageUrl']?.toString() ?? '';
+    final String _imgA = ground['image']?.toString() ?? '';
+    final String _imgB = ground['imageUrl']?.toString() ?? '';
+    final String imageValue = _imgA.isNotEmpty ? _imgA : _imgB;
     final String groundId =
         ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
     final List<dynamic> rawFacilities =
@@ -1584,27 +1586,65 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                 Wrap(
                   spacing: 4,
                   runSpacing: 4,
-                  children: facilities
-                      .map(
-                        (String item) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
-                            color: const Color(0x0AFFFFFF),
-                          ),
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
+                  children: <Widget>[
+                    ...facilities
+                        .map(
+                          (String item) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              color: const Color(0x0AFFFFFF),
+                            ),
+                            child: Text(
+                              item,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
+                        )
+                        .toList(),
+                    // +Add facilities chip
+                    GestureDetector(
+                      onTap: () => _addFacilityToGround(groundId, facilities),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
                         ),
-                      )
-                      .toList(),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0x33DDF730),
+                          ),
+                          color: const Color(0x0ADDF730),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(
+                              Icons.add,
+                              size: 12,
+                              color: Color(0xFFDDF730),
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Add',
+                              style: TextStyle(
+                                color: Color(0xFFDDF730),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -1657,6 +1697,143 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _addFacilityToGround(
+    String groundId,
+    List<String> existingFacilities,
+  ) async {
+    if (groundId.isEmpty) return;
+
+    const List<String> suggestions = <String>[
+      'Parking', 'Cafeteria / Food', 'First Aid', 'Rest Room',
+      'Changing Room', 'Dugout', 'Lighting', 'Wi-Fi',
+      'Locker Room', 'CCTV', 'Water', 'Shower', 'Washroom',
+      'Seating Area', 'AC Hall', 'Equipment Room',
+    ];
+
+    final Set<String> selected = Set<String>.from(existingFacilities);
+
+    final bool? confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext _, StateSetter setSheetState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.4,
+              maxChildSize: 0.92,
+              builder: (BuildContext _, ScrollController sc) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1B1F1B),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    children: <Widget>[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          const Text(
+                            'Manage Facilities',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text(
+                              'Done',
+                              style: TextStyle(color: Color(0xFFDDF730)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView(
+                          controller: sc,
+                          children: <Widget>[
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: suggestions.map((String f) {
+                                final bool isSel = selected.contains(f);
+                                return GestureDetector(
+                                  onTap: () => setSheetState(() {
+                                    if (isSel) {
+                                      selected.remove(f);
+                                    } else {
+                                      selected.add(f);
+                                    }
+                                  }),
+                                  child: Container(
+                                    height: 42,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isSel
+                                            ? const Color(0xFFDDF730)
+                                            : const Color(0x1FFFFFFF),
+                                      ),
+                                      color: isSel
+                                          ? const Color(0x14DDF730)
+                                          : const Color(0x0FFFFFFF),
+                                    ),
+                                    child: Text(
+                                      f,
+                                      style: TextStyle(
+                                        color: isSel
+                                            ? const Color(0xFFDDF730)
+                                            : Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await GroundWaleApi.instance.updateGround(
+        groundId,
+        <String, dynamic>{'facilities': selected.toList()},
+      );
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 
   Widget _groundImageWidget(String imageValue) {
@@ -1715,7 +1892,21 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   }
 
   Widget _addFacilityCard() {
-    return Container(
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => RegisterGroundFlowScreen(
+              skipUnderReview: true,
+              onFinish: () {
+                Navigator.of(context).pop();
+                _load();
+              },
+            ),
+          ),
+        );
+      },
+      child: Container(
       width: 263,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -1754,7 +1945,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           ),
         ],
       ),
-    );
+    ),   // Container
+    );   // GestureDetector
   }
 
   Widget _bookingCard(Map<String, dynamic> booking) {

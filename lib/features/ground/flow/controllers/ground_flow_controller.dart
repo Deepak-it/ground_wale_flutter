@@ -63,7 +63,14 @@ class GroundFlowController extends ChangeNotifier {
         default: next = currentStep + 1;
       }
     } else {
-      next = currentStep + 1;
+      // Ground / Box Cricket flow
+      switch (currentStep) {
+        case 7:  next = 8;  break; // Facilities → Configure Slot review
+        case 9:  next = 8;  break; // Add Custom Slots → Configure Slot review
+        case 10: next = 8;  break; // Day-wise Pricing → Configure Slot review
+        case 8:  next = 11; break; // Configure Slot review → Ownership Verification
+        default: next = currentStep + 1;
+      }
     }
     if (next < totalSteps) {
       currentStep = next;
@@ -92,7 +99,14 @@ class GroundFlowController extends ChangeNotifier {
         default: prev = currentStep - 1;
       }
     } else {
-      prev = currentStep - 1;
+      // Ground / Box Cricket flow
+      switch (currentStep) {
+        case 8:  prev = 7;  break; // Configure Slot review → Facilities
+        case 9:  prev = 8;  break; // Add Custom Slots → Configure Slot review
+        case 10: prev = 8;  break; // Day-wise Pricing → Configure Slot review
+        case 11: prev = 8;  break; // Ownership → Configure Slot review (ground path)
+        default: prev = currentStep - 1;
+      }
     }
     if (prev >= 0) {
       currentStep = prev;
