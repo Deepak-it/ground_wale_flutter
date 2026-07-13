@@ -137,6 +137,12 @@ class GroundFlowController extends ChangeNotifier {
     }
   }
 
+  String _dateOnlyString(DateTime date) {
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
   Map<String, dynamic> _groundPayload() {
     final bool academy = isAcademyFlow;
     final String entityName = academy
@@ -178,8 +184,8 @@ class GroundFlowController extends ChangeNotifier {
       'groundImages': data.groundImages,
       'ownershipProof': data.ownershipProof,
       'openingTime': data.openingTime,
-      'startDate': data.startDate.toIso8601String(),
-      'endDate': data.endDate.toIso8601String(),
+      'startDate': _dateOnlyString(data.startDate),
+      'endDate': _dateOnlyString(data.endDate),
       'slotSize': data.slotSize,
       'gap': data.gap,
       'matchType': data.matchType,

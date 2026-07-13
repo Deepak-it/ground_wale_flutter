@@ -165,6 +165,12 @@ class _AcademyMarkAttendanceScreenState
   int get _absentCount =>
       _students.where((s) => s.status == _AttendanceStatus.absent).length;
 
+  String _dateOnlyString(DateTime date) {
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
   String get _selectedDateLabel {
     final DateTime now = DateTime.now();
     final bool isToday =
@@ -251,8 +257,6 @@ class _AcademyMarkAttendanceScreenState
       _selectedDate.year,
       _selectedDate.month,
       _selectedDate.day,
-      DateTime.now().hour,
-      DateTime.now().minute,
     );
 
     setState(() => _isSaving = true);
@@ -261,7 +265,7 @@ class _AcademyMarkAttendanceScreenState
         ownerId,
         <String, dynamic>{
           'batchId': batchId,
-          'date': date.toIso8601String(),
+          'date': _dateOnlyString(date),
           'entries': entries,
         },
       );

@@ -510,6 +510,12 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
     return double.tryParse(digits) ?? 0;
   }
 
+  String _dateOnlyString(DateTime date) {
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
   Future<void> _save() async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
@@ -528,6 +534,11 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
         ? DateTime.now()
         : DateTime.tryParse(_joiningDateController.text.trim()) ??
               DateTime.now();
+    final DateTime joinDateOnly = DateTime(
+      joinDate.year,
+      joinDate.month,
+      joinDate.day,
+    );
 
     setState(() => _isSaving = true);
     try {
@@ -542,7 +553,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
             'phone': _phoneController.text.trim(),
             if (_selectedBatchId != null && _selectedBatchId!.isNotEmpty)
               'batchId': _selectedBatchId,
-            'joinDate': joinDate.toIso8601String(),
+            'joinDate': _dateOnlyString(joinDateOnly),
             'monthlyFee': amount,
           });
 
@@ -564,9 +575,8 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
               });
         }
       } else if (amount > 0) {
-        final DateTime now = DateTime.now();
         final String monthKey =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}';
+            '${joinDateOnly.year}-${joinDateOnly.month.toString().padLeft(2, '0')}';
         await GroundWaleApi.instance.createAcademyFee(ownerId, <String, dynamic>{
           'academyId': _selectedAcademyId,
           'studentId': widget.studentId,

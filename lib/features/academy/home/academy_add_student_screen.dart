@@ -156,6 +156,12 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     return double.tryParse(digits) ?? 0;
   }
 
+  String _dateOnlyString(DateTime date) {
+    final String month = date.month.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
   Future<void> _pickJoiningDate() async {
     final DateTime now = DateTime.now();
     final DateTime initial =
@@ -282,6 +288,11 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
         _joiningController.text.trim().toLowerCase() == 'today'
         ? DateTime.now()
         : DateTime.tryParse(_joiningController.text.trim()) ?? DateTime.now();
+    final DateTime joinDateOnly = DateTime(
+      joinDate.year,
+      joinDate.month,
+      joinDate.day,
+    );
 
     setState(() => _isSaving = true);
     try {
@@ -296,16 +307,15 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
             'phone': _phoneController.text.trim(),
             'batchId': selectedBatch == null ? null : _batchId(selectedBatch),
             'batchName': selectedBatch?['name']?.toString() ?? _batchController.text.trim(),
-            'joinDate': joinDate.toIso8601String(),
+            'joinDate': _dateOnlyString(joinDateOnly),
             'monthlyFee': monthlyFee,
             'status': 'active',
           });
 
       final String studentId = student['_id']?.toString() ?? '';
       if (studentId.isNotEmpty && monthlyFee > 0) {
-        final DateTime now = DateTime.now();
         final String monthKey =
-            '${now.year}-${now.month.toString().padLeft(2, '0')}';
+            '${joinDateOnly.year}-${joinDateOnly.month.toString().padLeft(2, '0')}';
         final bool paid = _feesStatus.toLowerCase() == 'paid';
         await GroundWaleApi.instance.createAcademyFee(ownerId, <String, dynamic>{
           'academyId': _selectedAcademyId,
