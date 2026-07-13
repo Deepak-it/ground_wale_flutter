@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/ist_greeting.dart';
+import '../../ground/flow/controllers/ground_flow_controller.dart';
 import '../../ground/flow/screens/register_ground_flow_screen.dart';
 import 'box_cricket_add_booking_screen.dart';
 import 'box_cricket_booking_details_screen.dart';
@@ -1892,20 +1893,31 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   }
 
   Widget _addFacilityCard() {
-    return GestureDetector(
-      onTap: () async {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => RegisterGroundFlowScreen(
-              skipUnderReview: true,
-              onFinish: () {
-                Navigator.of(context).pop();
-                _load();
-              },
-            ),
+    Future<void> openCreateGroundFlow() async {
+      final GroundFlowController flowController = GroundFlowController();
+      flowController.data.ownerName = ApiSession.instance.ownerName ?? '';
+      flowController.data.contactNumber = ApiSession.instance.contactNumber ?? '';
+      flowController.data.otpVerified = true;
+      flowController.skipOwnershipVerification = true;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => RegisterGroundFlowScreen(
+            initialController: flowController,
+            initialStep: 3,
+            skipUnderReview: true,
+            forceCreateGround: true,
+            onFinish: () {
+              Navigator.of(context).pop();
+              _load();
+            },
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: openCreateGroundFlow,
       child: Container(
       width: 263,
       decoration: BoxDecoration(
@@ -1929,7 +1941,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           SizedBox(
             width: 229,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: openCreateGroundFlow,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFDDF730),
                 foregroundColor: const Color(0xFF242424),

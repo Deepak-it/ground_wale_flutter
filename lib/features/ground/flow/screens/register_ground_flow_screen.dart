@@ -27,6 +27,7 @@ class RegisterGroundFlowScreen extends StatefulWidget {
     this.initialStep,
     this.onFinish,
     this.skipUnderReview = false,
+    this.forceCreateGround = false,
   });
 
   final GroundFlowController? initialController;
@@ -37,6 +38,9 @@ class RegisterGroundFlowScreen extends StatefulWidget {
   /// When true, step 12 (Under Review) is skipped and [onFinish] is invoked
   /// immediately so the caller can pop back without showing the review screen.
   final bool skipUnderReview;
+  /// When true, submitting the flow creates a new ground even if session already
+  /// has an existing groundId.
+  final bool forceCreateGround;
 
   @override
   State<RegisterGroundFlowScreen> createState() =>
@@ -52,6 +56,7 @@ class _RegisterGroundFlowScreenState extends State<RegisterGroundFlowScreen> {
     super.initState();
     controller = widget.initialController ?? GroundFlowController();
     _ownsController = widget.initialController == null;
+    controller.forceCreateGround = widget.forceCreateGround;
     if (widget.initialStep != null) {
       controller.jumpToStep(widget.initialStep!);
     }

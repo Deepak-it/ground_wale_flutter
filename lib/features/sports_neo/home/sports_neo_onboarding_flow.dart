@@ -1472,6 +1472,7 @@ class _SportsNeoCompleteProfileScreenState
                               builder: (_) => RegisterGroundFlowScreen(
                                 initialController: flowController,
                                 initialStep: 3,
+                                forceCreateGround: true,
                               ),
                             ),
                           );

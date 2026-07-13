@@ -17,6 +17,7 @@ class GroundFlowController extends ChangeNotifier {
   bool isBusy = false;
   String? errorMessage;
   bool skipOwnershipVerification = false;
+  bool forceCreateGround = false;
 
   bool get isAcademyFlow => data.offerType == OfferType.academyCoaching;
   bool get isBoxCricketFlow => data.offerType == OfferType.boxCricket || data.offerType == null;
@@ -68,7 +69,7 @@ class GroundFlowController extends ChangeNotifier {
         case 7:  next = 8;  break; // Facilities → Configure Slot review
         case 9:  next = 8;  break; // Add Custom Slots → Configure Slot review
         case 10: next = 8;  break; // Day-wise Pricing → Configure Slot review
-        case 8:  next = 11; break; // Configure Slot review → Ownership Verification
+        case 8:  next = skipOwnershipVerification ? 12 : 11; break; // Configure Slot review → skip or Ownership Verification
         default: next = currentStep + 1;
       }
     }
@@ -105,6 +106,7 @@ class GroundFlowController extends ChangeNotifier {
         case 9:  prev = 8;  break; // Add Custom Slots → Configure Slot review
         case 10: prev = 8;  break; // Day-wise Pricing → Configure Slot review
         case 11: prev = 8;  break; // Ownership → Configure Slot review (ground path)
+        case 12: prev = skipOwnershipVerification ? 8 : 11; break; // Under Review → Configure Slot review or Ownership
         default: prev = currentStep - 1;
       }
     }
@@ -312,7 +314,7 @@ class GroundFlowController extends ChangeNotifier {
       } else {
         // ── Ground / Box Cricket path ──
         Map<String, dynamic> ground;
-        if (_session.hasGround) {
+        if (_session.hasGround && !forceCreateGround) {
           ground = await _api.updateGround(_session.groundId!, _groundPayload());
         } else {
           ground = await _api.createGround(_groundPayload());
@@ -341,17 +343,19 @@ class GroundFlowController extends ChangeNotifier {
   }
 
   Future<String?> ensureDraftGroundId() async {
-    if (_session.hasGround) {
+    if (_session.hasGround && !forceCreateGround) {
       return _session.groundId;
     }
     if (!_session.isAuthenticated || _session.ownerId == null) {
       return null;
     }
 
-    final String? existing = await _api.ensureGroundIdForOwner(_session.ownerId!);
-    if (existing != null && existing.isNotEmpty) {
-      _session.setGroundId(existing);
-      return existing;
+    if (!forceCreateGround) {
+      final String? existing = await _api.ensureGroundIdForOwner(_session.ownerId!);
+      if (existing != null && existing.isNotEmpty) {
+        _session.setGroundId(existing);
+        return existing;
+      }
     }
 
     final Map<String, dynamic> created = await _api.createGround(_groundPayload());
@@ -361,6 +365,8 @@ class GroundFlowController extends ChangeNotifier {
       return null;
     }
     _session.setGroundId(createdId);
+    // A draft has been created; follow-up submit should update/submit this draft.
+    forceCreateGround = false;
     return createdId;
   }
 }

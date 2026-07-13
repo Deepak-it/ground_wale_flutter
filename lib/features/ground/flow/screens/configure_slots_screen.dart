@@ -82,6 +82,11 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
           'status':    'available',
         });
       }
+
+      if (!ctrl.isAcademyFlow && ctrl.skipOwnershipVerification) {
+        await ctrl.submitGroundForVerification();
+      }
+
       if (!mounted) return;
       ctrl.nextStep();
     } catch (error) {

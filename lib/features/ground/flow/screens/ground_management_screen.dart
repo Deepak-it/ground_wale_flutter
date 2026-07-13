@@ -48,7 +48,11 @@ class GroundManagementScreen extends StatelessWidget {
                   label: 'Register Ground',
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => const RegisterGroundFlowScreen()),
+                      MaterialPageRoute<void>(
+                        builder: (_) => const RegisterGroundFlowScreen(
+                          forceCreateGround: true,
+                        ),
+                      ),
                     );
                   },
                 ),

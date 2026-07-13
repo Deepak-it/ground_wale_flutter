@@ -452,6 +452,10 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
 
       // ── Registration mode: no API calls, just navigate ────────────────
       if (widget.controller != null) {
+        if (!widget.controller!.isAcademyFlow &&
+            widget.controller!.skipOwnershipVerification) {
+          await widget.controller!.submitGroundForVerification();
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pricing saved.')),

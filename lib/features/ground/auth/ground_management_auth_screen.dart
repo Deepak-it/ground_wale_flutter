@@ -217,7 +217,9 @@ class _GroundManagementAuthScreenState
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => const RegisterGroundFlowScreen(),
+                          builder: (_) => const RegisterGroundFlowScreen(
+                            forceCreateGround: true,
+                          ),
                         ),
                       );
                     },
