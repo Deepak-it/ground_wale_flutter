@@ -350,7 +350,7 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
     return Container(
       height: 72,
       decoration: const BoxDecoration(
-        color: Color(0xFF0F2027),
+        color: Color(0xFF1B1F1B),
         border: Border(top: BorderSide(color: Color(0x1FFFFFFF))),
       ),
       child: Row(
