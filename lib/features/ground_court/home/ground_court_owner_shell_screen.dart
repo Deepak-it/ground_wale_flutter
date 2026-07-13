@@ -10,6 +10,9 @@ import '../../box_cricket/home/box_cricket_dashboard_screen.dart';
 import '../../box_cricket/home/box_cricket_manage_slots_screen.dart';
 import '../../box_cricket/home/box_cricket_profile_screen.dart';
 import '../../box_cricket/home/box_cricket_upcoming_bookings_screen.dart';
+import '../../ground/flow/controllers/ground_flow_controller.dart';
+import '../../ground/flow/models/ground_registration_data.dart';
+import '../../ground/flow/screens/register_ground_flow_screen.dart';
 
 class GroundCourtOwnerShellScreen extends StatefulWidget {
   const GroundCourtOwnerShellScreen({super.key});
@@ -89,87 +92,42 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
       return;
     }
 
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController cityController = TextEditingController();
-    final bool? shouldCreate = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF203A43),
-          title: const Text('Add Academy', style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Academy Name',
-                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: cityController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'City (optional)',
-                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
-                ),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldCreate != true) {
-      return;
-    }
+    final GroundFlowController flowController = GroundFlowController();
+    flowController.data.offerType = OfferType.academyCoaching;
+    flowController.data.ownerName = ApiSession.instance.ownerName ?? '';
+    flowController.data.contactNumber = ApiSession.instance.contactNumber ?? '';
+    flowController.data.otpVerified = true;
+    flowController.skipOwnershipVerification = true;
 
     if (!mounted) {
       return;
     }
 
-    final String name = nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Academy name is required')),
-      );
-      return;
-    }
-
-    try {
-      await GroundWaleApi.instance.createAcademy(ownerId, <String, dynamic>{
-        'name': name,
-        'city': cityController.text.trim(),
-      });
-      await _loadOwnerEntities();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _academyNavIndex = 0;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RegisterGroundFlowScreen(
+          initialController: flowController,
+          initialStep: 13,
+          onFinish: () {
+            Navigator.of(context).pop();
+            _loadOwnerEntities();
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _topTabIndex = 1;
+              _academyNavIndex = 0;
+            });
+          },
         ),
-      );
+      ),
+    );
+
+    if (mounted) {
+      await _loadOwnerEntities();
+      setState(() {
+        _topTabIndex = 1;
+      });
     }
   }
 
@@ -179,100 +137,43 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
       return;
     }
 
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController addressController = TextEditingController();
-    final TextEditingController locationController = TextEditingController();
-    final bool? shouldCreate = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF203A43),
-          title: const Text('Add Ground/Court', style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Ground/Court Name',
-                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: addressController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Address',
-                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: locationController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Location (optional)',
-                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
-                ),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldCreate != true) {
-      return;
-    }
+    final GroundFlowController flowController = GroundFlowController();
+    flowController.data.ownerName = ApiSession.instance.ownerName ?? '';
+    flowController.data.contactNumber = ApiSession.instance.contactNumber ?? '';
+    flowController.data.otpVerified = true;
+    flowController.skipOwnershipVerification = true;
 
     if (!mounted) {
       return;
     }
 
-    final String groundName = nameController.text.trim();
-    final String address = addressController.text.trim();
-    if (groundName.isEmpty || address.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ground name and address are required')),
-      );
-      return;
-    }
-
-    try {
-      await GroundWaleApi.instance.createGround(<String, dynamic>{
-        'ownerId': ownerId,
-        'groundName': groundName,
-        'address': address,
-        'location': locationController.text.trim(),
-      });
-      await _loadOwnerEntities();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _groundNavIndex = 0;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RegisterGroundFlowScreen(
+          initialController: flowController,
+          initialStep: 3,
+          skipUnderReview: true,
+          forceCreateGround: true,
+          onFinish: () {
+            Navigator.of(context).pop();
+            _loadOwnerEntities();
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _topTabIndex = 0;
+              _groundNavIndex = 0;
+            });
+          },
         ),
-      );
+      ),
+    );
+
+    if (mounted) {
+      await _loadOwnerEntities();
+      setState(() {
+        _topTabIndex = 0;
+      });
     }
   }
 

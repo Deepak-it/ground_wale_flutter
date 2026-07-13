@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../box_cricket/home/box_cricket_dashboard_screen.dart';
 import '../../../ground_court/home/ground_court_owner_shell_screen.dart';
 import '../controllers/ground_flow_controller.dart';
 import '../models/ground_registration_data.dart';
@@ -105,11 +104,11 @@ class _RegisterGroundFlowScreenState extends State<RegisterGroundFlowScreen> {
           OwnershipVerificationScreen(controller: controller),   // 11
           UnderReviewScreen(                                        // 12
             offerType: OfferType.boxCricket,
-            onFinish: () {
+            onFinish: widget.onFinish ?? () {
               controller.reset();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute<void>(
-                  builder: (_) => const BoxCricketDashboardScreen(),
+                  builder: (_) => const GroundCourtOwnerShellScreen(),
                 ),
                 (Route<dynamic> route) => false,
               );
