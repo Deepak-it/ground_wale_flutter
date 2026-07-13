@@ -1471,7 +1471,7 @@ class _SportsNeoCompleteProfileScreenState
                             MaterialPageRoute<void>(
                               builder: (_) => RegisterGroundFlowScreen(
                                 initialController: flowController,
-                                initialStep: 2,
+                                initialStep: 3,
                               ),
                             ),
                           );

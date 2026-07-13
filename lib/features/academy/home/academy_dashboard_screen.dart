@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import '../../../core/utils/ist_greeting.dart';
 import '../../../core/widgets/module_bottom_nav.dart';
+import '../../ground/flow/controllers/ground_flow_controller.dart';
+import '../../ground/flow/models/ground_registration_data.dart';
+import '../../ground/flow/screens/register_ground_flow_screen.dart';
 import 'academy_add_student_screen.dart';
 import 'academy_announcement_screen.dart';
 import 'academy_batch_timings_screen.dart';
@@ -166,17 +168,43 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   }
 
   int _academyMonthlyFee(Map<String, dynamic> academy) {
+    // Prefer Monthly plan from feePlans inside batch
+    final dynamic batchRaw = academy['batch'];
+    if (batchRaw is Map) {
+      final List<dynamic> plans =
+          batchRaw['feePlans'] as List<dynamic>? ?? <dynamic>[];
+      for (final dynamic plan in plans) {
+        if (plan is Map) {
+          final String dur =
+              plan['duration']?.toString().trim().toLowerCase() ?? '';
+          if (dur == 'monthly') {
+            return int.tryParse(
+                  plan['price']?.toString().replaceAll(',', '') ?? '',
+                ) ??
+                0;
+          }
+        }
+      }
+    }
+    // Fallback to root monthlyFee field
     final dynamic direct = academy['monthlyFee'] ?? academy['monthlyFees'];
-    if (direct is int) {
-      return direct;
-    }
-    if (direct is double) {
-      return direct.round();
-    }
-    if (direct is String) {
-      return int.tryParse(direct) ?? 0;
-    }
+    if (direct is int) return direct;
+    if (direct is double) return direct.round();
+    if (direct is String) return int.tryParse(direct) ?? 0;
     return 0;
+  }
+
+  List<Map<String, String>> _academyFeePlans(Map<String, dynamic> academy) {
+    final dynamic batchRaw = academy['batch'];
+    if (batchRaw is Map) {
+      final List<dynamic> plans =
+          batchRaw['feePlans'] as List<dynamic>? ?? <dynamic>[];
+      return plans.whereType<Map>().map((Map p) => <String, String>{
+        'duration': p['duration']?.toString() ?? 'Monthly',
+        'price': p['price']?.toString() ?? '0',
+      }).toList();
+    }
+    return <Map<String, String>>[];
   }
 
   Widget _academyImageWidget(String? imageValue) {
@@ -353,80 +381,166 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   }
 
   Future<void> _createAcademy() async {
-    final String? ownerId = ApiSession.instance.ownerId;
-    if (ownerId == null || ownerId.isEmpty) {
-      return;
-    }
+    if (ApiSession.instance.ownerId == null) return;
 
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController cityController = TextEditingController();
-    final bool? shouldCreate = await showDialog<bool>(
+    // Launch the full registration flow starting at Academy Details,
+    // skipping ownership verification for subsequent academies.
+    final GroundFlowController flowController = GroundFlowController();
+    flowController.data.offerType = OfferType.academyCoaching;
+    flowController.data.ownerName = ApiSession.instance.ownerName ?? '';
+    flowController.data.contactNumber = ApiSession.instance.contactNumber ?? '';
+    flowController.data.otpVerified = true;
+    flowController.skipOwnershipVerification = true;
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RegisterGroundFlowScreen(
+          initialController: flowController,
+          initialStep: 13, // Start at Academy Details
+          onFinish: () {
+            Navigator.of(context).pop(); // back to dashboard
+            _load();
+          },
+        ),
+      ),
+    );
+    // Also reload in case user navigated back without finishing
+    if (mounted) {
+      await _load();
+    }
+  }
+
+  Future<void> _addFacilityToAcademy(
+    String academyId,
+    List<String> existingFacilities,
+  ) async {
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty) return;
+
+    const List<String> suggestions = <String>[
+      'Parking', 'Cafeteria / Food', 'First Aid', 'Rest Room',
+      'Changing Room', 'Dugout', 'Lighting', 'Wi-Fi',
+      'Locker Room', 'CCTV', 'Water', 'Shower', 'Washroom',
+      'Seating Area', 'AC Hall', 'Equipment Room',
+    ];
+
+    final Set<String> selected = Set<String>.from(existingFacilities);
+
+    final bool? confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF203A43),
-          title: const Text(
-            'Add Academy',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Academy Name',
-                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: cityController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'City (optional)',
-                  hintStyle: TextStyle(color: Color(0x99FFFFFF)),
-                ),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Create'),
-            ),
-          ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext _, StateSetter setSheetState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.4,
+              maxChildSize: 0.92,
+              builder: (BuildContext _, ScrollController sc) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0F2027),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    children: <Widget>[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          const Text(
+                            'Manage Facilities',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text(
+                              'Done',
+                              style: TextStyle(color: Color(0xFF00C9A7)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView(
+                          controller: sc,
+                          children: <Widget>[
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: suggestions.map((String f) {
+                                final bool isSel = selected.contains(f);
+                                return GestureDetector(
+                                  onTap: () => setSheetState(() {
+                                    if (isSel) {
+                                      selected.remove(f);
+                                    } else {
+                                      selected.add(f);
+                                    }
+                                  }),
+                                  child: Container(
+                                    height: 42,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isSel
+                                            ? const Color(0xFF00C9A7)
+                                            : const Color(0x1FFFFFFF),
+                                      ),
+                                      color: isSel
+                                          ? const Color(0x1400C9A7)
+                                          : const Color(0x0FFFFFFF),
+                                    ),
+                                    child: Text(
+                                      f,
+                                      style: TextStyle(
+                                        color: isSel
+                                            ? const Color(0xFF00C9A7)
+                                            : Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
 
-    if (shouldCreate != true || !mounted) {
-      return;
-    }
-
-    final String name = nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Academy name is required')));
-      return;
-    }
+    if (confirmed != true || !mounted) return;
 
     try {
-      await GroundWaleApi.instance.createAcademy(ownerId, <String, dynamic>{
-        'name': name,
-        'city': cityController.text.trim(),
-      });
+      await GroundWaleApi.instance.updateAcademy(
+        ownerId,
+        academyId,
+        <String, dynamic>{'facilities': selected.toList()},
+      );
       await _load();
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.toString().replaceFirst('Exception: ', '')),
@@ -870,7 +984,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                           Wrap(
                                             spacing: 8,
                                             runSpacing: 8,
-                                            children: facilities.map((
+                                            children: <Widget>[
+                                              ...facilities.map((
                                               String facility,
                                             ) {
                                               return Container(
@@ -895,7 +1010,47 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                                   ),
                                                 ),
                                               );
-                                            }).toList(),
+                                            }),
+                                              // + add facilities chip
+                                              GestureDetector(
+                                                onTap: () => _addFacilityToAcademy(
+                                                  academyId,
+                                                  facilities,
+                                                ),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(
+                                                      color: const Color(0x3300C9A7),
+                                                    ),
+                                                    color: const Color(0x0A00C9A7),
+                                                  ),
+                                                  child: const Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: <Widget>[
+                                                      Icon(
+                                                        Icons.add,
+                                                        size: 12,
+                                                        color: Color(0xFF00C9A7),
+                                                      ),
+                                                      SizedBox(width: 4),
+                                                      Text(
+                                                        'Add',
+                                                        style: TextStyle(
+                                                          color: Color(0xFF00C9A7),
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                           const SizedBox(height: 12),
                                           Container(
@@ -922,22 +1077,18 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                                     const Text(
                                                       'Monthly Fees',
                                                       style: TextStyle(
-                                                        color: Color(
-                                                          0xFF667084,
-                                                        ),
+                                                        color: Color(0xFF667084),
                                                         fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w500,
+                                                        fontWeight: FontWeight.w500,
                                                       ),
                                                     ),
-                                                    const SizedBox(height: 2),
+                                                    const SizedBox(height: 4),
                                                     Text(
                                                       'Rs $monthlyFee',
                                                       style: const TextStyle(
                                                         color: Colors.white,
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.w800,
+                                                        fontSize: 17,
+                                                        fontWeight: FontWeight.w800,
                                                       ),
                                                     ),
                                                   ],
@@ -1770,6 +1921,27 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                                                   as num?)
                                                               ?.toDouble() ??
                                                           0,
+                                                      feePlans: (batch['feePlans']
+                                                                  as List<dynamic>? ??
+                                                              <dynamic>[])
+                                                          .whereType<Map>()
+                                                          .map(
+                                                            (Map p) =>
+                                                                <String, String>{
+                                                                  'duration': p[
+                                                                              'duration']
+                                                                          ?.toString() ??
+                                                                      'Monthly',
+                                                                  'price': p[
+                                                                              'price']
+                                                                          ?.toString() ??
+                                                                      '0',
+                                                                },
+                                                          )
+                                                          .toList(),
+                                                      coachExperience: _toInt(
+                                                        batch['coachExperience'],
+                                                      ),
                                                       enrolledStudents: _toInt(
                                                         batch['studentsCount'] ??
                                                             batch['capacity'],

@@ -245,6 +245,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     return ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
   }
 
+  // ignore: unused_element
   String _groundName(Map<String, dynamic> ground) {
     final String fromGroundName = ground['groundName']?.toString().trim() ?? '';
     if (fromGroundName.isNotEmpty) {

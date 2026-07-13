@@ -26,6 +26,7 @@ class DaySlotConfig {
 }
 
 class GroundRegistrationData {
+  String academyName = '';
   String ownerName = '';
   String contactNumber = '';
   String email = '';
@@ -50,6 +51,7 @@ class GroundRegistrationData {
 
   String academyBatchName = 'Morning Practice';
   String academyCoachName = 'Rahul Kumar';
+  int academyCoachExperience = 0;
   String academyPerBatchStudents = '40';
   String academyCategory = 'Beginner';
   final Set<String> academyRecurringDays = <String>{

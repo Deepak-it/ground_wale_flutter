@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../box_cricket/home/box_cricket_dashboard_screen.dart';
+import '../../../ground_court/home/ground_court_owner_shell_screen.dart';
 import '../controllers/ground_flow_controller.dart';
 import '../models/ground_registration_data.dart';
+import 'academy_batch_setup_screen.dart';
+import 'academy_details_screen.dart';
+import 'academy_facilities_screen.dart';
 import 'add_custom_slots_screen.dart';
 import 'basic_details_screen.dart';
 import 'choose_sports_screen.dart';
@@ -22,10 +26,14 @@ class RegisterGroundFlowScreen extends StatefulWidget {
     super.key,
     this.initialController,
     this.initialStep,
+    this.onFinish,
   });
 
   final GroundFlowController? initialController;
   final int? initialStep;
+  /// Called when the final Under Review screen's Done button is pressed.
+  /// If null the default navigation is used (push GroundCourtOwnerShellScreen).
+  final VoidCallback? onFinish;
 
   @override
   State<RegisterGroundFlowScreen> createState() =>
@@ -71,14 +79,30 @@ class _RegisterGroundFlowScreenState extends State<RegisterGroundFlowScreen> {
           ConfigureSlotsScreen(data: controller.data, controller: controller),
           AddCustomSlotsScreen(data: controller.data, controller: controller),
           const SlotViewScreen(),
-          OwnershipVerificationScreen(controller: controller),
-          UnderReviewScreen(
+          OwnershipVerificationScreen(controller: controller),   // 11
+          UnderReviewScreen(                                        // 12
             offerType: OfferType.boxCricket,
             onFinish: () {
               controller.reset();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute<void>(
                   builder: (_) => const BoxCricketDashboardScreen(),
+                ),
+                (Route<dynamic> route) => false,
+              );
+            },
+          ),
+          // Academy-specific branch (steps 13-16)
+          AcademyDetailsScreen(controller: controller),            // 13
+          AcademyBatchSetupScreen(controller: controller),         // 14
+          AcademyFacilitiesScreen(controller: controller),         // 15
+          UnderReviewScreen(                                        // 16
+            offerType: OfferType.academyCoaching,
+            onFinish: widget.onFinish ?? () {
+              controller.reset();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute<void>(
+                  builder: (_) => const GroundCourtOwnerShellScreen(),
                 ),
                 (Route<dynamic> route) => false,
               );

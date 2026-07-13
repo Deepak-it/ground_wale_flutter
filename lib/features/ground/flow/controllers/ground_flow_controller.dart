@@ -10,17 +10,18 @@ class GroundFlowController extends ChangeNotifier {
   final ApiSession _session = ApiSession.instance;
 
   GroundFlowController() {
-    data.offerType = OfferType.boxCricket;
+    // offerType starts null so WhatToOfferScreen forces an explicit choice
   }
 
   int currentStep = 0;
   bool isBusy = false;
   String? errorMessage;
+  bool skipOwnershipVerification = false;
 
-  bool get isAcademyFlow => false;
-  bool get isBoxCricketFlow => true;
+  bool get isAcademyFlow => data.offerType == OfferType.academyCoaching;
+  bool get isBoxCricketFlow => data.offerType == OfferType.boxCricket || data.offerType == null;
 
-  int get totalSteps => 13;
+  int get totalSteps => 17;
 
   List<String> get stepTitles => const <String>[
     'Role',
@@ -52,8 +53,20 @@ class GroundFlowController extends ChangeNotifier {
   }
 
   void nextStep() {
-    if (currentStep < totalSteps - 1) {
-      currentStep++;
+    int next;
+    if (isAcademyFlow) {
+      switch (currentStep) {
+        case 3:  next = 13; break; // WhatToOffer → Academy Details
+        case 15: next = 5;  break; // Facilities → Photos
+        case 5:  next = skipOwnershipVerification ? 16 : 11; break; // Photos → skip or Ownership
+        case 11: next = 16; break; // Ownership → Academy Under Review
+        default: next = currentStep + 1;
+      }
+    } else {
+      next = currentStep + 1;
+    }
+    if (next < totalSteps) {
+      currentStep = next;
       notifyListeners();
     }
   }
@@ -67,31 +80,63 @@ class GroundFlowController extends ChangeNotifier {
   }
 
   void previousStep() {
-    if (currentStep > 0) {
-      currentStep--;
+    int prev;
+    if (isAcademyFlow) {
+      switch (currentStep) {
+        case 13: prev = 3;  break; // Academy Details → WhatToOffer
+        case 14: prev = 13; break; // Batch → Academy Details
+        case 15: prev = 14; break; // Facilities → Batch
+        case 5:  prev = 15; break; // Photos → Facilities
+        case 11: prev = 5;  break; // Ownership → Photos
+        case 16: prev = 11; break; // Under Review → Ownership
+        default: prev = currentStep - 1;
+      }
+    } else {
+      prev = currentStep - 1;
+    }
+    if (prev >= 0) {
+      currentStep = prev;
       notifyListeners();
     }
   }
 
   void reset() {
     data = GroundRegistrationData();
-    data.offerType = OfferType.boxCricket;
     currentStep = 0;
     isBusy = false;
     errorMessage = null;
     notifyListeners();
   }
 
+  String get _entityType {
+    switch (data.offerType) {
+      case OfferType.academyCoaching:
+        return 'academy';
+      case OfferType.cricketGround:
+        return 'ground';
+      case OfferType.sportsNeo:
+        return 'sports_neo';
+      default:
+        return 'box_cricket';
+    }
+  }
+
   Map<String, dynamic> _groundPayload() {
+    final bool academy = isAcademyFlow;
+    final String entityName = academy
+        ? (data.academyName.trim().isNotEmpty ? data.academyName.trim() : 'Academy')
+        : data.groundName;
+    final String description = academy
+        ? 'Academy with facilities: ${data.facilities.join(', ')}'
+        : '${data.pitchType.name} pitch for ${data.matchType} with ${data.facilities.join(', ')}';
     return <String, dynamic>{
       'ownerId': _session.ownerId,
-      'groundName': data.groundName,
+      'groundName': entityName,
       'location': '${data.city}, ${data.state}',
       'address': data.address,
       'areaLocation': data.areaLocation,
       'landmark': data.landmark,
-      'description':
-          '${data.pitchType.name} pitch for ${data.matchType} with ${data.facilities.join(', ')}',
+      'description': description,
       'state': data.state,
       'city': data.city,
       'sports': data.selectedSports.toList(),
@@ -122,8 +167,8 @@ class GroundFlowController extends ChangeNotifier {
       'slotSize': data.slotSize,
       'gap': data.gap,
       'matchType': data.matchType,
-      'offerType': OfferType.boxCricket.name,
-      'entityType': 'box_cricket',
+      'offerType': (data.offerType ?? OfferType.boxCricket).name,
+      'entityType': _entityType,
       'pinCode': data.pinCode,
       'daySlots': data.daySlots
           .map(
@@ -138,10 +183,43 @@ class GroundFlowController extends ChangeNotifier {
     };
   }
 
+  Map<String, dynamic> _academyPayload() {
+    return <String, dynamic>{
+      'name': data.academyName.trim().isNotEmpty ? data.academyName.trim() : 'Academy',
+      'city': data.city.trim(),
+      'state': data.state.trim(),
+      'address': data.address.trim(),
+      'areaLocation': data.areaLocation.trim(),
+      'landmark': data.landmark.trim(),
+      'pinCode': data.pinCode.trim(),
+      'facilities': data.facilities.toList(),
+      'groundImages': data.groundImages,
+      'sports': data.selectedSports.toList(),
+      'batch': <String, dynamic>{
+        'batchName': data.academyBatchName,
+        'coachName': data.academyCoachName,
+        'coachExperience': data.academyCoachExperience,
+        'perBatchStudents': data.academyPerBatchStudents,
+        'category': data.academyCategory,
+        'recurringDays': data.academyRecurringDays.toList(),
+        'startTime': data.academyStartTime,
+        'endTime': data.academyEndTime,
+        'feePlans': data.academyFeePlans
+            .map(
+              (AcademyFeePlan plan) => <String, dynamic>{
+                'duration': plan.duration,
+                'price': plan.price,
+              },
+            )
+            .toList(),
+      },
+    };
+  }
+
   Future<void> submitGroundForVerification() async {
     if (!_session.isAuthenticated) {
       throw Exception(
-        'Complete OTP verification before submitting your ground',
+        'Complete OTP verification before submitting',
       );
     }
 
@@ -160,25 +238,85 @@ class GroundFlowController extends ChangeNotifier {
           });
       _session.updateFromAuth(profile);
 
-      Map<String, dynamic> ground;
-      if (_session.hasGround) {
-        ground = await _api.updateGround(_session.groundId!, _groundPayload());
-      } else {
-        ground = await _api.createGround(_groundPayload());
-      }
-
-      _session.setGroundId(
-        ground['_id']?.toString() ?? ground['id']?.toString(),
-      );
-
-      if (data.ownershipProof.isNotEmpty) {
-        await _api.updateOwnershipVerification(
-          _session.groundId!,
-          data.ownershipProof,
+      if (isAcademyFlow) {
+        // ── Academy path: only creates an Academy record, no Ground ──
+        final Map<String, dynamic> academy = await _api.createAcademy(
+          _session.ownerId!,
+          _academyPayload(),
         );
-      }
+        final String academyId =
+            academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
 
-      await _api.submitGroundForReview(_session.groundId!);
+        if (academyId.isNotEmpty) {
+          _session.setSelectedAcademy(
+            academyId: academyId,
+            academyName: _academyPayload()['name']?.toString(),
+          );
+
+          if (data.ownershipProof.isNotEmpty) {
+            await _api.updateAcademyOwnershipProof(
+              _session.ownerId!,
+              academyId,
+              data.ownershipProof,
+            );
+          }
+
+          await _api.submitAcademyForReview(_session.ownerId!, academyId);
+          // Create the AcademyBatch record so it appears in /batches
+          if (data.academyBatchName.trim().isNotEmpty) {
+            final int capacity =
+                int.tryParse(data.academyPerBatchStudents) ?? 30;
+            final double monthlyFee = data.academyFeePlans.isNotEmpty
+                ? double.tryParse(data.academyFeePlans.first.price) ?? 0
+                : 0;
+            try {
+              await _api.createAcademyBatch(
+                _session.ownerId!,
+                <String, dynamic>{
+                  'name': data.academyBatchName.trim(),
+                  'coachName': data.academyCoachName.trim(),
+                  'coachExperience': data.academyCoachExperience,
+                  'startTime': data.academyStartTime,
+                  'endTime': data.academyEndTime,
+                  'days': data.academyRecurringDays.toList(),
+                  'capacity': capacity,
+                  'monthlyFee': monthlyFee,
+                  'feePlans': data.academyFeePlans
+                      .map((AcademyFeePlan p) => <String, String>{
+                            'duration': p.duration,
+                            'price': p.price,
+                          })
+                      .toList(),
+                  'academyId': academyId,
+                  'status': 'active',
+                },
+              );
+            } catch (_) {
+              // Non-fatal — batch can be added manually from dashboard
+            }
+          }        }
+      } else {
+        // ── Ground / Box Cricket path ──
+        Map<String, dynamic> ground;
+        if (_session.hasGround) {
+          ground = await _api.updateGround(_session.groundId!, _groundPayload());
+        } else {
+          ground = await _api.createGround(_groundPayload());
+        }
+
+        _session.setGroundId(
+          ground['_id']?.toString() ?? ground['id']?.toString(),
+        );
+
+        if (data.ownershipProof.isNotEmpty) {
+          await _api.updateOwnershipVerification(
+            _session.groundId!,
+            data.ownershipProof,
+          );
+        }
+
+        await _api.submitGroundForReview(_session.groundId!);
+      }
     } catch (error) {
       errorMessage = error.toString().replaceFirst('Exception: ', '');
       rethrow;

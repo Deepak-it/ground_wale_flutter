@@ -1256,6 +1256,45 @@ class GroundWaleApi {
     }
   }
 
+  Future<Map<String, dynamic>> updateAcademy(
+    String ownerId,
+    String academyId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.patch<dynamic>(
+        '/academy/$ownerId/academies/$academyId',
+        data: payload,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<void> submitAcademyForReview(String ownerId, String academyId) async {
+    try {
+      await _dio.post<dynamic>('/academy/$ownerId/academies/$academyId/submit-review');
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<void> updateAcademyOwnershipProof(
+    String ownerId,
+    String academyId,
+    String proof,
+  ) async {
+    try {
+      await _dio.patch<dynamic>(
+        '/academy/$ownerId/academies/$academyId/ownership-proof',
+        data: <String, dynamic>{'ownershipProof': proof},
+      );
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<Map<String, dynamic>> getAcademyAnnouncement(
     String ownerId,
     String announcementId,

@@ -17,6 +17,8 @@ class AcademyEditBatchScreen extends StatefulWidget {
     this.capacity = 30,
     this.status = 'active',
     this.monthlyFee = 0,
+    this.feePlans = const <Map<String, String>>[],
+    this.coachExperience = 0,
     this.enrolledStudents = 0,
     this.isCreate = false,
   });
@@ -30,6 +32,8 @@ class AcademyEditBatchScreen extends StatefulWidget {
   final int capacity;
   final String status;
   final double monthlyFee;
+  final List<Map<String, String>> feePlans;
+  final int coachExperience;
   final int enrolledStudents;
   final bool isCreate;
 
@@ -48,8 +52,17 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
   late Set<String> _selectedDays;
   late int _capacity;
   late int _enrolledStudents;
+  late int _coachExperience;
+  late List<Map<String, String>> _feePlans;
   bool _isSaving = false;
   bool _isDeleting = false;
+
+  static const List<String> _durationOptions = <String>[
+    'Monthly',
+    'Quarterly',
+    'Yearly',
+    'Custom',
+  ];
 
   static const List<String> _days = <String>[
     'Mon',
@@ -82,9 +95,13 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
 
     _active = widget.status.toLowerCase() != 'inactive';
     _capacity = widget.capacity < 1 ? 1 : widget.capacity;
-    _enrolledStudents = widget.enrolledStudents < 0
-        ? 0
-        : widget.enrolledStudents;
+    _coachExperience = widget.coachExperience < 0 ? 0 : widget.coachExperience;
+    _enrolledStudents = widget.enrolledStudents < 0 ? 0 : widget.enrolledStudents;
+    _feePlans = widget.feePlans.isEmpty
+        ? <Map<String, String>>[
+            <String, String>{'duration': 'Monthly', 'price': '0'},
+          ]
+        : widget.feePlans.map((Map<String, String> p) => Map<String, String>.from(p)).toList();
     _selectedDays = widget.days.isEmpty
         ? <String>{'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'}
         : widget.days
@@ -126,6 +143,126 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
       ),
     );
     await _refreshEnrolledCount();
+  }
+
+  void _changeCoachExperience(int delta) {
+    setState(() => _coachExperience = (_coachExperience + delta).clamp(0, 99));
+  }
+
+  Future<void> _selectDuration(int index) async {
+    final String? selected = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const SizedBox(height: 8),
+            const Text(
+              'Choose Plan',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            ..._durationOptions.map((String option) => ListTile(
+                  title: Text(option),
+                  onTap: () => Navigator.of(ctx).pop(option),
+                )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (selected == null) return;
+    String value = selected;
+    if (selected == 'Custom' && mounted) {
+      final TextEditingController ctrl = TextEditingController();
+      final String? custom = await showDialog<String>(
+        context: context,
+        builder: (BuildContext ctx) => AlertDialog(
+          title: const Text('Custom Duration'),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: 'e.g. 75 Days'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+      ctrl.dispose();
+      if (custom == null || custom.isEmpty) return;
+      value = custom;
+    }
+    if (!mounted) return;
+    setState(() => _feePlans[index]['duration'] = value);
+  }
+
+  Future<void> _editPlanPrice(int index) async {
+    final TextEditingController ctrl = TextEditingController(
+      text: _feePlans[index]['price'],
+    );
+    final String? updated = await showDialog<String>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        title: const Text('Edit Price'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Enter price'),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (updated == null || updated.isEmpty || !mounted) return;
+    setState(() => _feePlans[index]['price'] =
+        updated.startsWith('₹') ? updated.substring(1) : updated);
+  }
+
+  void _deletePlanAt(int index) {
+    // Monthly plan is required and cannot be deleted
+    final String dur = _feePlans[index]['duration']?.toLowerCase() ?? '';
+    if (dur == 'monthly') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Monthly fee plan is required and cannot be removed'),
+        ),
+      );
+      return;
+    }
+    if (_feePlans.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('At least one fee plan is required')),
+      );
+      return;
+    }
+    setState(() => _feePlans.removeAt(index));
+  }
+
+  void _addFeePlan() {
+    setState(() => _feePlans.add(
+          <String, String>{'duration': 'Monthly', 'price': '0'},
+        ));
   }
 
   Future<void> _pickTime(TextEditingController controller) async {
@@ -189,6 +326,7 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
       final Map<String, dynamic> payload = <String, dynamic>{
         'name': _batchNameController.text.trim(),
         'coachName': _coachController.text.trim(),
+        'coachExperience': _coachExperience,
         'startTime': _startTimeController.text.trim(),
         'endTime': _endTimeController.text.trim(),
         'days': _days
@@ -197,6 +335,7 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
         'capacity': _capacity.clamp(1, 999),
         'status': _active ? 'active' : 'inactive',
         'monthlyFee': monthlyFee,
+        'feePlans': _feePlans,
       };
 
       if (widget.isCreate) {
@@ -394,6 +533,48 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
               const SizedBox(height: 12),
               _DarkInputField(controller: _coachController, hintText: 'Rahul'),
               const SizedBox(height: 12),
+              // Coach Experience stepper
+              const _DarkLabel('Coach Experience'),
+              const SizedBox(height: 4),
+              const Text(
+                'In years',
+                style: TextStyle(color: Color(0x80FFFFFF), fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0x1FFFFFFF)),
+                  color: const Color(0x0FFFFFFF),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    _CapacityButton(
+                      icon: Icons.remove,
+                      onTap: () => _changeCoachExperience(-1),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          '$_coachExperience yr${_coachExperience == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _CapacityButton(
+                      icon: Icons.add,
+                      onTap: () => _changeCoachExperience(1),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               Row(
                 children: <Widget>[
                   Expanded(
@@ -509,7 +690,7 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const _DarkLabel('Monthly Fees'),
+              const _DarkLabel('Monthly Fees (quick)'),
               const SizedBox(height: 12),
               _DarkInputField(
                 controller: _monthlyFeeController,
@@ -517,6 +698,146 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
                   decimal: true,
                 ),
                 hintText: '₹2000',
+              ),
+              const SizedBox(height: 16),
+              // ── Fee Structure (multi-plan) ──────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  const Text(
+                    'Fee Structure',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addFeePlan,
+                    icon: const Icon(Icons.add, size: 16, color: Color(0xFF00C9A7)),
+                    label: const Text(
+                      'Add Plan',
+                      style: TextStyle(color: Color(0xFF00C9A7), fontSize: 14),
+                    ),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0x1FFFFFFF)),
+                  color: const Color(0x0FFFFFFF),
+                ),
+                child: Column(
+                  children: <Widget>[
+                    for (int i = 0; i < _feePlans.length; i++) ...<Widget>[
+                      Row(
+                        children: <Widget>[
+                          // Duration selector
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _selectDuration(i),
+                              child: Container(
+                                height: 48,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0x1FFFFFFF)),
+                                  color: const Color(0x0FFFFFFF),
+                                ),
+                                child: Row(
+                                  children: <Widget>[
+                                    Expanded(
+                                      child: Text(
+                                        _feePlans[i]['duration'] ?? 'Monthly',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.keyboard_arrow_down,
+                                      color: Colors.white70,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Price display
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _editPlanPrice(i),
+                              child: Container(
+                                height: 48,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                alignment: Alignment.centerLeft,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0x1FFFFFFF)),
+                                  color: const Color(0x0FFFFFFF),
+                                ),
+                                child: Text(
+                                  '₹${_feePlans[i]['price'] ?? '0'}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Edit icon
+                          InkWell(
+                            onTap: () => _editPlanPrice(i),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0x3DFFFFFF)),
+                              ),
+                              child: const Icon(
+                                Icons.edit_outlined,
+                                size: 16,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Delete icon
+                          InkWell(
+                            onTap: () => _deletePlanAt(i),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0x3DFFFFFF)),
+                              ),
+                              child: const Icon(
+                                Icons.delete_outline,
+                                size: 16,
+                                color: Color(0xFFE3220D),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (i < _feePlans.length - 1) const SizedBox(height: 10),
+                    ],
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               Container(
@@ -614,7 +935,7 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
                         child: const Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'View / Manage Students',
+                            'Add Students',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,

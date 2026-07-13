@@ -396,7 +396,9 @@ class WhatToOfferScreen extends StatelessWidget {
                     height: 44,
                     child: ElevatedButton(
                       onPressed: () {
-                        if (controller.data.offerType == null) {
+                        final OfferType? selected = controller.data.offerType;
+                        if (selected != OfferType.cricketGround &&
+                            selected != OfferType.academyCoaching) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Select an offering first'),
