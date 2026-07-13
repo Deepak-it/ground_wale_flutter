@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../../../academy/home/academy_dashboard_screen.dart';
 import '../../../box_cricket/home/box_cricket_dashboard_screen.dart';
-import '../../../sports_neo/home/sports_neo_dashboard_screen.dart';
-import '../../dashboard/dashboard_turf_screen.dart';
 import '../controllers/ground_flow_controller.dart';
 import '../models/ground_registration_data.dart';
-import 'academy_batch_setup_screen.dart';
+import 'add_custom_slots_screen.dart';
 import 'basic_details_screen.dart';
 import 'choose_sports_screen.dart';
 import 'choose_role_screen.dart';
+import 'configure_slots_screen.dart';
 import 'ground_details_screen.dart';
 import 'ground_photos_screen.dart';
 import 'ground_review_screen.dart';
 import 'ownership_verification_screen.dart';
 import 'shared_details_screen.dart';
+import 'slot_view_screen.dart';
 import 'under_review_screen.dart';
 import 'what_to_offer_screen.dart';
 
@@ -60,60 +59,32 @@ class _RegisterGroundFlowScreenState extends State<RegisterGroundFlowScreen> {
     return AnimatedBuilder(
       animation: controller,
       builder: (BuildContext context, Widget? child) {
-        final bool academyFlow = controller.isAcademyFlow;
-        final List<Widget> screens = academyFlow
-            ? <Widget>[
-                ChooseRoleScreen(controller: controller),
-                BasicDetailsScreen(controller: controller),
-                WhatToOfferScreen(controller: controller),
-                SharedDetailsScreen(controller: controller),
-                ChooseSportsScreen(controller: controller),
-                AcademyBatchSetupScreen(controller: controller),
-                OwnershipVerificationScreen(controller: controller),
-                UnderReviewScreen(
-                  offerType: controller.data.offerType,
-                  onFinish: () {
-                    final OfferType? offerType = controller.data.offerType;
-                    controller.reset();
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AcademyDashboardScreen(),
-                      ),
-                      (Route<dynamic> route) => false,
-                    );
-                  },
+        final List<Widget> screens = <Widget>[
+          ChooseRoleScreen(controller: controller),
+          GroundDetailsScreen(controller: controller),
+          BasicDetailsScreen(controller: controller),
+          WhatToOfferScreen(controller: controller),
+          SharedDetailsScreen(controller: controller),
+          GroundPhotosScreen(controller: controller),
+          GroundReviewScreen(controller: controller),
+          ChooseSportsScreen(controller: controller),
+          ConfigureSlotsScreen(data: controller.data, controller: controller),
+          AddCustomSlotsScreen(data: controller.data, controller: controller),
+          const SlotViewScreen(),
+          OwnershipVerificationScreen(controller: controller),
+          UnderReviewScreen(
+            offerType: OfferType.boxCricket,
+            onFinish: () {
+              controller.reset();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BoxCricketDashboardScreen(),
                 ),
-              ]
-            : <Widget>[
-                ChooseRoleScreen(controller: controller),
-                BasicDetailsScreen(controller: controller),
-                WhatToOfferScreen(controller: controller),
-                SharedDetailsScreen(controller: controller),
-                ChooseSportsScreen(controller: controller),
-                GroundPhotosScreen(controller: controller),
-                GroundDetailsScreen(controller: controller),
-                GroundReviewScreen(controller: controller),
-                OwnershipVerificationScreen(controller: controller),
-                UnderReviewScreen(
-                  offerType: controller.data.offerType,
-                  onFinish: () {
-                    final OfferType? offerType = controller.data.offerType;
-                    controller.reset();
-                    final Widget destination;
-                    if (offerType == OfferType.boxCricket) {
-                      destination = const BoxCricketDashboardScreen();
-                    } else if (offerType == OfferType.sportsNeo) {
-                      destination = const SportsNeoDashboardScreen();
-                    } else {
-                      destination = const DashboardTurfScreen();
-                    }
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute<void>(builder: (_) => destination),
-                      (Route<dynamic> route) => false,
-                    );
-                  },
-                ),
-              ];
+                (Route<dynamic> route) => false,
+              );
+            },
+          ),
+        ];
 
         return PopScope(
           canPop: controller.currentStep == 0,

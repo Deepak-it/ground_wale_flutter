@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   dio: ^5.7.0
   flutter_svg: ^2.0.17
+  image_picker: ^1.1.2
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:
@@ -72,6 +74,9 @@ flutter:
     - assets/images/sport-neo-logo-refined.png
     - assets/images/sports_neo_logo.png
     - assets/images/sport_neo_logo.png
+    - assets/images/1st-slide.png
+    - assets/images/2nd-slide.png
+    - assets/images/3rd-slide.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

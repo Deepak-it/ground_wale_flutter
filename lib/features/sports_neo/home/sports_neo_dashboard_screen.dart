@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
 import 'sports_neo_booking_cart_screen.dart';
 import 'sports_neo_manage_teams_screen.dart';
 import 'sports_neo_notifications_screen.dart';
@@ -38,6 +39,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   int _selectedTab = 0;
   String _profileName = 'Rahul Sharma';
   String _profilePhone = '+91 9876543210';
+  String? _profileImage;
   String _location = 'Sector 118, Mohali';
 
   List<_GroundCardData> _grounds = const <_GroundCardData>[
@@ -199,6 +201,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     setState(() {
       _profileName = profileName;
       _profilePhone = profilePhone;
+      _profileImage = _stringValue(profile, <String>['profileImage', 'image']);
       _location = location;
       if (mappedGrounds.isNotEmpty) {
         _grounds = mappedGrounds;
@@ -419,6 +422,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         menuItems: _drawerMenuItems,
         profileName: _profileName,
         profilePhone: _profilePhone,
+        profileImage: _profileImage,
         matchesCount: _matchesCount,
         teamsCount: _teamsCount,
         bookingsCount: _bookingsCount,
@@ -741,6 +745,7 @@ class _SportsNeoSidebar extends StatelessWidget {
     required this.menuItems,
     required this.profileName,
     required this.profilePhone,
+    required this.profileImage,
     required this.matchesCount,
     required this.teamsCount,
     required this.bookingsCount,
@@ -750,6 +755,7 @@ class _SportsNeoSidebar extends StatelessWidget {
   final List<String> menuItems;
   final String profileName;
   final String profilePhone;
+  final String? profileImage;
   final int matchesCount;
   final int teamsCount;
   final int bookingsCount;
@@ -799,14 +805,19 @@ class _SportsNeoSidebar extends StatelessWidget {
                       Container(
                         width: 44,
                         height: 44,
+                        clipBehavior: Clip.antiAlias,
                         decoration: const BoxDecoration(
                           color: Color(0xFFE5E7EB),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.edit_outlined,
-                          color: Color(0xFF111827),
-                          size: 20,
+                        child: buildBase64OrNetworkImage(
+                          value: profileImage,
+                          fit: BoxFit.cover,
+                          fallback: const Icon(
+                            Icons.person_outline,
+                            color: Color(0xFF111827),
+                            size: 20,
+                          ),
                         ),
                       ),
                     ],

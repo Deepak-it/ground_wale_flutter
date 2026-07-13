@@ -682,11 +682,6 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String ownerName =
-        ApiSession.instance.ownerName?.trim().isNotEmpty == true
-        ? ApiSession.instance.ownerName!.trim()
-        : 'Owner';
-    final String greetingMessage = istGreetingMessage(ownerName);
 
     final Map<String, dynamic> students = Map<String, dynamic>.from(
       _dashboard['students'] as Map? ?? <String, dynamic>{},
@@ -735,158 +730,60 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 92),
                   children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0x1FFFFFFF)),
-                          ),
-                          child: IconButton(
-                            onPressed: () {
-                              Navigator.of(context).maybePop();
-                            },
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              size: 18,
-                              color: Color(0xFFDDF730),
+                    if (widget.showBottomNav) ...<Widget>[
+                      Row(
+                        children: <Widget>[
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0x1FFFFFFF)),
+                            ),
+                            child: IconButton(
+                              onPressed: () {
+                                Navigator.of(context).maybePop();
+                              },
+                              icon: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 18,
+                                color: Color(0xFFDDF730),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                greetingMessage,
-                                style: TextStyle(
-                                  color: Color(0xFF7B8A97),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Academy Batch',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0x0FFFFFFF),
-                            border: Border.all(color: const Color(0x1FFFFFFF)),
-                          ),
-                          child: const Icon(
-                            Icons.notifications_none_rounded,
-                            color: Color(0xFFE6F7F4),
-                            size: 20,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      height: 52,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _academies.length + 1,
-                        itemBuilder: (BuildContext context, int index) {
-                          if (index == _academies.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: GestureDetector(
-                                onTap: _createAcademy,
-                                child: Container(
-                                  width: 48,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0x1FFFFFFF),
-                                    ),
-                                    color: const Color(0x0FFFFFFF),
-                                  ),
-                                  child: const Icon(
-                                    Icons.add,
-                                    color: Color(0xFFE6F7F4),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                          final Map<String, dynamic> academy =
-                              _academies[index];
-                          final String academyId = _academyId(academy);
-                          final bool selected = academyId == _selectedAcademyId;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: GestureDetector(
-                              onTap: academyId.isEmpty
-                                  ? null
-                                  : () => _onAcademyFilterTap(academyId),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: selected
-                                        ? const Color(0xFF00C9A7)
-                                        : const Color(0x1FFFFFFF),
-                                  ),
-                                  color: selected
-                                      ? const Color(0x2200C9A7)
-                                      : const Color(0x0FFFFFFF),
-                                ),
-                                child: Row(
-                                  children: <Widget>[
-                                    const Icon(
-                                      Icons.school_outlined,
-                                      size: 16,
-                                      color: Color(0xFFE6F7F4),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      _academyName(academy),
-                                      style: TextStyle(
-                                        color: selected
-                                            ? const Color(0xFF00C9A7)
-                                            : const Color(0xFFE6F7F4),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                          const SizedBox(width: 12),
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0x0FFFFFFF),
+                              border: Border.all(color: const Color(0x1FFFFFFF)),
                             ),
-                          );
-                        },
+                            child: const Icon(
+                              Icons.notifications_none_rounded,
+                              color: Color(0xFFE6F7F4),
+                              size: 20,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 20),
+                    ],
+ 
                     const SizedBox(height: 12),
                     if (_academies.isNotEmpty)
                       SizedBox(
                         height: 460,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: _academies.length,
+                          itemCount: _academies.length + 1,
                           separatorBuilder: (_, int index) =>
                               const SizedBox(width: 12),
                           itemBuilder: (BuildContext context, int index) {
+                            if (index == _academies.length) {
+                              return _addAcademyCard();
+                            }
                             final Map<String, dynamic> academy =
                                 _academies[index];
                             final String academyId = _academyId(academy);
@@ -1935,6 +1832,49 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
               ],
             )
           : null,
+    );
+  }
+
+  Widget _addAcademyCard() {
+    return Container(
+      width: 300,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x1FFFFFFF)),
+        color: const Color(0x0FFFFFFF),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Container(
+            width: 108,
+            height: 108,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              color: const Color(0xFF00C9A7),
+            ),
+            child: const Icon(Icons.add, size: 54, color: Colors.white),
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            width: 220,
+            child: ElevatedButton(
+              onPressed: _createAcademy,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C9A7),
+                foregroundColor: const Color(0xFF06271F),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Add Academy',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -10,6 +10,10 @@ import 'profile_turf_ui.dart';
 class ViewAllSlotsTurfScreen extends StatelessWidget {
   const ViewAllSlotsTurfScreen({super.key});
 
+  String _slotId(Map<String, dynamic> slot) {
+    return slot['_id']?.toString() ?? slot['id']?.toString() ?? '';
+  }
+
   Future<List<Map<String, dynamic>>> _loadSlots() async {
     final ApiSession session = ApiSession.instance;
     if (!session.hasGround && session.isAuthenticated) {
@@ -48,14 +52,14 @@ class ViewAllSlotsTurfScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DeleteSlotTurfScreen(slotId: item['_id']?.toString() ?? ''))),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DeleteSlotTurfScreen(slotId: _slotId(item)))),
                     child: const Text('Tap on Delete'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => BlockSlotTurfScreen(slotId: item['_id']?.toString() ?? ''))),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => BlockSlotTurfScreen(slotId: _slotId(item)))),
                     child: const Text('Tap on Block Button'),
                   ),
                 ),

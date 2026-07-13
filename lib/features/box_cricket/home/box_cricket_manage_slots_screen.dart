@@ -12,9 +12,11 @@ class BoxCricketManageSlotsScreen extends StatefulWidget {
   const BoxCricketManageSlotsScreen({
     super.key,
     this.showBottomNav = true,
+    this.showGroundNotFoundError = true,
   });
 
   final bool showBottomNav;
+  final bool showGroundNotFoundError;
 
   @override
   State<BoxCricketManageSlotsScreen> createState() =>
@@ -83,12 +85,14 @@ class _BoxCricketManageSlotsScreenState
 
   DateTime _parseDate(dynamic value) {
     if (value is DateTime) {
-      return DateTime(value.year, value.month, value.day);
+      final DateTime local = value.toLocal();
+      return DateTime(local.year, local.month, local.day);
     }
     if (value is String && value.isNotEmpty) {
       final DateTime? parsed = DateTime.tryParse(value);
       if (parsed != null) {
-        return DateTime(parsed.year, parsed.month, parsed.day);
+        final DateTime local = parsed.toLocal();
+        return DateTime(local.year, local.month, local.day);
       }
     }
     return _today;
@@ -117,6 +121,10 @@ class _BoxCricketManageSlotsScreenState
       return name;
     }
     return 'Unnamed Ground';
+  }
+
+  String _slotId(Map<String, dynamic> slot) {
+    return slot['_id']?.toString() ?? slot['id']?.toString() ?? '';
   }
 
   Future<String?> _resolveGroundId() async {
@@ -161,13 +169,18 @@ class _BoxCricketManageSlotsScreenState
     if (groundId == null || groundId.isEmpty) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ground not found for this owner.')),
-        );
+        if (widget.showGroundNotFoundError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ground not found for this owner.')),
+          );
+        }
       }
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
     setState(() => _isLoading = true);
 
     try {
@@ -209,7 +222,7 @@ class _BoxCricketManageSlotsScreenState
   }
 
   Map<String, dynamic>? _bookingForSlot(Map<String, dynamic> slot) {
-    final String slotId = slot['_id']?.toString() ?? '';
+    final String slotId = _slotId(slot);
     final DateTime slotDate = _parseDate(slot['date']);
 
     for (final Map<String, dynamic> booking in _bookings) {
@@ -579,7 +592,7 @@ class _BoxCricketManageSlotsScreenState
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) {
+      builder: (BuildContext modalContext) {
         return Container(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 26),
           decoration: const BoxDecoration(
@@ -619,8 +632,12 @@ class _BoxCricketManageSlotsScreenState
                   child: ElevatedButton(
                     onPressed: () async {
                       try {
+                        final String slotId = _slotId(slot);
+                        if (slotId.isEmpty) {
+                          throw Exception('Unable to update slot: missing slot id.');
+                        }
                         await GroundWaleApi.instance.updateSlot(
-                          slot['_id']?.toString() ?? '',
+                          slotId,
                           <String, dynamic>{
                             'startTime': startCtrl.text.trim(),
                             'endTime': endCtrl.text.trim(),
@@ -628,23 +645,28 @@ class _BoxCricketManageSlotsScreenState
                             'status': slot['status']?.toString() ?? 'available',
                           },
                         );
-                        if (mounted) {
-                          Navigator.of(context).pop();
-                          _load();
+                        if (!modalContext.mounted) {
+                          return;
                         }
+                        Navigator.of(modalContext).pop();
+                        if (!mounted) {
+                          return;
+                        }
+                        _load();
                       } catch (error) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                error.toString().replaceFirst(
-                                  'Exception: ',
-                                  '',
-                                ),
+                        if (!mounted) {
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              error.toString().replaceFirst(
+                                'Exception: ',
+                                '',
                               ),
                             ),
-                          );
-                        }
+                          ),
+                        );
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -671,7 +693,7 @@ class _BoxCricketManageSlotsScreenState
   Future<void> _confirmDelete(Map<String, dynamic> slot) async {
     final bool? ok = await showDialog<bool>(
       context: context,
-      builder: (_) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
@@ -694,7 +716,7 @@ class _BoxCricketManageSlotsScreenState
           actions: <Widget>[
             Expanded(
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: () => Navigator.of(dialogContext).pop(false),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0x1F08B36A),
                   foregroundColor: const Color(0xFF08B36A),
@@ -705,7 +727,7 @@ class _BoxCricketManageSlotsScreenState
             const SizedBox(width: 10),
             Expanded(
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0x1FE3220D),
                   foregroundColor: const Color(0xFFE3220D),
@@ -719,7 +741,19 @@ class _BoxCricketManageSlotsScreenState
     );
 
     if (ok == true) {
-      await GroundWaleApi.instance.deleteSlot(slot['_id']?.toString() ?? '');
+      final String slotId = _slotId(slot);
+      if (slotId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unable to delete slot: missing slot id.')),
+          );
+        }
+        return;
+      }
+      await GroundWaleApi.instance.deleteSlot(slotId);
+      if (!mounted) {
+        return;
+      }
       _load();
     }
   }
@@ -727,7 +761,7 @@ class _BoxCricketManageSlotsScreenState
   Future<void> _confirmBlock(Map<String, dynamic> slot) async {
     final bool? ok = await showDialog<bool>(
       context: context,
-      builder: (_) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
@@ -750,7 +784,7 @@ class _BoxCricketManageSlotsScreenState
           actions: <Widget>[
             Expanded(
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: () => Navigator.of(dialogContext).pop(false),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0x1F08B36A),
                   foregroundColor: const Color(0xFF08B36A),
@@ -761,7 +795,7 @@ class _BoxCricketManageSlotsScreenState
             const SizedBox(width: 10),
             Expanded(
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0x1FE3220D),
                   foregroundColor: const Color(0xFFE3220D),
@@ -775,10 +809,22 @@ class _BoxCricketManageSlotsScreenState
     );
 
     if (ok == true) {
+      final String slotId = _slotId(slot);
+      if (slotId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unable to block slot: missing slot id.')),
+          );
+        }
+        return;
+      }
       await GroundWaleApi.instance.blockSlot(
-        slot['_id']?.toString() ?? '',
+        slotId,
         'Blocked by owner',
       );
+      if (!mounted) {
+        return;
+      }
       _load();
     }
   }

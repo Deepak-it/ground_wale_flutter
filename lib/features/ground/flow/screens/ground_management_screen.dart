@@ -5,8 +5,8 @@ import '../../profile/profile_turf_screen.dart';
 import '../../auth/ground_management_auth_screen.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/neon_button.dart';
+import 'manage_slot_screen.dart';
 import 'register_ground_flow_screen.dart';
-import 'slot_management_screen.dart';
 
 class GroundManagementScreen extends StatelessWidget {
   const GroundManagementScreen({super.key});
@@ -58,7 +58,7 @@ class GroundManagementScreen extends StatelessWidget {
                   outline: true,
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => const SlotManagementScreen()),
+                      MaterialPageRoute<void>(builder: (_) => const ManageSlotScreen()),
                     );
                   },
                 ),

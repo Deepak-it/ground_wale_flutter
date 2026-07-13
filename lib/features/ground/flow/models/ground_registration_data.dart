@@ -71,6 +71,7 @@ class GroundRegistrationData {
   String ownershipProof = '';
 
   String openingTime = '06:00 AM';
+  String slotViewName = 'Summer Slots';
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now().add(const Duration(days: 30));
   String slotSize = '3 hours';

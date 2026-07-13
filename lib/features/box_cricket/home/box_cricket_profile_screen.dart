@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
 import '../../sports_neo/home/sports_neo_onboarding_flow.dart';
 import 'box_cricket_bank_account_screen.dart';
 import 'box_cricket_bottom_nav.dart';
@@ -323,6 +324,7 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
                     _HeaderCard(
                       ownerName: ownerName,
                       contactNumber: contact,
+                      profileImage: _profile['profileImage']?.toString(),
                       onEditTap: _openEditProfile,
                     ),
                     const SizedBox(height: 16),
@@ -546,11 +548,13 @@ class _HeaderCard extends StatelessWidget {
   const _HeaderCard({
     required this.ownerName,
     required this.contactNumber,
+    required this.profileImage,
     required this.onEditTap,
   });
 
   final String ownerName;
   final String contactNumber;
+  final String? profileImage;
   final VoidCallback onEditTap;
 
   @override
@@ -597,14 +601,19 @@ class _HeaderCard extends StatelessWidget {
                 Container(
                   width: 56,
                   height: 56,
+                  clipBehavior: Clip.antiAlias,
                   decoration: const BoxDecoration(
                     color: Color(0x2208B36A),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.person_outline_rounded,
-                    color: Color(0xFF08B36A),
-                    size: 32,
+                  child: buildBase64OrNetworkImage(
+                    value: profileImage,
+                    fit: BoxFit.cover,
+                    fallback: const Icon(
+                      Icons.person_outline_rounded,
+                      color: Color(0xFF08B36A),
+                      size: 32,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
 import '../../../core/widgets/module_bottom_nav.dart';
 
 import 'academy_communication_settings_screen.dart';
@@ -31,6 +32,7 @@ class AcademyProfileScreen extends StatefulWidget {
 
 class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
   bool _isLoadingAcademyInfo = true;
+  Map<String, dynamic> _profile = <String, dynamic>{};
   String _academyName = 'Omninos Academy';
   String _academyAddress = 'Sector 118, Mohali near flower shop, airport road';
   String _academyPhone = '011-23456789';
@@ -78,6 +80,7 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
           : _academyPhone;
 
       setState(() {
+        _profile = profile;
         _academyName = academyName;
         _academyAddress = academyAddress;
         _academyPhone = academyPhone;
@@ -116,7 +119,7 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Center(child: _ProfileHeaderCard()),
+                    Center(child: _ProfileHeaderCard(profile: _profile)),
                     const SizedBox(height: 24),
                     _Section(
                       title: 'Academy Info',
@@ -554,10 +557,33 @@ class _AcademyProfileScreenState extends State<AcademyProfileScreen> {
 }
 
 class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard();
+  const _ProfileHeaderCard({required this.profile});
+
+  final Map<String, dynamic> profile;
 
   @override
   Widget build(BuildContext context) {
+    final String ownerName =
+      profile['ownerName']?.toString().trim().isNotEmpty == true
+      ? profile['ownerName'].toString().trim()
+      : 'Akash';
+    final String contact =
+      profile['contactNumber']?.toString().trim().isNotEmpty == true
+      ? profile['contactNumber'].toString().trim()
+      : '+91 98765 43210';
+    final String email =
+      profile['email']?.toString().trim().isNotEmpty == true
+      ? profile['email'].toString().trim()
+      : 'akash@cricketturf.com';
+    final String initials = ownerName.isNotEmpty
+      ? ownerName
+          .split(RegExp(r'\s+'))
+          .where((String part) => part.isNotEmpty)
+          .take(2)
+          .map((String part) => part[0].toUpperCase())
+          .join()
+      : 'AK';
+
     return Column(
       children: <Widget>[
         Stack(
@@ -571,12 +597,17 @@ class _ProfileHeaderCard extends StatelessWidget {
                 color: const Color(0xFF203A43),
               ),
               alignment: Alignment.center,
-              child: const Text(
-                'AK',
-                style: TextStyle(
-                  color: Color(0xFFE6F7F4),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
+              clipBehavior: Clip.antiAlias,
+              child: buildBase64OrNetworkImage(
+                value: profile['profileImage']?.toString(),
+                fit: BoxFit.cover,
+                fallback: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Color(0xFFE6F7F4),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -602,9 +633,9 @@ class _ProfileHeaderCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Akash',
-          style: TextStyle(
+        Text(
+          ownerName,
+          style: const TextStyle(
             color: Color(0xFFE6F7F4),
             fontSize: 24,
             fontWeight: FontWeight.w700,
@@ -627,10 +658,10 @@ class _ProfileHeaderCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          '+91 98765 43210  •  akash@cricketturf.com',
+        Text(
+          '$contact  •  $email',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             color: Color(0xFF9FB9B3),
             fontSize: 14,
             fontWeight: FontWeight.w500,

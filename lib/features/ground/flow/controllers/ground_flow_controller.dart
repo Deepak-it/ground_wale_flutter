@@ -9,37 +9,34 @@ class GroundFlowController extends ChangeNotifier {
   final GroundWaleApi _api = GroundWaleApi.instance;
   final ApiSession _session = ApiSession.instance;
 
+  GroundFlowController() {
+    data.offerType = OfferType.boxCricket;
+  }
+
   int currentStep = 0;
   bool isBusy = false;
   String? errorMessage;
 
-  bool get isAcademyFlow => data.offerType == OfferType.academyCoaching;
+  bool get isAcademyFlow => false;
+  bool get isBoxCricketFlow => true;
 
-  int get totalSteps => isAcademyFlow ? 8 : 10;
+  int get totalSteps => 13;
 
-  List<String> get stepTitles => isAcademyFlow
-      ? const <String>[
-          'Choose Your Role',
-          'Fill Basic Details',
-          'What Do You Want To Offer',
-          'Shared Details',
-          'Choose Sports',
-          'Create Academy Batch',
-          'Ownership Verification',
-          'Academy Under Review',
-        ]
-      : const <String>[
-          'Choose Your Role',
-          'Fill Basic Details',
-          'What Do You Want To Offer',
-          'Shared Details',
-          'Choose Sports',
-          'Ground Photos',
-          'Ground Details',
-          'Ground Review',
-          'Ownership Verification',
-          'Ground Under Review',
-        ];
+  List<String> get stepTitles => const <String>[
+    'Role',
+    'Ground Details',
+    'OTP',
+    'List & Manage',
+    'Ground Location',
+    'Ground Photos',
+    'Ground/Court Review',
+    'Ground Facilities',
+    'Configure Slot',
+    'Add Custom Slots',
+    'Slot View',
+    'Ownership View',
+    'Ground Under Review',
+  ];
 
   bool get canContinueStep0 {
     return data.ownerName.trim().isNotEmpty &&
@@ -78,6 +75,7 @@ class GroundFlowController extends ChangeNotifier {
 
   void reset() {
     data = GroundRegistrationData();
+    data.offerType = OfferType.boxCricket;
     currentStep = 0;
     isBusy = false;
     errorMessage = null;
@@ -124,14 +122,8 @@ class GroundFlowController extends ChangeNotifier {
       'slotSize': data.slotSize,
       'gap': data.gap,
       'matchType': data.matchType,
-      'offerType': data.offerType?.name,
-      'entityType': isAcademyFlow
-          ? 'academy'
-          : (data.offerType == OfferType.boxCricket
-            ? 'box_cricket'
-            : (data.offerType == OfferType.sportsNeo
-              ? 'sports_neo'
-              : 'ground')),
+      'offerType': OfferType.boxCricket.name,
+      'entityType': 'box_cricket',
       'pinCode': data.pinCode,
       'daySlots': data.daySlots
           .map(
@@ -158,16 +150,14 @@ class GroundFlowController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final Map<String, dynamic> profile = await _api.updateOwnerProfile(
-        _session.ownerId!,
-        <String, dynamic>{
-        'ownerName': data.ownerName,
-        'contactNumber': data.contactNumber,
-        'email': data.email,
-        'address': data.address,
-        'role': 'owner',
-        },
-      );
+      final Map<String, dynamic> profile = await _api
+          .updateOwnerProfile(_session.ownerId!, <String, dynamic>{
+            'ownerName': data.ownerName,
+            'contactNumber': data.contactNumber,
+            'email': data.email,
+            'address': data.address,
+            'role': 'owner',
+          });
       _session.updateFromAuth(profile);
 
       Map<String, dynamic> ground;
@@ -196,5 +186,29 @@ class GroundFlowController extends ChangeNotifier {
       isBusy = false;
       notifyListeners();
     }
+  }
+
+  Future<String?> ensureDraftGroundId() async {
+    if (_session.hasGround) {
+      return _session.groundId;
+    }
+    if (!_session.isAuthenticated || _session.ownerId == null) {
+      return null;
+    }
+
+    final String? existing = await _api.ensureGroundIdForOwner(_session.ownerId!);
+    if (existing != null && existing.isNotEmpty) {
+      _session.setGroundId(existing);
+      return existing;
+    }
+
+    final Map<String, dynamic> created = await _api.createGround(_groundPayload());
+    final String createdId =
+        created['_id']?.toString() ?? created['id']?.toString() ?? '';
+    if (createdId.isEmpty) {
+      return null;
+    }
+    _session.setGroundId(createdId);
+    return createdId;
   }
 }

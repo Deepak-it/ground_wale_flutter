@@ -40,6 +40,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   bool _isGroundDataLoading = false;
   List<Map<String, dynamic>> _groundOptions = <Map<String, dynamic>>[];
   String? _selectedGroundId;
+  // ignore: unused_field
   String? _calendarGroundId;
   Map<String, Map<String, int>> _slotStatsByDate =
       <String, Map<String, int>>{};
@@ -206,6 +207,27 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     }
   }
 
+  Future<void> _onGroundSelectionChanged(String groundId) async {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedGroundId = groundId;
+      _isLoading = true;
+      _selectedGroundBookings = <Map<String, dynamic>>[];
+      _selectedGroundSlotSummary = <String, int>{
+        'available': 0,
+        'booked': 0,
+        'blocked': 0,
+      };
+      _slotStatsByDate = <String, Map<String, int>>{};
+    });
+
+    ApiSession.instance.setGroundId(groundId);
+    await _load();
+  }
+
   int _toInt(dynamic value) {
     if (value is int) {
       return value;
@@ -286,34 +308,66 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     return '${date.year}-$month-$day';
   }
 
-  DateTime? _extractBookingDate(Map<String, dynamic> booking) {
-    final List<String> keys = <String>[
-      'date',
-      'bookingDate',
-      'slotDate',
-      'createdAt',
+  String _shortDateLabel(DateTime date) {
+    const List<String> monthNames = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
-    for (final String key in keys) {
-      final dynamic raw = booking[key];
-      if (raw is String && raw.trim().isNotEmpty) {
-        final DateTime? parsed = DateTime.tryParse(raw);
-        if (parsed != null) {
-          return _dateOnly(parsed.toLocal());
-        }
+    return '${date.day} ${monthNames[date.month - 1]} ${date.year}';
+  }
+
+  DateTime? _parseCalendarDate(dynamic raw) {
+    if (raw is! String || raw.trim().isEmpty) {
+      return null;
+    }
+
+    final String value = raw.trim();
+    final RegExpMatch? ymd = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(value);
+    if (ymd != null) {
+      final int year = int.parse(ymd.group(1)!);
+      final int month = int.parse(ymd.group(2)!);
+      final int day = int.parse(ymd.group(3)!);
+      return DateTime(year, month, day);
+    }
+
+    final DateTime? parsed = DateTime.tryParse(value);
+    if (parsed == null) {
+      return null;
+    }
+    final DateTime local = parsed.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  DateTime? _extractBookingDate(Map<String, dynamic> booking) {
+    for (final String key in <String>['date', 'bookingDate', 'slotDate']) {
+      final DateTime? parsed = _parseCalendarDate(booking[key]);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+
+    final dynamic createdAtRaw = booking['createdAt'];
+    if (createdAtRaw is String && createdAtRaw.trim().isNotEmpty) {
+      final DateTime? createdAt = DateTime.tryParse(createdAtRaw);
+      if (createdAt != null) {
+        return _dateOnly(createdAt.toLocal());
       }
     }
     return null;
   }
 
   DateTime? _extractSlotDate(Map<String, dynamic> slot) {
-    final dynamic raw = slot['date'];
-    if (raw is String && raw.trim().isNotEmpty) {
-      final DateTime? parsed = DateTime.tryParse(raw);
-      if (parsed != null) {
-        return _dateOnly(parsed.toLocal());
-      }
-    }
-    return null;
+    return _parseCalendarDate(slot['date']);
   }
 
   String _apiDate(DateTime date) {
@@ -428,6 +482,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     }
   }
 
+  // ignore: unused_element
   Map<String, int> _bookingCountsByDate(List<Map<String, dynamic>> bookings) {
     final Map<String, int> counts = <String, int>{};
     for (final Map<String, dynamic> booking in bookings) {
@@ -606,99 +661,55 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 92),
                   children: <Widget>[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color(0x14FFFFFF),
+                    if (widget.showBottomNav) ...<Widget>[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0x14FFFFFF),
+                                  ),
+                                ),
+                                child: IconButton(
+                                  onPressed: () {
+                                    Navigator.of(context).maybePop();
+                                  },
+                                  icon: const Icon(
+                                    Icons.arrow_back_ios_new_rounded,
+                                    size: 18,
+                                    color: Color(0xFFDDF730),
+                                  ),
                                 ),
                               ),
-                              child: IconButton(
-                                onPressed: () {
-                                  Navigator.of(context).maybePop();
-                                },
-                                icon: const Icon(
-                                  Icons.arrow_back_ios_new_rounded,
-                                  size: 18,
-                                  color: Color(0xFFDDF730),
+                              const SizedBox(width: 12),
+                              Text(
+                                greetingMessage,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              greetingMessage,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: <Widget>[
-                            _iconChip(Icons.campaign_outlined),
-                            const SizedBox(width: 12),
-                            _iconChip(Icons.notifications_none_rounded),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0x0AFFFFFF),
-                        border: Border.all(color: const Color(0x1FFFFFFF)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedGroundId,
-                          isExpanded: true,
-                          dropdownColor: const Color(0xFF1B1F1B),
-                          iconEnabledColor: const Color(0xCCFFFFFF),
-                          hint: const Text(
-                            'Select Ground',
-                            style: TextStyle(color: Color(0x99FFFFFF)),
+                            ],
                           ),
-                          items: _groundOptions.map((Map<String, dynamic> ground) {
-                            final String id = _groundId(ground);
-                            return DropdownMenuItem<String>(
-                              value: id,
-                              child: Text(
-                                _groundName(ground),
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (String? value) async {
-                            if (value == null || value == _selectedGroundId) {
-                              return;
-                            }
-                            setState(() {
-                              _selectedGroundId = value;
-                              _selectedGroundBookings = <Map<String, dynamic>>[];
-                              _selectedGroundSlotSummary = <String, int>{
-                                'available': 0,
-                                'booked': 0,
-                                'blocked': 0,
-                              };
-                            });
-                            ApiSession.instance.setGroundId(value);
-                            await _loadGroundScopedData();
-                            await _loadCalendarSlots();
-                          },
-                        ),
+                          Row(
+                            children: <Widget>[
+                              _iconChip(Icons.campaign_outlined),
+                              const SizedBox(width: 12),
+                              _iconChip(Icons.notifications_none_rounded),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                    ],
+
                     if (_isGroundDataLoading) ...<Widget>[
                       const SizedBox(height: 8),
                       const LinearProgressIndicator(
@@ -719,7 +730,13 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                           if (index == grounds.length) {
                             return _addFacilityCard();
                           }
-                          return _groundCard(grounds[index]);
+                          final Map<String, dynamic> ground = grounds[index];
+                          final String id = _groundId(ground);
+                          final bool selected = id.isNotEmpty && id == _selectedGroundId;
+                          return GestureDetector(
+                            onTap: id.isEmpty ? null : () => _onGroundSelectionChanged(id),
+                            child: _groundCard(ground, selected: selected),
+                          );
                         },
                       ),
                     ),
@@ -944,7 +961,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                              _shortDateLabel(_selectedDate),
                               style: const TextStyle(
                                 color: Color(0x99FFFFFF),
                                 fontSize: 12,
@@ -1431,7 +1448,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     );
   }
 
-  Widget _groundCard(Map<String, dynamic> ground) {
+  Widget _groundCard(Map<String, dynamic> ground, {bool selected = false}) {
     final String name = ground['name']?.toString() ?? 'Cricket Ground';
     final String location =
         ground['location']?.toString() ?? 'Location not available';
@@ -1452,7 +1469,10 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       width: 263,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1F242424)),
+        border: Border.all(
+          color: selected ? const Color(0xFFDDF730) : const Color(0x1F242424),
+          width: selected ? 1.5 : 1,
+        ),
         color: const Color(0x0AFFFFFF),
       ),
       child: Column(

@@ -29,6 +29,30 @@ class _AcademyManageStudentsScreenState
     return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
   }
 
+  DateTime? _parseApiDate(dynamic raw) {
+    final String value = raw?.toString() ?? '';
+    if (value.trim().isEmpty) {
+      return null;
+    }
+    final DateTime? parsed = DateTime.tryParse(value);
+    if (parsed == null) {
+      return null;
+    }
+    final DateTime local = parsed.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  String _shortDateLabel(dynamic raw) {
+    final DateTime? date = _parseApiDate(raw);
+    if (date == null) {
+      return '-';
+    }
+    final String day = date.day.toString().padLeft(2, '0');
+    final String month = date.month.toString().padLeft(2, '0');
+    final String year = date.year.toString();
+    return '$day-$month-$year';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -132,8 +156,8 @@ class _AcademyManageStudentsScreenState
       final Map<String, String> latestAttendanceByStudent = <String, String>{};
       for (final Map<String, dynamic> dayRecord in attendance) {
         final DateTime dayDate =
-            DateTime.tryParse(dayRecord['date']?.toString() ?? '') ??
-            DateTime.fromMillisecondsSinceEpoch(0);
+          _parseApiDate(dayRecord['date']) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
         final List<dynamic> entries =
             dayRecord['entries'] as List<dynamic>? ?? <dynamic>[];
 
@@ -187,8 +211,7 @@ class _AcademyManageStudentsScreenState
                   latestFeeAmountByStudent[studentId] ??
                   (student['monthlyFee'] as num?)?.toString() ??
                   '-',
-              joiningDate:
-                  student['joinDate']?.toString().split('T').first ?? '-',
+              joiningDate: _shortDateLabel(student['joinDate']),
               paymentMode: latestPaymentModeByStudent[studentId] ?? '-',
             );
           })

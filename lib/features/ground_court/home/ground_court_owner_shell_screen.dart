@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/ist_greeting.dart';
 import '../../academy/home/academy_announcement_screen.dart';
 import '../../academy/home/academy_dashboard_screen.dart';
 import '../../academy/home/academy_profile_screen.dart';
@@ -514,15 +515,77 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
     );
   }
 
+  Widget _headerIconChip(IconData icon) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+      ),
+      child: Icon(icon, color: const Color(0xFFDDF730), size: 20),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final String ownerName =
+        ApiSession.instance.ownerName?.trim().isNotEmpty == true
+        ? ApiSession.instance.ownerName!.trim()
+        : 'Owner';
+    final String greetingMessage = istGreetingMessage(ownerName);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F2027),
+      backgroundColor: _topTabIndex == 0 ? const Color(0xFF1B1F1B) : const Color(0xFF0F2027),
       body: SafeArea(
         child: Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0x14FFFFFF)),
+                        ),
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 18,
+                            color: Color(0xFFDDF730),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        greetingMessage,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: <Widget>[
+                      _headerIconChip(Icons.campaign_outlined),
+                      const SizedBox(width: 10),
+                      _headerIconChip(Icons.notifications_none_rounded),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: Row(
                 children: <Widget>[
                   _topTab(

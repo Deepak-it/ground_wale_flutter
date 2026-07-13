@@ -51,9 +51,16 @@ class _AcademyViewAllAttendanceScreenState
 
       final List<_AttendanceItem> items = <_AttendanceItem>[];
       for (final Map<String, dynamic> dayRecord in attendance) {
-        final DateTime? parsedDate = DateTime.tryParse(
+        final DateTime? parsedRaw = DateTime.tryParse(
           dayRecord['date']?.toString() ?? '',
         );
+        final DateTime? parsedDate = parsedRaw == null
+            ? null
+            : DateTime(
+                parsedRaw.toLocal().year,
+                parsedRaw.toLocal().month,
+                parsedRaw.toLocal().day,
+              );
         final List<dynamic> entries =
             dayRecord['entries'] as List<dynamic>? ?? <dynamic>[];
 

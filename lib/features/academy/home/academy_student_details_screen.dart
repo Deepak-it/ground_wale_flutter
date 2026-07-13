@@ -111,10 +111,12 @@ class _AcademyStudentDetailsScreenState extends State<AcademyStudentDetailsScree
     if (raw == null || raw.isEmpty) {
       return '-';
     }
-    final DateTime? d = DateTime.tryParse(raw);
-    if (d == null) {
+    final DateTime? parsed = DateTime.tryParse(raw);
+    if (parsed == null) {
       return raw;
     }
+    final DateTime local = parsed.toLocal();
+    final DateTime d = DateTime(local.year, local.month, local.day);
     const List<String> months = <String>[
       'Jan',
       'Feb',

@@ -22,6 +22,10 @@ class _ManageSlotTurfScreenState extends State<ManageSlotTurfScreen> {
   final GroundWaleApi _api = GroundWaleApi.instance;
   late Future<List<Map<String, dynamic>>> _slotsFuture = _loadSlots();
 
+  String _slotId(Map<String, dynamic> slot) {
+    return slot['_id']?.toString() ?? slot['id']?.toString() ?? '';
+  }
+
   Future<String?> _resolveGroundId() async {
     final ApiSession session = ApiSession.instance;
     if (session.hasGround) {
@@ -177,8 +181,17 @@ class _ManageSlotTurfScreenState extends State<ManageSlotTurfScreen> {
                     backgroundColor: const Color(0x22F59E0B),
                   ),
                   onPressed: () async {
+                    final String slotId = _slotId(slot);
+                    if (slotId.isEmpty) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Unable to block slot: missing slot id.')),
+                        );
+                      }
+                      return;
+                    }
                     final bool? didBlock = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute<bool>(builder: (_) => BlockSlotTurfScreen(slotId: slot['_id']?.toString() ?? '')),
+                      MaterialPageRoute<bool>(builder: (_) => BlockSlotTurfScreen(slotId: slotId)),
                     );
                     if (didBlock == true) {
                       _refresh();
@@ -194,8 +207,17 @@ class _ManageSlotTurfScreenState extends State<ManageSlotTurfScreen> {
                     backgroundColor: const Color(0x22E3220D),
                   ),
                   onPressed: () async {
+                    final String slotId = _slotId(slot);
+                    if (slotId.isEmpty) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Unable to delete slot: missing slot id.')),
+                        );
+                      }
+                      return;
+                    }
                     final bool? didDelete = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute<bool>(builder: (_) => DeleteSlotTurfScreen(slotId: slot['_id']?.toString() ?? '')),
+                      MaterialPageRoute<bool>(builder: (_) => DeleteSlotTurfScreen(slotId: slotId)),
                     );
                     if (didDelete == true) {
                       _refresh();

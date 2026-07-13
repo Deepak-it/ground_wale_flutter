@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
 import '../../../core/widgets/module_bottom_nav.dart';
 import '../slots/manage_slot_turf_screen.dart';
 import '../dashboard/dashboard_turf_screen.dart';
@@ -110,10 +111,22 @@ class ProfileTurfScreen extends StatelessWidget {
           TurfCard(
             child: Row(
               children: <Widget>[
-                const CircleAvatar(
-                  radius: 28,
-                  backgroundColor: Color(0xFFDDF730),
-                  child: Icon(Icons.person, color: Color(0xFF242424)),
+                Container(
+                  width: 56,
+                  height: 56,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDDF730),
+                    shape: BoxShape.circle,
+                  ),
+                  child: buildBase64OrNetworkImage(
+                    value: profile['profileImage']?.toString(),
+                    fit: BoxFit.cover,
+                    fallback: const Icon(
+                      Icons.person,
+                      color: Color(0xFF242424),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

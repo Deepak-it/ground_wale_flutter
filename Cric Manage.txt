@@ -23,3 +23,54 @@ don't change/modify existing view, keep a seperate view new view, named: Ground-
                      4. Academy section should be used for Academy tab. i. Dashboard should have a sliding academies view that user can use(after last card give a + icon, which should show add academy process). ii. the user can have multiple no. of ground/court. iii. each section like Student View, Batch View, Attendance View should have a select academy dropdown, We will show an academy selected based on where user is clicking from. iv. iii. When adding a student for a batch, the selected batch fee should be shown by default. If the user wants to edit it, they can edit it.
 
 6. all these changes be it academy/ground/turf make required changes in both flutter and express. 
+
+
+
+
+
+
+
+Registeration: 
+
+Screens Flow: 
+
+Ground: 
+
+1 Role 
+2 Ground Details
+3 OTP
+4 List & Manage
+5 Ground Location
+6 Ground Photos
+7 Ground/Court Review
+8 Ground Facilities
+9 Configure Slot     
+10 Add Custom Slots
+11 Slot View
+12 Ownership View
+13 Ground Under Review
+
+
+Academy: 
+1. list & manage
+2. academy details
+3. Create Academy Batch
+4. Academy photos
+5. Ownership Verification
+6. Review Page
+
+
+
+Academy functionality
+
+Bookign  Yes
+Batch Yes
+Dasbhoard Somewhat Yes
+Attendance Yes -only dashboard status bar for attendance fix
+
+
+Ground Functionaity
+Booking Yes
+Slot Yes
+Dashboard Yes
+S

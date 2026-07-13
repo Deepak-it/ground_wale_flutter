@@ -1,7 +1,15 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
+
+import '../../../core/utils/base64_image.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
@@ -183,8 +191,251 @@ String _maskEmail(String email) {
   return '${prefix.substring(0, 4)}*****$domain';
 }
 
-class SportsNeoWelcomeScreen extends StatelessWidget {
+class _OnboardingSlideData {
+  const _OnboardingSlideData({
+    required this.imageAsset,
+    required this.titlePrimary,
+    required this.titleAccent,
+    required this.subtitle,
+  });
+
+  final String imageAsset;
+  final String titlePrimary;
+  final String titleAccent;
+  final String subtitle;
+}
+
+const List<_OnboardingSlideData> _sportsNeoSlides = <_OnboardingSlideData>[
+  _OnboardingSlideData(
+    imageAsset: 'assets/images/1st-slide.png',
+    titlePrimary: 'Book Ground\n',
+    titleAccent: 'instantly',
+    subtitle: 'Find nearby sports grounds, compare slots and play without waiting.',
+  ),
+  _OnboardingSlideData(
+    imageAsset: 'assets/images/2nd-slide.png',
+    titlePrimary: 'Manage Teams\n',
+    titleAccent: '& Matches',
+    subtitle: 'Create squads, track players and schedule matches, split payments.',
+  ),
+  _OnboardingSlideData(
+    imageAsset: 'assets/images/3rd-slide.png',
+    titlePrimary: 'Train Smarter\n',
+    titleAccent: 'Every Day',
+    subtitle: 'Join academies, track attendance and improve your game.',
+  ),
+];
+
+class SportsNeoWelcomeScreen extends StatefulWidget {
   const SportsNeoWelcomeScreen({super.key});
+
+  @override
+  State<SportsNeoWelcomeScreen> createState() => _SportsNeoWelcomeScreenState();
+}
+
+class _SportsNeoWelcomeScreenState extends State<SportsNeoWelcomeScreen> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _openLoginOptions() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const _SportsNeoLoginOptionsScreen()),
+    );
+  }
+
+  void _onPrimaryAction() {
+    if (_currentPage < _sportsNeoSlides.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      );
+      return;
+    }
+    _openLoginOptions();
+  }
+
+  Widget _indicatorDot(bool active) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: active ? 28 : 8,
+      height: 8,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: active ? const Color(0xFF2563EB) : const Color(0xFFC3D6FF),
+      ),
+    );
+  }
+
+  Widget _buildSlide(_OnboardingSlideData slide) {
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: Image.asset(
+                  slide.imageAsset,
+                  fit: BoxFit.cover,
+                  errorBuilder:
+                      (
+                        BuildContext context,
+                        Object error,
+                        StackTrace? stackTrace,
+                      ) {
+                        return Container(
+                          color: const Color(0xFF141B33),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Colors.white70,
+                            size: 40,
+                          ),
+                        );
+                      },
+                ),
+              ),
+              Positioned(
+                top: 18,
+                left: 18,
+                child: Image.asset(
+                  'assets/images/sports_neo_logo.png',
+                  width: 80,
+                  height: 71,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: Color(0xFF09082F),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 30, 24, 30),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    fontWeight: FontWeight.w700,
+                    height: 1.05,
+                  ),
+                  children: <InlineSpan>[
+                    TextSpan(text: slide.titlePrimary),
+                    TextSpan(
+                      text: slide.titleAccent,
+                      style: const TextStyle(color: Color(0xFF2563EB)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                slide.subtitle,
+                style: const TextStyle(
+                  color: Color(0xCCFFFFFF),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 30),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Row(
+                    children: List<Widget>.generate(_sportsNeoSlides.length, (int i) {
+                      return Padding(
+                        padding: EdgeInsets.only(right: i == _sportsNeoSlides.length - 1 ? 0 : 6),
+                        child: _indicatorDot(i == _currentPage),
+                      );
+                    }),
+                  ),
+                  SizedBox(
+                    width: 118,
+                    height: 44,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: _onPrimaryAction,
+                      child: Text(
+                        _currentPage == _sportsNeoSlides.length - 1
+                            ? 'Get Started'
+                            : 'Next',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0F1E),
+      body: SafeArea(
+        child: Stack(
+          children: <Widget>[
+            PageView.builder(
+              controller: _pageController,
+              itemCount: _sportsNeoSlides.length,
+              onPageChanged: (int index) {
+                setState(() => _currentPage = index);
+              },
+              itemBuilder: (BuildContext context, int index) {
+                return _buildSlide(_sportsNeoSlides[index]);
+              },
+            ),
+            Positioned(
+              top: 24,
+              right: 24,
+              child: GestureDetector(
+                onTap: _openLoginOptions,
+                child: const Text(
+                  'Skip',
+                  style: TextStyle(
+                    color: Color(0xFFDBE7FF),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SportsNeoLoginOptionsScreen extends StatelessWidget {
+  const _SportsNeoLoginOptionsScreen();
 
   void _openGoogleSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -213,8 +464,8 @@ class SportsNeoWelcomeScreen extends StatelessWidget {
                   child: SizedBox(
                     width: double.infinity,
                     height: 382,
-                    child: Image.network(
-                      'https://api.builder.io/api/v1/image/assets/TEMP/0ac36a8f6291a9c3de9235e028c629d439fba3bd?width=716',
+                    child: Image.asset(
+                      'assets/images/1st-slide.png',
                       fit: BoxFit.cover,
                       errorBuilder:
                           (
@@ -319,6 +570,18 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
   final GroundWaleApi _api = GroundWaleApi.instance;
   bool _isSubmitting = false;
 
+  String _normalizedIndianPhone(String input) {
+    final String digitsOnly = input.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length == 12 && digitsOnly.startsWith('91')) {
+      return digitsOnly.substring(2);
+    }
+    return digitsOnly;
+  }
+
+  bool _isValidIndianPhone(String phone) {
+    return RegExp(r'^[6-9]\d{9}$').hasMatch(phone);
+  }
+
   @override
   void dispose() {
     _phoneController.dispose();
@@ -326,9 +589,19 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
   }
 
   Future<void> _sendOtp() async {
-    if (_phoneController.text.trim().isEmpty) {
+    final String contactNumber = _normalizedIndianPhone(_phoneController.text);
+
+    if (contactNumber.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your phone number')),
+      );
+      return;
+    }
+    if (!_isValidIndianPhone(contactNumber)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid 10-digit Indian mobile number'),
+        ),
       );
       return;
     }
@@ -341,7 +614,6 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final String contactNumber = _phoneController.text.trim();
       bool isExistingUser = true;
       Map<String, dynamic> otpResponse;
       try {
@@ -436,10 +708,10 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
                     ),
                     child: const Row(
                       children: <Widget>[
-                        Text('🇦🇫', style: TextStyle(fontSize: 16)),
+                        Text('🇮🇳', style: TextStyle(fontSize: 16)),
                         SizedBox(width: 6),
                         Text(
-                          '+93',
+                          '+91',
                           style: TextStyle(
                             color: Colors.white,
                             fontFamily: 'Montserrat',
@@ -463,6 +735,10 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
                       child: AppTextField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        inputFormatters: <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
                         minLines: 1,
                         maxLines: 1,
                         textAlignVertical: TextAlignVertical.center,
@@ -478,9 +754,10 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
+                          counterText: '',
                           border: InputBorder.none,
-                          isDense: false,
-                          contentPadding: EdgeInsets.symmetric(vertical: 16),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                     ),
@@ -834,7 +1111,9 @@ class SportsNeoCompleteProfileScreen extends StatefulWidget {
 
 class _SportsNeoCompleteProfileScreenState
     extends State<SportsNeoCompleteProfileScreen> {
+  static const int _maxImageBytes = 3 * 1024 * 1024;
   final GroundWaleApi _api = GroundWaleApi.instance;
+  final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _sportsController = TextEditingController(
@@ -842,7 +1121,131 @@ class _SportsNeoCompleteProfileScreenState
   );
   final TextEditingController _cityController = TextEditingController();
   String _selectedRole = 'Player';
+  String? _profileImageBase64;
+  bool _isPickingImage = false;
   bool _isSaving = false;
+
+  String _mimeTypeFromName(String name) {
+    final String lower = name.toLowerCase();
+    if (lower.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (lower.endsWith('.gif')) {
+      return 'image/gif';
+    }
+    return 'image/jpeg';
+  }
+
+  Future<void> _pickProfileImage() async {
+    if (_isPickingImage) {
+      return;
+    }
+
+    setState(() => _isPickingImage = true);
+    try {
+      List<int> bytes = <int>[];
+      String mime = 'image/jpeg';
+
+      final bool useDesktopPicker =
+          !kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.linux ||
+              defaultTargetPlatform == TargetPlatform.macOS);
+
+      if (useDesktopPicker) {
+        try {
+          final FilePickerResult? result = await FilePicker.platform.pickFiles(
+            type: FileType.image,
+            withData: true,
+          );
+          if (result == null || result.files.isEmpty) {
+            return;
+          }
+          final PlatformFile file = result.files.first;
+          bytes = file.bytes ?? <int>[];
+          if (bytes.isEmpty && file.path != null) {
+            bytes = await XFile(file.path!).readAsBytes();
+          }
+          if (bytes.isEmpty) {
+            throw Exception('Selected image has no readable bytes');
+          }
+          if (bytes.length > _maxImageBytes) {
+            throw Exception('Image is too large. Please select an image smaller than 3 MB.');
+          }
+          mime = _mimeTypeFromName(file.name);
+        } on MissingPluginException {
+          // Fallback to image_picker when desktop picker plugin is not wired yet.
+          final XFile? file = await _imagePicker.pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 75,
+            maxWidth: 1024,
+          );
+          if (file == null) {
+            return;
+          }
+          bytes = await file.readAsBytes();
+          if (bytes.isEmpty) {
+            throw Exception('Selected image has no readable bytes');
+          }
+          if (bytes.length > _maxImageBytes) {
+            throw Exception('Image is too large. Please select an image smaller than 3 MB.');
+          }
+          mime = file.mimeType ?? _mimeTypeFromName(file.name);
+        }
+      } else {
+        final XFile? file = await _imagePicker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 75,
+          maxWidth: 1024,
+        );
+        if (file == null) {
+          return;
+        }
+        bytes = await file.readAsBytes();
+        if (bytes.isEmpty) {
+          throw Exception('Selected image has no readable bytes');
+        }
+        if (bytes.length > _maxImageBytes) {
+          throw Exception('Image is too large. Please select an image smaller than 3 MB.');
+        }
+        mime = file.mimeType ?? _mimeTypeFromName(file.name);
+      }
+
+      final String encoded = base64Encode(bytes);
+      setState(() {
+        _profileImageBase64 = 'data:$mime;base64,$encoded';
+      });
+    } on MissingPluginException {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Image picker plugin not registered. Please stop the app and run it again.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to pick image: ${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingImage = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -889,10 +1292,10 @@ class _SportsNeoCompleteProfileScreenState
                 ),
               ),
               const SizedBox(height: 24),
-              const Center(
+              Center(
                 child: Column(
                   children: <Widget>[
-                    Text(
+                    const Text(
                       'Profile Photo (Optional)',
                       style: TextStyle(
                         color: Color(0xCCFFFFFF),
@@ -900,8 +1303,12 @@ class _SportsNeoCompleteProfileScreenState
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    SizedBox(height: 12),
-                    _AddPhotoCircle(),
+                    const SizedBox(height: 12),
+                    _AddPhotoCircle(
+                      imageBase64: _profileImageBase64,
+                      isLoading: _isPickingImage,
+                      onTap: _pickProfileImage,
+                    ),
                   ],
                 ),
               ),
@@ -1024,6 +1431,8 @@ class _SportsNeoCompleteProfileScreenState
                             'dob': _dobController.text.trim(),
                             'sportsNeoRole': normalizedRole,
                             'role': normalizedRole,
+                            if (_profileImageBase64 != null)
+                              'profileImage': _profileImageBase64,
                           };
                           await _api.updateOwnerProfile(
                             ApiSession.instance.ownerId!,
@@ -1109,7 +1518,7 @@ class _SportsNeoWordmark extends StatelessWidget {
         child: Column(
           children: <Widget>[
             Image.asset(
-              'assets/images/sport-neo-logo.png',
+              'assets/images/sports_neo_logo.png',
               width: 200,
               height: 200,
               fit: BoxFit.contain,
@@ -1128,7 +1537,7 @@ class _SportsNeoWordmark extends StatelessWidget {
     }
 
     return Image.asset(
-      'assets/images/sport-neo-logo.png',
+      'assets/images/sports_neo_logo.png',
       width: 80,
       height: 71,
       fit: BoxFit.contain,
@@ -1415,23 +1824,59 @@ class _InputLikeField extends StatelessWidget {
 }
 
 class _AddPhotoCircle extends StatelessWidget {
-  const _AddPhotoCircle();
+  const _AddPhotoCircle({
+    required this.onTap,
+    this.imageBase64,
+    this.isLoading = false,
+  });
+
+  final VoidCallback onTap;
+  final String? imageBase64;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final Widget fallback = Container(
       width: 72,
       height: 72,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(36),
-        border: Border.all(
-          color: const Color(0x33FFFFFF),
-          width: 2,
-          style: BorderStyle.solid,
-        ),
         color: const Color(0x05FFFFFF),
       ),
-      child: const Icon(Icons.add, color: Color(0x66FFFFFF), size: 24),
+      child: isLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(Icons.add, color: Color(0x66FFFFFF), size: 24),
+    );
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(36),
+          border: Border.all(
+            color: const Color(0x33FFFFFF),
+            width: 2,
+            style: BorderStyle.solid,
+          ),
+          color: const Color(0x05FFFFFF),
+        ),
+        clipBehavior: Clip.antiAlias,
+        alignment: Alignment.center,
+        child: buildBase64OrNetworkImage(
+          value: imageBase64,
+          fit: BoxFit.cover,
+          fallback: fallback,
+        ),
+      ),
     );
   }
 }
