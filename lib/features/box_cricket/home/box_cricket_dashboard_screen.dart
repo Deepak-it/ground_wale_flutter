@@ -1809,7 +1809,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       flowController.data.otpVerified = true;
       flowController.skipOwnershipVerification = true;
 
-      await Navigator.of(context).push(
+      await Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute<void>(
           builder: (_) => RegisterGroundFlowScreen(
             initialController: flowController,
@@ -1817,7 +1817,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
             skipUnderReview: true,
             forceCreateGround: true,
             onFinish: () {
-              Navigator.of(context).pop();
+              Navigator.of(context, rootNavigator: true).pop();
               _load();
             },
           ),

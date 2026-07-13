@@ -103,13 +103,13 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
       return;
     }
 
-    await Navigator.of(context).push(
+    await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => RegisterGroundFlowScreen(
           initialController: flowController,
           initialStep: 13,
           onFinish: () {
-            Navigator.of(context).pop();
+            Navigator.of(context, rootNavigator: true).pop();
             _loadOwnerEntities();
             if (!mounted) {
               return;
@@ -147,7 +147,7 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
       return;
     }
 
-    await Navigator.of(context).push(
+    await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => RegisterGroundFlowScreen(
           initialController: flowController,
@@ -155,7 +155,7 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
           skipUnderReview: true,
           forceCreateGround: true,
           onFinish: () {
-            Navigator.of(context).pop();
+            Navigator.of(context, rootNavigator: true).pop();
             _loadOwnerEntities();
             if (!mounted) {
               return;

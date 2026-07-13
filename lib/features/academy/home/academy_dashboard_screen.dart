@@ -391,13 +391,13 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     flowController.skipOwnershipVerification = true;
 
     if (!mounted) return;
-    await Navigator.of(context).push(
+    await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => RegisterGroundFlowScreen(
           initialController: flowController,
           initialStep: 13, // Start at Academy Details
           onFinish: () {
-            Navigator.of(context).pop(); // back to dashboard
+            Navigator.of(context, rootNavigator: true).pop(); // back to dashboard
             _load();
           },
         ),
