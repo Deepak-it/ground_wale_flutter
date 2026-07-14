@@ -77,6 +77,7 @@ flutter:
     - assets/images/1st-slide.png
     - assets/images/2nd-slide.png
     - assets/images/3rd-slide.png
+    - assets/images/google-logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

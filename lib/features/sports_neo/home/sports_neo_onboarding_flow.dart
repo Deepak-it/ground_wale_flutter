@@ -363,7 +363,7 @@ class _SportsNeoWelcomeScreenState extends State<SportsNeoWelcomeScreen> {
                     }),
                   ),
                   SizedBox(
-                    width: 118,
+                    width: 130,
                     height: 44,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -527,7 +527,12 @@ class _SportsNeoLoginOptionsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _OutlineActionButton(
-                  icon: Icons.g_mobiledata_rounded,
+                  leading: Image.asset(
+                    'assets/images/google-logo.png',
+                    width: 20,
+                    height: 20,
+                    fit: BoxFit.contain,
+                  ),
                   text: 'Continue with Google',
                   onPressed: () => _openGoogleSheet(context),
                 ),
@@ -1632,6 +1637,7 @@ class _OutlineActionButton extends StatelessWidget {
   const _OutlineActionButton({
     required this.text,
     required this.onPressed,
+    this.leading,
     this.icon,
     this.textColor = Colors.white,
     this.borderColor = const Color(0xFF2563EB),
@@ -1639,6 +1645,7 @@ class _OutlineActionButton extends StatelessWidget {
 
   final String text;
   final VoidCallback onPressed;
+  final Widget? leading;
   final IconData? icon;
   final Color textColor;
   final Color borderColor;
@@ -1659,7 +1666,10 @@ class _OutlineActionButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            if (icon != null) ...<Widget>[
+            if (leading != null) ...<Widget>[
+              leading!,
+              const SizedBox(width: 8),
+            ] else if (icon != null) ...<Widget>[
               Icon(icon, color: Colors.white, size: 20),
               const SizedBox(width: 8),
             ],
