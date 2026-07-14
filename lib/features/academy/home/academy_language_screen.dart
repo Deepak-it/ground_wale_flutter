@@ -83,9 +83,7 @@ class _AcademyLanguageScreenState extends State<AcademyLanguageScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: _ProfileBottomNav(
-        onHomeTap: () => Navigator.of(context).pop(),
-      ),
+      bottomNavigationBar: null,
     );
   }
 }
@@ -152,89 +150,6 @@ class _LanguageTile extends StatelessWidget {
                 ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileBottomNav extends StatelessWidget {
-  const _ProfileBottomNav({required this.onHomeTap});
-
-  final VoidCallback onHomeTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 80,
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
-      decoration: const BoxDecoration(
-        color: Color(0x0FFFFFFF),
-        border: Border(top: BorderSide(color: Color(0x1FFFFFFF))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          _BottomNavItem(
-            icon: Icons.home_outlined,
-            label: 'Home',
-            selected: false,
-            onTap: onHomeTap,
-          ),
-          const _BottomNavItem(
-            icon: Icons.campaign_outlined,
-            label: 'Announcement',
-            selected: false,
-          ),
-          const _BottomNavItem(
-            icon: Icons.person_outline_rounded,
-            label: 'Profile',
-            selected: true,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BottomNavItem extends StatelessWidget {
-  const _BottomNavItem({
-    required this.icon,
-    required this.label,
-    this.selected = false,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color color = selected
-        ? const Color(0xFF00C9A7)
-        : const Color(0xFF9FB9B3);
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 90,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: <Widget>[
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
         ),
       ),
     );

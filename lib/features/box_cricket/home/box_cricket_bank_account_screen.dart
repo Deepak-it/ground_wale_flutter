@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import 'box_cricket_bottom_nav.dart';
-import 'box_cricket_dashboard_screen.dart';
 import 'box_cricket_edit_bank_account_screen.dart';
-import 'box_cricket_manage_slots_screen.dart';
-import 'box_cricket_profile_screen.dart';
-import 'box_cricket_upcoming_bookings_screen.dart';
 
 class BoxCricketBankAccountScreen extends StatefulWidget {
   const BoxCricketBankAccountScreen({super.key});
@@ -209,38 +204,7 @@ class _BoxCricketBankAccountScreenState extends State<BoxCricketBankAccountScree
                 ],
               ),
       ),
-      bottomNavigationBar: BoxCricketBottomNav(
-        currentIndex: 3,
-        onHome: () {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketDashboardScreen(),
-            ),
-            (Route<dynamic> route) => false,
-          );
-        },
-        onAnnouncement: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketUpcomingBookingsScreen(),
-            ),
-          );
-        },
-        onSlots: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketManageSlotsScreen(),
-            ),
-          );
-        },
-        onProfile: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const BoxCricketProfileScreen(),
-            ),
-          );
-        },
-      ),
+      bottomNavigationBar: null,
     );
   }
 
