@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
+import '../../../../core/utils/location_service.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/labeled_text_field.dart';
 import '../../../../core/widgets/neon_button.dart';
@@ -67,6 +69,9 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
   late final TextEditingController _pinCodeController;
   late final TextEditingController _landmarkController;
 
+  bool _locationFetched = false;
+  bool _isFetchingLocation = false;
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +96,54 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
     _landmarkController = TextEditingController(
       text: widget.controller.data.landmark,
     );
+  }
+
+  // ── Location fetch ─────────────────────────────────────────
+  Future<void> _fetchLocation() async {
+    setState(() => _isFetchingLocation = true);
+    try {
+      final LocationResult result = await LocationService.fetchCurrentLocation();
+      setState(() {
+        _cityController.text = result.city;
+        _stateController.text = result.state;
+        // Lock fields only when geocoding actually found city/state.
+        // If geocodingSucceeded is false, GPS coordinates were saved but
+        // city/state are empty → leave fields editable for manual entry.
+        _locationFetched = result.geocodingSucceeded;
+      });
+      _sync();
+      if (!mounted) return;
+      if (!result.geocodingSucceeded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'GPS location found. Please enter city/state manually.',
+            ),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } on LocationServiceException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message ?? 'Could not fetch location'),
+          action: e.error == LocationError.permissionDeniedForever
+              ? SnackBarAction(
+                  label: 'Settings',
+                  onPressed: Geolocator.openAppSettings,
+                )
+              : null,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Location error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isFetchingLocation = false);
+    }
   }
 
   // ── Sports sheet ─────────────────────────────────────────
@@ -475,18 +528,83 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
           GlassCard(
             child: Column(
               children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        _locationFetched
+                            ? 'Location detected'
+                            : 'Detect your location',
+                        style: TextStyle(
+                          color: _locationFetched
+                              ? const Color(0xFF4ADE80)
+                              : Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _isFetchingLocation ? null : _fetchLocation,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: const Color(0xFF1C333B),
+                          border: Border.all(
+                            color: const Color(0xFF2563EB),
+                          ),
+                        ),
+                        child: _isFetchingLocation
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.my_location,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'Use Location',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 LabeledTextField(
                   label: 'State',
                   controller: _stateController,
                   hint: 'Select State',
-                  onChanged: (_) => _sync(),
+                  readOnly: _locationFetched,
+                  onChanged: _locationFetched ? null : (_) => _sync(),
                 ),
                 const SizedBox(height: 14),
                 LabeledTextField(
                   label: 'City',
                   controller: _cityController,
                   hint: 'Select City',
-                  onChanged: (_) => _sync(),
+                  readOnly: _locationFetched,
+                  onChanged: _locationFetched ? null : (_) => _sync(),
                 ),
                 const SizedBox(height: 14),
                 LabeledTextField(

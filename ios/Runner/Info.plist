@@ -49,6 +49,10 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SportsNeo uses your location to prefill city and state for ground and profile setup.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>SportsNeo uses your location to prefill city and state for ground and profile setup.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

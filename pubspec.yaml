@@ -38,6 +38,8 @@ dependencies:
   flutter_svg: ^2.0.17
   image_picker: ^1.1.2
   file_picker: ^8.1.2
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
 
 dev_dependencies:
   flutter_test:

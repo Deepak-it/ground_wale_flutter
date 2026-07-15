@@ -6,10 +6,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
 
 import '../../../core/utils/base64_image.dart';
+import '../../../core/utils/location_service.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
@@ -1121,10 +1123,14 @@ class _SportsNeoCompleteProfileScreenState
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
+  DateTime? _selectedDob;
   final TextEditingController _sportsController = TextEditingController(
     text: 'Cricket',
   );
   final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  bool _locationFetched = false;
+  bool _isFetchingLocation = false;
   String _selectedRole = 'Player';
   String? _profileImageBase64;
   bool _isPickingImage = false;
@@ -1258,7 +1264,97 @@ class _SportsNeoCompleteProfileScreenState
     _dobController.dispose();
     _sportsController.dispose();
     _cityController.dispose();
+    _stateController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDob() async {
+    final DateTime now = DateTime.now();
+    // Youngest allowed: 5 years old. Oldest: 100 years.
+    final DateTime firstDate = DateTime(now.year - 100, now.month, now.day);
+    final DateTime lastDate = DateTime(now.year - 5, now.month, now.day);
+    final DateTime initialDate =
+        _selectedDob != null && _selectedDob!.isBefore(lastDate)
+            ? _selectedDob!
+            : lastDate;
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: 'Select Date of Birth',
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF2563EB),
+              onPrimary: Colors.white,
+              surface: Color(0xFF1A1F3C),
+              onSurface: Colors.white,
+            ),
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Color(0xFF1A1F3C),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked == null || !mounted) return;
+    setState(() {
+      _selectedDob = picked;
+      final String dd = picked.day.toString().padLeft(2, '0');
+      final String mm = picked.month.toString().padLeft(2, '0');
+      _dobController.text = '$dd/$mm/${picked.year}';
+    });
+  }
+
+  Future<void> _fetchProfileLocation() async {
+    setState(() => _isFetchingLocation = true);
+    try {
+      final LocationResult result = await LocationService.fetchCurrentLocation();
+      setState(() {
+        _cityController.text = result.city;
+        _stateController.text = result.state;
+        // Lock fields only when geocoding resolved city/state.
+        // If geocodingSucceeded is false, GPS worked but geocoder failed →
+        // keep fields editable so user can type city/state manually.
+        _locationFetched = result.geocodingSucceeded;
+      });
+      if (!mounted) return;
+      if (!result.geocodingSucceeded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'GPS location found. Please enter city & state manually.',
+            ),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } on LocationServiceException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message ?? 'Could not fetch location'),
+          action: e.error == LocationError.permissionDeniedForever
+              ? SnackBarAction(
+                  label: 'Settings',
+                  onPressed: Geolocator.openAppSettings,
+                )
+              : null,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Location error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isFetchingLocation = false);
+    }
   }
 
   @override
@@ -1361,26 +1457,89 @@ class _SportsNeoCompleteProfileScreenState
               const SizedBox(height: 18),
               const _FieldLabel('Date of Birth'),
               const SizedBox(height: 8),
-              _InputLikeField(
-                'Enter your DOB',
-                controller: _dobController,
-                trailing: Icon(
-                  Icons.calendar_month_outlined,
-                  color: Color(0x99FFFFFF),
-                  size: 20,
+              GestureDetector(
+                onTap: _pickDob,
+                child: _InputLikeField(
+                  'DD/MM/YYYY',
+                  controller: _dobController,
+                  readOnly: true,
+                  trailing: const Icon(
+                    Icons.calendar_month_outlined,
+                    color: Color(0x99FFFFFF),
+                    size: 20,
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
-              const _FieldLabel('Choose Your Sports'),
+
+              const SizedBox(height: 18),
+              // ── Location row ──────────────────────────────────────
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      _locationFetched
+                          ? 'Location detected \u2713'
+                          : 'Auto-fill city & state',
+                      style: TextStyle(
+                        color: _locationFetched
+                            ? const Color(0xFF4ADE80)
+                            : const Color(0xCCFFFFFF),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _isFetchingLocation ? null : _fetchProfileLocation,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0xFF2563EB),
+                      ),
+                      child: _isFetchingLocation
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Icon(
+                                  Icons.my_location,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Use Location',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const _FieldLabel('State'),
               const SizedBox(height: 8),
               _InputLikeField(
-                'Cricket',
-                controller: _sportsController,
-                trailing: Icon(
-                  Icons.keyboard_arrow_down,
-                  color: Color(0x99FFFFFF),
-                  size: 24,
-                ),
+                'Your state',
+                controller: _stateController,
+                readOnly: _locationFetched,
               ),
               const SizedBox(height: 18),
               const _FieldLabel('City'),
@@ -1388,6 +1547,7 @@ class _SportsNeoCompleteProfileScreenState
               _InputLikeField(
                 'Search your city',
                 controller: _cityController,
+                readOnly: _locationFetched,
                 trailing: Icon(
                   Icons.location_on_outlined,
                   color: Color(0x66FFFFFF),
@@ -1403,11 +1563,16 @@ class _SportsNeoCompleteProfileScreenState
                     ? () {}
                     : () async {
                         if (_fullNameController.text.trim().isEmpty ||
-                            _dobController.text.trim().isEmpty ||
-                            _cityController.text.trim().isEmpty) {
+                            _selectedDob == null ||
+                            _cityController.text.trim().isEmpty ||
+                            _stateController.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please fill all required fields'),
+                            SnackBar(
+                              content: Text(
+                                _selectedDob == null
+                                    ? 'Please select your date of birth'
+                                    : 'Please fill all required fields',
+                              ),
                             ),
                           );
                           return;
@@ -1432,6 +1597,8 @@ class _SportsNeoCompleteProfileScreenState
                             'ownerName': _fullNameController.text.trim(),
                             'email': widget.prefillEmail,
                             'address': _cityController.text.trim(),
+                            'city': _cityController.text.trim(),
+                            'state': _stateController.text.trim(),
                             'sports': _sportsController.text.trim(),
                             'dob': _dobController.text.trim(),
                             'sportsNeoRole': normalizedRole,
@@ -1468,6 +1635,8 @@ class _SportsNeoCompleteProfileScreenState
                           flowController.data.address = _cityController.text
                               .trim();
                           flowController.data.city = _cityController.text
+                              .trim();
+                          flowController.data.state = _stateController.text
                               .trim();
                           flowController.data.role = UserRole.owner;
                           flowController.data.otpVerified = true;
@@ -1789,11 +1958,12 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _InputLikeField extends StatelessWidget {
-  const _InputLikeField(this.text, {this.trailing, this.controller});
+  const _InputLikeField(this.text, {this.trailing, this.controller, this.readOnly = false});
 
   final String text;
   final Widget? trailing;
   final TextEditingController? controller;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -1810,8 +1980,9 @@ class _InputLikeField extends StatelessWidget {
           Expanded(
             child: AppTextField(
               controller: controller,
-              style: const TextStyle(
-                color: Colors.white,
+              readOnly: readOnly,
+              style: TextStyle(
+                color: readOnly ? Colors.white70 : Colors.white,
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
               ),
@@ -3324,6 +3495,72 @@ class _SportsNeoLocationScreenState extends State<SportsNeoLocationScreen> {
   bool _showPermissionSheet = false;
   bool _isSaving = false;
 
+  /// Fetches real GPS location, reverse-geocodes it, then saves to DB.
+  Future<void> _fetchAndSaveLocation() async {
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expired. Please login again.')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final LocationResult result = await LocationService.fetchCurrentLocation();
+      // Save whatever we have — coordinates are always saved.
+      // city/state may be empty if geocoding failed; that is acceptable.
+      await _api.updateOwnerProfile(ownerId, <String, dynamic>{
+        'mapLocation': '${result.latitude},${result.longitude}',
+        if (result.city.isNotEmpty) 'city': result.city,
+        if (result.state.isNotEmpty) 'state': result.state,
+        'role': 'player',
+      });
+      // Update the in-memory session so the dashboard filter is seeded
+      // immediately without waiting for the next getOwnerProfile call.
+      if (result.city.isNotEmpty) ApiSession.instance.city = result.city;
+      if (result.state.isNotEmpty) ApiSession.instance.state = result.state;
+      if (!context.mounted) return;
+      if (!result.geocodingSucceeded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location saved. You can update city/state in your profile.'),
+          ),
+        );
+      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => const SportsNeoDashboardScreen(),
+        ),
+        (Route<dynamic> route) => false,
+      );
+    } on LocationServiceException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message ?? 'Could not fetch location'),
+          action: e.error == LocationError.permissionDeniedForever
+              ? SnackBarAction(
+                  label: 'Settings',
+                  onPressed: Geolocator.openAppSettings,
+                )
+              : null,
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   Future<void> _saveLocation(String value) async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null) {
@@ -3472,7 +3709,7 @@ class _SportsNeoLocationScreenState extends State<SportsNeoLocationScreen> {
                       _locationGlyph(),
                       const SizedBox(height: 16),
                       const Text(
-                        'Allow Afghan Deals to access this device\'s location',
+                        'Allow SportsNeo to access this device\'s location',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFF242424),
@@ -3507,7 +3744,7 @@ class _SportsNeoLocationScreenState extends State<SportsNeoLocationScreen> {
                               ? null
                               : () {
                                   setState(() => _showPermissionSheet = false);
-                                  _saveLocation('device_location');
+                                  _fetchAndSaveLocation();
                                 },
                           child: const Text(
                             'Allow',

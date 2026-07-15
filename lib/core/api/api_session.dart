@@ -10,6 +10,8 @@ class ApiSession extends ChangeNotifier {
   String? contactNumber;
   String? ownerName;
   String? role;
+  String? city;
+  String? state;
   bool isGuest = false;
   String? selectedAcademyId;
   String? selectedAcademyName;
@@ -23,6 +25,10 @@ class ApiSession extends ChangeNotifier {
     contactNumber = user['contactNumber']?.toString() ?? contactNumber;
     final String normalizedRole = _normalizeRole(user['role']);
     role = normalizedRole.isEmpty ? role : normalizedRole;
+    final String? c = user['city']?.toString().trim();
+    if (c != null && c.isNotEmpty) city = c;
+    final String? s = user['state']?.toString().trim();
+    if (s != null && s.isNotEmpty) state = s;
     isGuest = false;
     notifyListeners();
   }
@@ -81,9 +87,12 @@ class ApiSession extends ChangeNotifier {
     contactNumber = null;
     ownerName = null;
     role = null;
+    city = null;
+    state = null;
     isGuest = false;
     selectedAcademyId = null;
     selectedAcademyName = null;
     notifyListeners();
   }
 }
+

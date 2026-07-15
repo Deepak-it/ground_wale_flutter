@@ -10,6 +10,7 @@ class LabeledTextField extends StatelessWidget {
     this.keyboardType,
     this.suffixIcon,
     this.onChanged,
+    this.readOnly = false,
   });
 
   final String label;
@@ -18,6 +19,7 @@ class LabeledTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final Widget? suffixIcon;
   final ValueChanged<String>? onChanged;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +32,7 @@ class LabeledTextField extends StatelessWidget {
           controller: controller,
           keyboardType: keyboardType,
           onChanged: onChanged,
+          readOnly: readOnly,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.white54),
