@@ -155,6 +155,7 @@ class GroundFlowController extends ChangeNotifier {
       'ownerId': _session.ownerId,
       'groundName': entityName,
       'location': '${data.city}, ${data.state}',
+      if (data.mapLocation.trim().isNotEmpty) 'mapLocation': data.mapLocation,
       'address': data.address,
       'areaLocation': data.areaLocation,
       'landmark': data.landmark,

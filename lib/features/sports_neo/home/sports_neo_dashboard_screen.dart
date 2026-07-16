@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/base64_image.dart';
-import '../../../core/utils/location_service.dart';
+import '../../../core/widgets/google_city_picker_sheet.dart';
 import 'sports_neo_booking_cart_screen.dart';
 import 'sports_neo_ground_detail_screen.dart';
 import 'sports_neo_manage_teams_screen.dart';
@@ -60,17 +59,9 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   int _bookingsCount = 0;
   int _unreadNotifications = 0;
 
-  // ── Location / radius filter ────────────────────────────────────────────
+  // ── City filter ─────────────────────────────────────────────────────────
   /// The city currently used to filter grounds. Empty = show all.
   String _filterCity = '';
-  /// User's GPS coordinates for distance-based filtering.
-  double? _userLat;
-  double? _userLng;
-  /// 0 = My City, otherwise km radius. null-sentinel: index into _radiusOptions.
-  int _radiusIndex = 0; // index into _radiusLabels
-  static const List<String> _radiusLabels = <String>['My City', '25 km', '50 km', '100 km', '500km' , 'All'];
-  // Corresponding km values; null = show all.
-  static const List<int?> _radiusKm = <int?>[null, 25, 50, 100, 500, null];
 
   @override
   void initState() {
@@ -143,7 +134,6 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     final String profileCity =
         _stringValue(profile, <String>['city']) ??
         location.split(',').first.trim();
-
     final List<_GroundCardData> mappedGrounds = _mapGrounds(grounds);
     final List<_InfoCardData> mappedTeams = teams.isNotEmpty
         ? _mapTeamsFromOwnerEndpoint(teams)
@@ -209,35 +199,25 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
   // ── Filtered grounds ────────────────────────────────────────────────────
 
-  /// Returns grounds filtered by the active city / radius selection.
+  /// Returns raw ground maps filtered by the active city selection.
+  List<Map<String, dynamic>> get _filteredGroundsRaw {
+    if (_filterCity.isEmpty) return _allGroundsRaw;
+
+    final String cityLower = _filterCity.toLowerCase().trim();
+    return _allGroundsRaw.where(
+      (Map<String, dynamic> g) {
+        final String gCity = <String>['city', 'areaLocation', 'location', 'address']
+            .map((String k) => g[k]?.toString().trim() ?? '')
+            .firstWhere((String v) => v.isNotEmpty, orElse: () => '');
+        return gCity.toLowerCase().contains(cityLower);
+      },
+    ).toList();
+  }
+
+  /// Returns grounds filtered by the active city selection.
   List<_GroundCardData> get _filteredGrounds {
-    // "All" tab (last index) or empty filter → no filtering.
-    final bool isAll = _radiusIndex == _radiusLabels.length - 1;
-    if (isAll || _filterCity.isEmpty) return _grounds;
+    if (_filterCity.isEmpty) return _grounds;
 
-    final int? km = _radiusKm[_radiusIndex];
-
-    if (km != null && _userLat != null && _userLng != null) {
-      // Distance-based: filter raw grounds that have parseable mapLocation.
-      final List<Map<String, dynamic>> nearby = _allGroundsRaw.where(
-        (Map<String, dynamic> g) {
-          final String? mapLoc = g['mapLocation']?.toString();
-          if (mapLoc == null || mapLoc.isEmpty) return true; // no coords → include
-          final List<String> parts = mapLoc.split(',');
-          if (parts.length < 2) return true;
-          final double? gLat = double.tryParse(parts[0].trim());
-          final double? gLng = double.tryParse(parts[1].trim());
-          if (gLat == null || gLng == null) return true;
-          final double distM = Geolocator.distanceBetween(
-            _userLat!, _userLng!, gLat, gLng,
-          );
-          return distM / 1000 <= km;
-        },
-      ).toList();
-      return _mapGrounds(nearby);
-    }
-
-    // City-name filter (default: My City).
     final String cityLower = _filterCity.toLowerCase().trim();
     final List<Map<String, dynamic>> cityMatched = _allGroundsRaw.where(
       (Map<String, dynamic> g) {
@@ -250,184 +230,19 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     return _mapGrounds(cityMatched);
   }
 
-  // ── Location filter sheet ───────────────────────────────────────────────
+  // ── City filter sheet ───────────────────────────────────────────────────
 
   Future<void> _showLocationFilterSheet() async {
-    final TextEditingController cityCtrl =
-        TextEditingController(text: _filterCity);
-    int tempRadiusIndex = _radiusIndex;
-    bool fetching = false;
-
-    await showModalBottomSheet<void>(
+    final GoogleCitySelection? selection = await showGoogleCityPickerSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext ctx) {
-        return StatefulBuilder(
-          builder: (BuildContext ctx, StateSetter sheetSet) {
-            return Container(
-              padding: EdgeInsets.only(
-                left: 16, right: 16, top: 20,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-              ),
-              decoration: const BoxDecoration(
-                color: Color(0xFF121C3E),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  // Handle bar
-                  Center(
-                    child: Container(
-                      width: 40, height: 4,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0x40FFFFFF),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const Text(
-                    'Filter Grounds',
-                    style: TextStyle(
-                      color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // City input
-                  const Text(
-                    'City',
-                    style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0x3DFFFFFF)),
-                      color: const Color(0x0AFFFFFF),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        const Icon(Icons.location_city_outlined, color: Color(0x99FFFFFF), size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: cityCtrl,
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
-                            decoration: const InputDecoration(
-                              hintText: 'e.g. Mohali',
-                              hintStyle: TextStyle(color: Color(0x66FFFFFF)),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Use my location button
-                  GestureDetector(
-                    onTap: fetching ? null : () async {
-                      sheetSet(() => fetching = true);
-                      try {
-                        final LocationResult r = await LocationService.fetchCurrentLocation();
-                        if (r.city.isNotEmpty) cityCtrl.text = r.city;
-                        setState(() {
-                          _userLat = r.latitude;
-                          _userLng = r.longitude;
-                        });
-                      } catch (_) {}
-                      sheetSet(() => fetching = false);
-                    },
-                    child: Row(
-                      children: <Widget>[
-                        if (fetching)
-                          const SizedBox(
-                            width: 14, height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB)),
-                          )
-                        else
-                          const Icon(Icons.my_location, color: Color(0xFF2563EB), size: 14),
-                        const SizedBox(width: 6),
-                        Text(
-                          fetching ? 'Detecting…' : 'Use my current location',
-                          style: const TextStyle(color: Color(0xFF2563EB), fontSize: 13, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  // Radius pills
-                  const Text(
-                    'Show grounds within',
-                    style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8, runSpacing: 8,
-                    children: List<Widget>.generate(_radiusLabels.length, (int i) {
-                      final bool sel = tempRadiusIndex == i;
-                      return GestureDetector(
-                        onTap: () => sheetSet(() => tempRadiusIndex = i),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: sel ? const Color(0xFF2563EB) : const Color(0x0AFFFFFF),
-                            border: Border.all(
-                              color: sel ? const Color(0xFF2563EB) : const Color(0x3DFFFFFF),
-                            ),
-                          ),
-                          child: Text(
-                            _radiusLabels[i],
-                            style: TextStyle(
-                              color: sel ? Colors.white : const Color(0xCCFFFFFF),
-                              fontSize: 13,
-                              fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 20),
-                  // Apply
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      onPressed: () {
-                        final String city = cityCtrl.text.trim();
-                        setState(() {
-                          _filterCity = city;
-                          _radiusIndex = tempRadiusIndex;
-                        });
-                        cityCtrl.dispose();
-                        Navigator.of(ctx).pop();
-                      },
-                      child: const Text(
-                        'Apply Filter',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      title: 'Select City',
+      initialQuery: _filterCity,
+      allowClear: true,
     );
+    if (!mounted || selection == null) {
+      return;
+    }
+    _applyCityFilter(selection.city);
   }
 
   List<_GroundCardData> _mapGrounds(List<Map<String, dynamic>> items) {
@@ -493,6 +308,15 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     }
 
     return null;
+  }
+
+  void _applyCityFilter(String city) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _filterCity = city.trim();
+    });
   }
 
   List<String> _facilitiesFromAny(Map<String, dynamic> item) {
@@ -1086,68 +910,72 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                     ),
                     const SizedBox(height: 16),
                     // ── Location filter row ──────────────────────────────
-                    Row(
-                      children: <Widget>[
-                        // Active city chip
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: _showLocationFilterSheet,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    InkWell(
+                      onTap: _showLocationFilterSheet,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          color: const Color(0x0AFFFFFF),
+                          border: Border.all(color: const Color(0x1FFFFFFF)),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            Container(
+                              width: 34,
+                              height: 34,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                color: const Color(0x0AFFFFFF),
-                                border: Border.all(color: const Color(0x3DFFFFFF)),
+                                color: const Color(0x1F2563EB),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: const Icon(
+                                Icons.tune_rounded,
+                                color: Color(0xFF5C8FFF),
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  const Icon(Icons.location_on_outlined, color: Color(0xFF2563EB), size: 14),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      _filterCity.isEmpty ? 'All cities' : _filterCity,
-                                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-                                      overflow: TextOverflow.ellipsis,
+                                  const Text(
+                                    'City filter',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 14),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _filterCity.isEmpty
+                                        ? 'All cities'
+                                        : _filterCity,
+                                    style: const TextStyle(
+                                      color: Color(0xB3FFFFFF),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ],
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Radius pills (compact)
-                        ...List<Widget>.generate(_radiusLabels.length, (int i) {
-                          final bool sel = _radiusIndex == i;
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: GestureDetector(
-                              onTap: () => setState(() => _radiusIndex = i),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
-                                  color: sel ? const Color(0xFF2563EB) : const Color(0x0AFFFFFF),
-                                  border: Border.all(
-                                    color: sel ? const Color(0xFF2563EB) : const Color(0x3DFFFFFF),
-                                  ),
-                                ),
-                                child: Text(
-                                  _radiusLabels[i],
-                                  style: TextStyle(
-                                    color: sel ? Colors.white : const Color(0xCCFFFFFF),
-                                    fontSize: 11,
-                                    fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
-                                  ),
-                                ),
-                              ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.keyboard_arrow_right,
+                              color: Colors.white54,
+                              size: 20,
                             ),
-                          );
-                        }),
-                      ],
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     _SectionHeader(
@@ -1156,7 +984,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => SportsNeoNearbyGroundsScreen(
-                              grounds: _allGroundsRaw,
+                              grounds: _filteredGroundsRaw,
                               fallbackLocation: _location,
                             ),
                           ),
@@ -1169,14 +997,14 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           _EmptySectionNotice(
-                            message: _filterCity.isNotEmpty && _radiusIndex == 0
-                                ? 'No grounds found in \'$_filterCity\'. Try a different city or\'All\'.'
+                            message: _filterCity.isNotEmpty
+                                ? 'No grounds found in \'$_filterCity\'. Try a different city or show all.'
                                 : 'No grounds available right now',
                           ),
-                          if (_filterCity.isNotEmpty && _radiusIndex == 0) ...<Widget>[
+                          if (_filterCity.isNotEmpty) ...<Widget>[
                             const SizedBox(height: 8),
                             GestureDetector(
-                              onTap: () => setState(() => _radiusIndex = _radiusLabels.length - 1),
+                              onTap: () => _applyCityFilter(''),
                               child: const Text(
                                 'Show all grounds →',
                                 style: TextStyle(color: Color(0xFF2563EB), fontSize: 13, fontWeight: FontWeight.w500),
@@ -2391,3 +2219,4 @@ class _LedgerCardData {
   final String date;
   final bool positive;
 }
+

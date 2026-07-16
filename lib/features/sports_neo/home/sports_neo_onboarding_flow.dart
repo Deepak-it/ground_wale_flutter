@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
+import 'package:ground_wale/core/widgets/google_city_picker_sheet.dart';
 
 import '../../../core/utils/base64_image.dart';
 import '../../../core/utils/location_service.dart';
@@ -1357,6 +1358,22 @@ class _SportsNeoCompleteProfileScreenState
     }
   }
 
+  Future<void> _pickCityState() async {
+    final GoogleCitySelection? selection = await showGoogleCityPickerSheet(
+      context: context,
+      title: 'Select City & State',
+      initialQuery: _cityController.text,
+    );
+    if (!mounted || selection == null || selection.isEmpty) {
+      return;
+    }
+    setState(() {
+      _cityController.text = selection.city;
+      _stateController.text = selection.state;
+      _locationFetched = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1539,7 +1556,13 @@ class _SportsNeoCompleteProfileScreenState
               _InputLikeField(
                 'Your state',
                 controller: _stateController,
-                readOnly: _locationFetched,
+                readOnly: true,
+                onTap: _pickCityState,
+                trailing: const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Color(0x66FFFFFF),
+                  size: 20,
+                ),
               ),
               const SizedBox(height: 18),
               const _FieldLabel('City'),
@@ -1547,8 +1570,9 @@ class _SportsNeoCompleteProfileScreenState
               _InputLikeField(
                 'Search your city',
                 controller: _cityController,
-                readOnly: _locationFetched,
-                trailing: Icon(
+                readOnly: true,
+                onTap: _pickCityState,
+                trailing: const Icon(
                   Icons.location_on_outlined,
                   color: Color(0x66FFFFFF),
                   size: 20,
@@ -1958,12 +1982,19 @@ class _FieldLabel extends StatelessWidget {
 }
 
 class _InputLikeField extends StatelessWidget {
-  const _InputLikeField(this.text, {this.trailing, this.controller, this.readOnly = false});
+  const _InputLikeField(
+    this.text, {
+    this.trailing,
+    this.controller,
+    this.readOnly = false,
+    this.onTap,
+  });
 
   final String text;
   final Widget? trailing;
   final TextEditingController? controller;
   final bool readOnly;
+  final GestureTapCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1981,6 +2012,7 @@ class _InputLikeField extends StatelessWidget {
             child: AppTextField(
               controller: controller,
               readOnly: readOnly,
+              onTap: onTap,
               style: TextStyle(
                 color: readOnly ? Colors.white70 : Colors.white,
                 fontSize: 15,

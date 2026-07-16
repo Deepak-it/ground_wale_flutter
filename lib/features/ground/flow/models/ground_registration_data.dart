@@ -33,6 +33,7 @@ class GroundRegistrationData {
   String address = '';
   String areaLocation = '';
   String landmark = '';
+  String mapLocation = '';
 
   bool otpVerified = false;
   UserRole role = UserRole.owner;

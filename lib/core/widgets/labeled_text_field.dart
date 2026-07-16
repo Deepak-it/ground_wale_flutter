@@ -11,6 +11,7 @@ class LabeledTextField extends StatelessWidget {
     this.suffixIcon,
     this.onChanged,
     this.readOnly = false,
+    this.onTap,
   });
 
   final String label;
@@ -20,6 +21,7 @@ class LabeledTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final ValueChanged<String>? onChanged;
   final bool readOnly;
+  final GestureTapCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,7 @@ class LabeledTextField extends StatelessWidget {
           keyboardType: keyboardType,
           onChanged: onChanged,
           readOnly: readOnly,
+          onTap: onTap,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.white54),

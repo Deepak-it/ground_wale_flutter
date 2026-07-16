@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/utils/location_service.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/google_city_picker_sheet.dart';
 import '../../../../core/widgets/labeled_text_field.dart';
 import '../../../../core/widgets/neon_button.dart';
 import '../controllers/ground_flow_controller.dart';
@@ -106,6 +107,8 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
       setState(() {
         _cityController.text = result.city;
         _stateController.text = result.state;
+        widget.controller.data.mapLocation =
+            '${result.latitude},${result.longitude}';
         // Lock fields only when geocoding actually found city/state.
         // If geocodingSucceeded is false, GPS coordinates were saved but
         // city/state are empty → leave fields editable for manual entry.
@@ -144,6 +147,23 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
     } finally {
       if (mounted) setState(() => _isFetchingLocation = false);
     }
+  }
+
+  Future<void> _pickCityState() async {
+    final GoogleCitySelection? selection = await showGoogleCityPickerSheet(
+      context: context,
+      title: 'Select City & State',
+      initialQuery: _cityController.text,
+    );
+    if (!mounted || selection == null || selection.isEmpty) {
+      return;
+    }
+    setState(() {
+      _cityController.text = selection.city;
+      _stateController.text = selection.state;
+      _locationFetched = false;
+    });
+    _sync();
   }
 
   // ── Sports sheet ─────────────────────────────────────────
@@ -595,16 +615,24 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                   label: 'State',
                   controller: _stateController,
                   hint: 'Select State',
-                  readOnly: _locationFetched,
-                  onChanged: _locationFetched ? null : (_) => _sync(),
+                  readOnly: true,
+                  onTap: _pickCityState,
+                  suffixIcon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white54,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 LabeledTextField(
                   label: 'City',
                   controller: _cityController,
                   hint: 'Select City',
-                  readOnly: _locationFetched,
-                  onChanged: _locationFetched ? null : (_) => _sync(),
+                  readOnly: true,
+                  onTap: _pickCityState,
+                  suffixIcon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white54,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 LabeledTextField(

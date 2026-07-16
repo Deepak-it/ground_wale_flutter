@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/google_city_picker_sheet.dart';
 import '../../../../core/widgets/labeled_text_field.dart';
 import '../../../../core/widgets/neon_button.dart';
 import '../controllers/ground_flow_controller.dart';
@@ -59,6 +60,22 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
     widget.controller.update();
   }
 
+  Future<void> _pickCityState() async {
+    final GoogleCitySelection? selection = await showGoogleCityPickerSheet(
+      context: context,
+      title: 'Select City & State',
+      initialQuery: _cityController.text,
+    );
+    if (!mounted || selection == null || selection.isEmpty) {
+      return;
+    }
+    setState(() {
+      _stateController.text = selection.state;
+      _cityController.text = selection.city;
+    });
+    _sync();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -98,14 +115,24 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
                   label: 'State',
                   controller: _stateController,
                   hint: 'Punjab',
-                  onChanged: (_) => _sync(),
+                  readOnly: true,
+                  onTap: _pickCityState,
+                  suffixIcon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white54,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 LabeledTextField(
                   label: 'City',
                   controller: _cityController,
                   hint: 'Mohali',
-                  onChanged: (_) => _sync(),
+                  readOnly: true,
+                  onTap: _pickCityState,
+                  suffixIcon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white54,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 LabeledTextField(
