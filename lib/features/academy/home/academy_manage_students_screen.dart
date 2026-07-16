@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
 import 'academy_add_student_screen.dart';
 import 'academy_edit_student_screen.dart';
 import 'academy_student_details_screen.dart';
@@ -213,6 +216,7 @@ class _AcademyManageStudentsScreenState
                   '-',
               joiningDate: _shortDateLabel(student['joinDate']),
               paymentMode: latestPaymentModeByStudent[studentId] ?? '-',
+              photoBase64: student['photoBase64']?.toString(),
             );
           })
           .toList();
@@ -499,6 +503,301 @@ class _AcademyManageStudentsScreenState
         });
   }
 
+  Future<void> _showAddPaymentSheet(_StudentItem item) async {
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty || item.id.isEmpty) {
+      return;
+    }
+
+    List<Map<String, dynamic>> fees = <Map<String, dynamic>>[];
+    try {
+      fees = await GroundWaleApi.instance.listAcademyFees(
+        ownerId,
+        studentId: item.id,
+      );
+    } catch (_) {}
+
+    final Map<String, dynamic> _foundFee = fees.firstWhere(
+      (Map<String, dynamic> f) =>
+          (f['status']?.toString() ?? 'pending') != 'paid',
+      orElse: () => <String, dynamic>{},
+    );
+    final Map<String, dynamic>? fee = _foundFee.isEmpty ? null : _foundFee;
+
+    if (!mounted) {
+      return;
+    }
+    if (fee == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pending fee found for this student')),
+      );
+      return;
+    }
+
+    final double totalAmount =
+        (fee['amount'] as num?)?.toDouble() ?? 0;
+    final double alreadyPaid =
+        (fee['paidAmount'] as num?)?.toDouble() ?? 0;
+    final double due =
+        (totalAmount - alreadyPaid).clamp(0, double.infinity);
+    final String feeId =
+        fee['_id']?.toString() ?? fee['id']?.toString() ?? '';
+
+    final TextEditingController amountCtrl = TextEditingController();
+    String paymentMode = 'Cash';
+    bool isSaving = false;
+
+    if (!mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0F2027),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext _, StateSetter setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          'Add Payment — ${item.name}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white54,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Total: Rs ${totalAmount.toStringAsFixed(0)}'  
+                    '  •  Paid: Rs ${alreadyPaid.toStringAsFixed(0)}'
+                    '  •  Due: Rs ${due.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      color: Color(0xFF9FB9B3),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Amount Paying Now',
+                    style: TextStyle(
+                      color: Color(0xFFE6F7F4),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0x1FFFFFFF)),
+                      color: const Color(0x0FFFFFFF),
+                    ),
+                    child: TextField(
+                      controller: amountCtrl,
+                      keyboardType: TextInputType.number,
+                      autofocus: true,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'Enter amount',
+                        hintStyle: TextStyle(color: Color(0x99FFFFFF)),
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Payment Mode',
+                    style: TextStyle(
+                      color: Color(0xFFE6F7F4),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <String>['Cash', 'UPI', 'Card']
+                        .map((String mode) {
+                          final bool sel = paymentMode == mode;
+                          return Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setSheetState(() => paymentMode = mode),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: sel
+                                          ? const Color(0xFF00C9A7)
+                                          : const Color(0x1FFFFFFF),
+                                    ),
+                                    color: sel
+                                        ? const Color(0x1400C9A7)
+                                        : const Color(0x0FFFFFFF),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    mode,
+                                    style: TextStyle(
+                                      color: sel
+                                          ? const Color(0xFF00C9A7)
+                                          : Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              final double paying = double.tryParse(
+                                    amountCtrl.text.replaceAll(
+                                      RegExp(r'[^0-9.]'),
+                                      '',
+                                    ),
+                                  ) ??
+                                  0;
+                              if (paying <= 0) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Enter a valid amount'),
+                                  ),
+                                );
+                                return;
+                              }
+                              setSheetState(() => isSaving = true);
+                              try {
+                                final double newPaid =
+                                    (alreadyPaid + paying).clamp(
+                                      0,
+                                      totalAmount,
+                                    );
+                                final String newStatus =
+                                    newPaid >= totalAmount
+                                        ? 'paid'
+                                        : 'partial';
+                                await GroundWaleApi.instance
+                                    .updateAcademyFee(
+                                      ownerId,
+                                      feeId,
+                                      <String, dynamic>{
+                                        'paidAmount': newPaid,
+                                        'status': newStatus,
+                                        'paymentMode': paymentMode,
+                                      },
+                                    );
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx).pop();
+                                }
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Payment recorded'),
+                                    ),
+                                  );
+                                  await _loadStudents();
+                                }
+                              } catch (error) {
+                                setSheetState(() => isSaving = false);
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        error
+                                            .toString()
+                                            .replaceFirst('Exception: ', ''),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C9A7),
+                        foregroundColor: const Color(0xFF1D1D1D),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF1D1D1D),
+                              ),
+                            )
+                          : const Text(
+                              'Save Payment',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    amountCtrl.dispose();
+  }
+
   Future<void> _deleteStudent(_StudentItem item) async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
@@ -586,6 +885,27 @@ class _AcademyManageStudentsScreenState
                       'Edit Student',
                       style: TextStyle(
                         color: Color(0xFF242424),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showAddPaymentSheet(item);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0x1F242424)),
+                    ),
+                    child: const Text(
+                      'Add Payment',
+                      style: TextStyle(
+                        color: Color(0xFF00874D),
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                       ),
@@ -736,6 +1056,7 @@ class _StudentItem {
     required this.feesAmount,
     required this.joiningDate,
     required this.paymentMode,
+    this.photoBase64,
   });
 
   final String id;
@@ -748,6 +1069,7 @@ class _StudentItem {
   final String feesAmount;
   final String joiningDate;
   final String paymentMode;
+  final String? photoBase64;
 }
 
 class _StudentCard extends StatelessWidget {
@@ -788,15 +1110,8 @@ class _StudentCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(26),
                 color: const Color(0x1AFFFFFF),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                _initials(item.name),
-                style: const TextStyle(
-                  color: Color(0xFFE6F7F4),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              clipBehavior: Clip.antiAlias,
+              child: _buildAvatar(item.photoBase64, item.name, 52, 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -876,6 +1191,26 @@ class _StudentCard extends StatelessWidget {
       return p.first.substring(0, p.first.length >= 2 ? 2 : 1).toUpperCase();
     }
     return '${p.first[0]}${p.last[0]}'.toUpperCase();
+  }
+
+  Widget _buildAvatar(String? photoBase64, String name, double size, double fontSize) {
+    final Uint8List? bytes = decodeBase64ImageBytes(photoBase64);
+    if (bytes != null) {
+      return Image.memory(bytes, fit: BoxFit.cover, width: size, height: size);
+    }
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      child: Text(
+        _initials(name),
+        style: TextStyle(
+          color: const Color(0xFFE6F7F4),
+          fontSize: fontSize,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 }
 

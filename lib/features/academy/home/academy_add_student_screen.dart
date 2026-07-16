@@ -1,8 +1,13 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
 
 class AcademyAddStudentScreen extends StatefulWidget {
   const AcademyAddStudentScreen({super.key});
@@ -18,14 +23,17 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
   late final TextEditingController _batchController;
   late final TextEditingController _feesController;
   late final TextEditingController _joiningController;
-  late final TextEditingController _feesStatusController;
+  late final TextEditingController _paidNowController;
 
-  String _feesStatus = 'Pending';
+  String? _photoBase64;
   bool _isSaving = false;
+  bool _fullAmountPaid = true;
   List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
   String? _selectedAcademyId;
   List<Map<String, dynamic>> _batches = <Map<String, dynamic>>[];
   String? _selectedBatchId;
+  List<Map<String, dynamic>> _feePlans = <Map<String, dynamic>>[];
+  int _selectedFeePlanIndex = 0;
 
   String _academyId(Map<String, dynamic> academy) {
     return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
@@ -43,6 +51,32 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     return 'Rs $formatted';
   }
 
+  List<Map<String, dynamic>> _batchFeePlans(Map<String, dynamic> batch) {
+    final dynamic raw = batch['feePlans'];
+    if (raw is List && raw.isNotEmpty) {
+      return raw
+          .whereType<Map>()
+          .map((Map item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    final double monthlyFee =
+        (batch['monthlyFee'] as num?)?.toDouble() ?? 0;
+    if (monthlyFee > 0) {
+      return <Map<String, dynamic>>[
+        <String, dynamic>{'duration': 'Monthly', 'price': monthlyFee},
+      ];
+    }
+    return <Map<String, dynamic>>[];
+  }
+
+  double _planPrice(Map<String, dynamic> plan) {
+    final dynamic raw = plan['price'];
+    if (raw is num) {
+      return raw.toDouble();
+    }
+    return double.tryParse(raw?.toString() ?? '') ?? 0;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -51,8 +85,24 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     _batchController = TextEditingController(text: 'Morning batch');
     _feesController = TextEditingController();
     _joiningController = TextEditingController(text: 'Today');
-    _feesStatusController = TextEditingController(text: _feesStatus);
+    _paidNowController = TextEditingController();
     _loadAcademiesAndBatches();
+  }
+
+  Future<void> _pickPhoto() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 70,
+    );
+    if (file == null || !mounted) {
+      return;
+    }
+    final Uint8List bytes = await file.readAsBytes();
+    final String base64 = base64Encode(bytes);
+    setState(() => _photoBase64 = base64);
   }
 
   Future<void> _loadAcademiesAndBatches() async {
@@ -108,9 +158,13 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
           _batchController.text =
               selectedBatch['name']?.toString() ?? _batchController.text;
           _feesController.text = _feeTextForBatch(selectedBatch);
+          _feePlans = _batchFeePlans(selectedBatch);
+          _selectedFeePlanIndex = 0;
         } else {
           _batchController.text = '';
           _feesController.text = '';
+          _feePlans = <Map<String, dynamic>>[];
+          _selectedFeePlanIndex = 0;
         }
       });
     } catch (_) {}
@@ -143,9 +197,13 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
         if ((_selectedBatchId ?? '').isNotEmpty) {
           _batchController.text = firstValid['name']?.toString() ?? '';
           _feesController.text = _feeTextForBatch(firstValid);
+          _feePlans = _batchFeePlans(firstValid);
+          _selectedFeePlanIndex = 0;
         } else {
           _batchController.text = '';
           _feesController.text = '';
+          _feePlans = <Map<String, dynamic>>[];
+          _selectedFeePlanIndex = 0;
         }
       });
     } catch (_) {}
@@ -180,84 +238,6 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     });
   }
 
-  Future<void> _pickFeesAmount() async {
-    final List<String> options = <String>[
-      'Rs 1000',
-      'Rs 1500',
-      'Rs 2000',
-      'Rs 2500',
-      'Rs 3000',
-    ];
-    final String? selected = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF203A43),
-          title: const Text('Fees Amount', style: TextStyle(color: Colors.white)),
-          contentPadding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: options
-                  .map(
-                    (String value) => ListTile(
-                      title: Text(
-                        value,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      onTap: () => Navigator.of(context).pop(value),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-        );
-      },
-    );
-    if (selected != null && mounted) {
-      setState(() => _feesController.text = selected);
-    }
-  }
-
-  Future<void> _pickFeesStatus() async {
-    final String? selected = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF203A43),
-          title: const Text('Fees Status', style: TextStyle(color: Colors.white)),
-          contentPadding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                title: const Text(
-                  'Paid',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () => Navigator.of(context).pop('Paid'),
-              ),
-              ListTile(
-                title: const Text(
-                  'Pending',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () => Navigator.of(context).pop('Pending'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    if (selected != null && mounted) {
-      setState(() {
-        _feesStatus = selected;
-        _feesStatusController.text = selected;
-      });
-    }
-  }
-
   Future<void> _submit() async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
@@ -283,7 +263,14 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
           orElse: () => _batches.isEmpty ? null : _batches.first,
         );
 
-    final double monthlyFee = _parseAmount(_feesController.text);
+    final double monthlyFee = _feePlans.isNotEmpty
+        ? _planPrice(
+            _feePlans[_selectedFeePlanIndex.clamp(
+              0,
+              _feePlans.length - 1,
+            )],
+          )
+        : 0;
     final DateTime joinDate =
         _joiningController.text.trim().toLowerCase() == 'today'
         ? DateTime.now()
@@ -310,21 +297,43 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
             'joinDate': _dateOnlyString(joinDateOnly),
             'monthlyFee': monthlyFee,
             'status': 'active',
+            if (_photoBase64 != null && _photoBase64!.isNotEmpty)
+              'photoBase64': _photoBase64,
           });
 
       final String studentId = student['_id']?.toString() ?? '';
+      final double paidNow = _fullAmountPaid
+          ? monthlyFee
+          : _parseAmount(_paidNowController.text);
+      final String feeStatus = monthlyFee > 0
+          ? (paidNow >= monthlyFee
+              ? 'paid'
+              : paidNow > 0
+              ? 'partial'
+              : 'pending')
+          : 'paid';
+      final String planDuration = _feePlans.isNotEmpty
+          ? (_feePlans[_selectedFeePlanIndex.clamp(
+                0,
+                _feePlans.length - 1,
+              )]['duration']
+                  ?.toString() ??
+              'Monthly')
+          : 'Monthly';
+
       if (studentId.isNotEmpty && monthlyFee > 0) {
         final String monthKey =
             '${joinDateOnly.year}-${joinDateOnly.month.toString().padLeft(2, '0')}';
-        final bool paid = _feesStatus.toLowerCase() == 'paid';
         await GroundWaleApi.instance.createAcademyFee(ownerId, <String, dynamic>{
           'academyId': _selectedAcademyId,
           'studentId': studentId,
           'monthKey': monthKey,
           'amount': monthlyFee,
-          'paidAmount': paid ? monthlyFee : 0,
-          'status': paid ? 'paid' : 'pending',
-          'paymentMode': paid ? 'UPI' : '',
+          'paidAmount': paidNow.clamp(0, monthlyFee),
+          'status': feeStatus,
+          'paymentMode': paidNow > 0 ? 'Cash' : '',
+          'planDuration': planDuration,
+          'subscriptionStartDate': _dateOnlyString(joinDateOnly),
         });
       }
 
@@ -357,7 +366,7 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     _batchController.dispose();
     _feesController.dispose();
     _joiningController.dispose();
-    _feesStatusController.dispose();
+    _paidNowController.dispose();
     super.dispose();
   }
 
@@ -398,30 +407,53 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
               ),
               const SizedBox(height: 12),
               Center(
-                child: Column(
-                  children: <Widget>[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0x08FFFFFF),
-                        borderRadius: BorderRadius.circular(1000),
+                child: GestureDetector(
+                  onTap: _pickPhoto,
+                  child: Column(
+                    children: <Widget>[
+                      Container(
+                        width: 92,
+                        height: 92,
+                        decoration: BoxDecoration(
+                          color: const Color(0x08FFFFFF),
+                          borderRadius: BorderRadius.circular(1000),
+                          border: Border.all(color: const Color(0x33FFFFFF)),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: _photoBase64 != null && _photoBase64!.isNotEmpty
+                            ? Builder(
+                                builder: (_) {
+                                  final Uint8List? bytes =
+                                      decodeBase64ImageBytes(_photoBase64);
+                                  return bytes != null
+                                      ? Image.memory(
+                                          bytes,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : const Icon(
+                                          Icons.person_outline_rounded,
+                                          size: 48,
+                                          color: Colors.white,
+                                        );
+                                },
+                              )
+                            : const Icon(
+                                Icons.person_outline_rounded,
+                                size: 48,
+                                color: Colors.white,
+                              ),
                       ),
-                      child: const Icon(
-                        Icons.person_outline_rounded,
-                        size: 60,
-                        color: Colors.white,
+                      const SizedBox(height: 10),
+                      Text(
+                        _photoBase64 != null ? 'Change Photo' : 'Upload Photo',
+                        style: const TextStyle(
+                          color: Color(0xFF00C9A7),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Upload Photo',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -466,28 +498,126 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
                     _batchController.text =
                         batch['name']?.toString() ?? _batchController.text;
                     _feesController.text = _feeTextForBatch(batch);
+                    _feePlans = _batchFeePlans(batch);
+                    _selectedFeePlanIndex = 0;
+                    if (!_fullAmountPaid && _feePlans.isNotEmpty) {
+                      final double price = _planPrice(_feePlans[0]);
+                      _paidNowController.text =
+                          price.toStringAsFixed(price % 1 == 0 ? 0 : 2);
+                    }
                   });
                 },
               ),
               const SizedBox(height: 16),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        const _FieldLabel('Fees Amount'),
-                        const SizedBox(height: 12),
-                        _DarkPickerField(
-                          controller: _feesController,
-                          trailingIcon: Icons.keyboard_arrow_down_rounded,
-                          readOnly: true,
-                          onTap: _pickFeesAmount,
-                        ),
-                      ],
+              const _FieldLabel('Fee Plan'),
+              const SizedBox(height: 12),
+              if (_feePlans.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0x1FFFFFFF)),
+                    color: const Color(0x0AFFFFFF),
+                  ),
+                  child: const Text(
+                    'Select a batch to see available fee plans',
+                    style: TextStyle(
+                      color: Color(0x99FFFFFF),
+                      fontSize: 14,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                )
+              else
+                Column(
+                  children: _feePlans
+                      .asMap()
+                      .entries
+                      .map(
+                        (MapEntry<int, Map<String, dynamic>> entry) {
+                          final int index = entry.key;
+                          final Map<String, dynamic> plan = entry.value;
+                          final String duration =
+                              plan['duration']?.toString() ?? 'Monthly';
+                          final double price = _planPrice(plan);
+                          final bool selected =
+                              _selectedFeePlanIndex == index;
+                          return GestureDetector(
+                            onTap: () => setState(
+                              () {
+                                _selectedFeePlanIndex = index;
+                                if (!_fullAmountPaid) {
+                                  _paidNowController.text =
+                                      price.toStringAsFixed(
+                                        price % 1 == 0 ? 0 : 2,
+                                      );
+                                }
+                              },
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: selected
+                                      ? const Color(0xFF00C9A7)
+                                      : const Color(0x1FFFFFFF),
+                                ),
+                                color: selected
+                                    ? const Color(0x1400C9A7)
+                                    : const Color(0x0AFFFFFF),
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Icon(
+                                    selected
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_unchecked,
+                                    color: selected
+                                        ? const Color(0xFF00C9A7)
+                                        : Colors.white54,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      duration,
+                                      style: TextStyle(
+                                        color: selected
+                                            ? const Color(0xFF00C9A7)
+                                            : Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Rs ${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)}',
+                                    style: TextStyle(
+                                      color: selected
+                                          ? const Color(0xFF00C9A7)
+                                          : const Color(0xFFE6F7F4),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                      .toList(),
+                ),
+              const SizedBox(height: 16),
+              // ── Payment section ────────────────────────────────────
+              Row(
+                children: <Widget>[
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,65 +636,58 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        const _FieldLabel('Fees Status'),
-                        const SizedBox(height: 12),
-                        _DarkPickerField(
-                          controller: _feesStatusController,
-                          trailingIcon: Icons.keyboard_arrow_down_rounded,
-                          backgroundColor: const Color(0x0FFFFFFF),
-                          readOnly: true,
-                          onTap: _pickFeesStatus,
-                        ),
-                      ],
+              GestureDetector(
+                onTap: () => setState(() {
+                  _fullAmountPaid = !_fullAmountPaid;
+                  if (_fullAmountPaid) {
+                    _paidNowController.clear();
+                  } else {
+                    // Pre-fill with the selected plan price
+                    if (_feePlans.isNotEmpty) {
+                      final double price = _planPrice(
+                        _feePlans[_selectedFeePlanIndex.clamp(
+                          0,
+                          _feePlans.length - 1,
+                        )],
+                      );
+                      _paidNowController.text =
+                          price.toStringAsFixed(price % 1 == 0 ? 0 : 2);
+                    }
+                  }
+                }),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      _fullAmountPaid
+                          ? Icons.check_box_rounded
+                          : Icons.check_box_outline_blank_rounded,
+                      color: _fullAmountPaid
+                          ? const Color(0xFF00C9A7)
+                          : Colors.white54,
+                      size: 22,
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      children: <Widget>[
-                        const SizedBox(height: 26),
-                        SizedBox(
-                          height: 44,
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                _feesStatus = _feesStatus == 'Pending'
-                                    ? 'Paid'
-                                    : 'Pending';
-                                _feesStatusController.text = _feesStatus;
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _feesStatus == 'Pending'
-                                  ? const Color(0xFFF59E0B)
-                                  : const Color(0xFF16A34A),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: Text(
-                              _feesStatus,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Full amount paid',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              if (!_fullAmountPaid) ...<Widget>[
+                const SizedBox(height: 12),
+                const _FieldLabel('Amount Paid Now'),
+                const SizedBox(height: 8),
+                _DarkTextField(
+                  controller: _paidNowController,
+                  hint: 'Rs 0 — enter amount paid today',
+                  keyboardType: TextInputType.number,
+                ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -871,14 +994,12 @@ class _DarkPickerField extends StatelessWidget {
   const _DarkPickerField({
     required this.controller,
     this.trailingIcon,
-    this.backgroundColor = const Color(0x0FFFFFFF),
     this.readOnly = false,
     this.onTap,
   });
 
   final TextEditingController controller;
   final IconData? trailingIcon;
-  final Color backgroundColor;
   final bool readOnly;
   final VoidCallback? onTap;
 
@@ -890,7 +1011,7 @@ class _DarkPickerField extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0x1FFFFFFF)),
-        color: backgroundColor,
+        color: const Color(0x0FFFFFFF),
       ),
       child: Row(
         children: <Widget>[

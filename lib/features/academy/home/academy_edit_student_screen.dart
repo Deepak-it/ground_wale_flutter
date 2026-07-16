@@ -1,8 +1,13 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
 
 class AcademyEditStudentScreen extends StatefulWidget {
   const AcademyEditStudentScreen({
@@ -41,6 +46,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
   late String _feeStatus;
   late String _paymentMode;
   bool _isSaving = false;
+  String? _photoBase64;
   List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
   String? _selectedAcademyId;
   List<Map<String, dynamic>> _batches = <Map<String, dynamic>>[];
@@ -105,6 +111,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
         _academies = academies;
         _selectedAcademyId = selectedAcademyId;
         _batches = batches;
+        _photoBase64 = student['photoBase64']?.toString();
         final String? studentBatchId = student['batchId']?.toString();
         final Map<String, dynamic> matched = batches.firstWhere(
           (Map<String, dynamic> item) =>
@@ -132,6 +139,22 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
         }
       });
     } catch (_) {}
+  }
+
+  Future<void> _pickPhoto() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 70,
+    );
+    if (file == null || !mounted) {
+      return;
+    }
+    final Uint8List bytes = await file.readAsBytes();
+    final String base64 = base64Encode(bytes);
+    setState(() => _photoBase64 = base64);
   }
 
   Future<void> _onAcademyChanged(String? academyId) async {
@@ -272,6 +295,64 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: GestureDetector(
+                        onTap: _pickPhoto,
+                        child: Column(
+                          children: <Widget>[
+                            Container(
+                              width: 92,
+                              height: 92,
+                              decoration: BoxDecoration(
+                                color: const Color(0x08FFFFFF),
+                                borderRadius: BorderRadius.circular(1000),
+                                border: Border.all(
+                                  color: const Color(0x33FFFFFF),
+                                ),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: _photoBase64 != null &&
+                                      _photoBase64!.isNotEmpty
+                                  ? Builder(
+                                      builder: (_) {
+                                        final Uint8List? bytes =
+                                            decodeBase64ImageBytes(
+                                              _photoBase64,
+                                            );
+                                        return bytes != null
+                                            ? Image.memory(
+                                                bytes,
+                                                fit: BoxFit.cover,
+                                              )
+                                            : const Icon(
+                                                Icons.person_outline_rounded,
+                                                size: 48,
+                                                color: Colors.white,
+                                              );
+                                      },
+                                    )
+                                  : const Icon(
+                                      Icons.person_outline_rounded,
+                                      size: 48,
+                                      color: Colors.white,
+                                    ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _photoBase64 != null
+                                  ? 'Change Photo'
+                                  : 'Upload Photo',
+                              style: const TextStyle(
+                                color: Color(0xFF00C9A7),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     _FieldLabel(label: 'Student Name'),
@@ -555,6 +636,8 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
               'batchId': _selectedBatchId,
             'joinDate': _dateOnlyString(joinDateOnly),
             'monthlyFee': amount,
+            if (_photoBase64 != null && _photoBase64!.isNotEmpty)
+              'photoBase64': _photoBase64,
           });
 
       final List<Map<String, dynamic>> fees = await GroundWaleApi.instance

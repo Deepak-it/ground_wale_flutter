@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
 import 'academy_edit_student_screen.dart';
 import 'academy_view_all_attendance_screen.dart';
 
@@ -248,23 +251,9 @@ class _AcademyStudentDetailsScreenState extends State<AcademyStudentDetailsScree
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Container(
-                                width: 66,
-                                height: 66,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: const Color(0x1AFFFFFF),
-                                  border: Border.all(color: const Color(0x22FFFFFF)),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  _initials(name),
-                                  style: const TextStyle(
-                                    color: Color(0xFFE6F7F4),
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                              _buildAvatarWidget(
+                                _student['photoBase64']?.toString(),
+                                name,
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -608,6 +597,33 @@ class _AcademyStudentDetailsScreenState extends State<AcademyStudentDetailsScree
       return parts.first.substring(0, parts.first.length > 1 ? 2 : 1).toUpperCase();
     }
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  Widget _buildAvatarWidget(String? photoBase64, String name) {
+    final Uint8List? bytes = decodeBase64ImageBytes(photoBase64);
+    return Container(
+      width: 66,
+      height: 66,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0x1AFFFFFF),
+        border: Border.all(color: const Color(0x22FFFFFF)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: bytes != null
+          ? Image.memory(bytes, fit: BoxFit.cover)
+          : Container(
+              alignment: Alignment.center,
+              child: Text(
+                _initials(name),
+                style: const TextStyle(
+                  color: Color(0xFFE6F7F4),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+    );
   }
 }
 

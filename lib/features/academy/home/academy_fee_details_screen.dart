@@ -479,6 +479,265 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
     );
   }
 
+  Future<void> _showAddPaymentSheet(Map<String, dynamic> fee) async {
+    final String? ownerId = _ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return;
+    }
+
+    final double totalAmount = _amount(fee);
+    final double alreadyPaid = _paidAmount(fee);
+    final double due = (totalAmount - alreadyPaid).clamp(0, double.infinity);
+    final String feeId = _feeId(fee);
+    if (feeId.isEmpty) {
+      return;
+    }
+
+    final TextEditingController amountCtrl = TextEditingController();
+    String paymentMode = 'Cash';
+    bool isSaving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0F2027),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext _, StateSetter setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      const Text(
+                        'Add Payment',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white54,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Total: ${_currency(totalAmount)}'
+                    '  •  Paid: ${_currency(alreadyPaid)}'
+                    '  •  Due: ${_currency(due)}',
+                    style: const TextStyle(
+                      color: Color(0xFF9FB9B3),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Amount Paying Now',
+                    style: TextStyle(
+                      color: Color(0xFFE6F7F4),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0x1FFFFFFF)),
+                      color: const Color(0x0FFFFFFF),
+                    ),
+                    child: TextField(
+                      controller: amountCtrl,
+                      keyboardType: TextInputType.number,
+                      autofocus: true,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'Enter amount',
+                        hintStyle: TextStyle(color: Color(0x99FFFFFF)),
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Payment Mode',
+                    style: TextStyle(
+                      color: Color(0xFFE6F7F4),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <String>['Cash', 'UPI', 'Card']
+                        .map((String mode) {
+                          final bool sel = paymentMode == mode;
+                          return Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setSheetState(() => paymentMode = mode),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: sel
+                                          ? const Color(0xFF00C9A7)
+                                          : const Color(0x1FFFFFFF),
+                                    ),
+                                    color: sel
+                                        ? const Color(0x1400C9A7)
+                                        : const Color(0x0FFFFFFF),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    mode,
+                                    style: TextStyle(
+                                      color: sel
+                                          ? const Color(0xFF00C9A7)
+                                          : Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              final double paying = double.tryParse(
+                                    amountCtrl.text.replaceAll(
+                                      RegExp(r'[^0-9.]'),
+                                      '',
+                                    ),
+                                  ) ??
+                                  0;
+                              if (paying <= 0) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Enter a valid amount'),
+                                  ),
+                                );
+                                return;
+                              }
+                              setSheetState(() => isSaving = true);
+                              try {
+                                final double newPaid =
+                                    (alreadyPaid + paying).clamp(
+                                      0,
+                                      totalAmount,
+                                    );
+                                final String newStatus =
+                                    newPaid >= totalAmount ? 'paid' : 'partial';
+                                await GroundWaleApi.instance.updateAcademyFee(
+                                  ownerId,
+                                  feeId,
+                                  <String, dynamic>{
+                                    'paidAmount': newPaid,
+                                    'status': newStatus,
+                                    'paymentMode': paymentMode,
+                                  },
+                                );
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx).pop();
+                                }
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Payment recorded'),
+                                    ),
+                                  );
+                                  await _load();
+                                }
+                              } catch (error) {
+                                setSheetState(() => isSaving = false);
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        error
+                                            .toString()
+                                            .replaceFirst('Exception: ', ''),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C9A7),
+                        foregroundColor: const Color(0xFF1D1D1D),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF1D1D1D),
+                              ),
+                            )
+                          : const Text(
+                              'Save Payment',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    amountCtrl.dispose();
+  }
+
   Widget _channelTile({
     required String label,
     required IconData icon,
@@ -552,6 +811,25 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
       return parts.first.substring(0, 1).toUpperCase();
     }
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  String _fmtExpiry(String? raw) {
+    if (raw == null || raw.isEmpty) return '-';
+    final DateTime? d = DateTime.tryParse(raw);
+    if (d == null) return raw;
+    final DateTime local = d.toLocal();
+    const List<String> months = <String>[
+      'Jan','Feb','Mar','Apr','May','Jun',
+      'Jul','Aug','Sep','Oct','Nov','Dec',
+    ];
+    return '${local.day} ${months[local.month - 1]} ${local.year}';
+  }
+
+  bool _isExpiredStr(String? raw) {
+    if (raw == null || raw.isEmpty) return false;
+    final DateTime? d = DateTime.tryParse(raw);
+    if (d == null) return false;
+    return d.isBefore(DateTime.now());
   }
 
   void _openFeeDetails(Map<String, dynamic> fee) {
@@ -1107,19 +1385,63 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: <Widget>[
-                                Text(
-                                  "Month: ${fee['monthKey'] ?? '-'}",
-                                  style: const TextStyle(
-                                    color: Color(0x99FFFFFF),
-                                    fontSize: 12,
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      "Month: ${fee['monthKey'] ?? '-'}",
+                                      style: const TextStyle(
+                                        color: Color(0x99FFFFFF),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (fee['subscriptionEndDate'] != null) ...<Widget>[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Expires: ${_fmtExpiry(fee['subscriptionEndDate']?.toString())}',
+                                        style: TextStyle(
+                                          color: _isExpiredStr(fee['subscriptionEndDate']?.toString())
+                                              ? const Color(0xFFEF4444)
+                                              : const Color(0xFF9FB9B3),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                                TextButton(
-                                  onPressed: () => _openFeeDetails(fee),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFF00C9A7),
-                                  ),
-                                  child: const Text('View Details'),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    if (status != 'paid')
+                                      TextButton(
+                                        onPressed: () =>
+                                            _showAddPaymentSheet(fee),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor:
+                                              const Color(0xFF22C55E),
+                                          padding: EdgeInsets.zero,
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        child: const Text('Add Payment'),
+                                      ),
+                                    if (status != 'paid')
+                                      const SizedBox(width: 8),
+                                    TextButton(
+                                      onPressed: () => _openFeeDetails(fee),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor:
+                                            const Color(0xFF00C9A7),
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: const Text('View Details'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

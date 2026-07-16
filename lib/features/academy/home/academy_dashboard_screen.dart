@@ -942,7 +942,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                             spacing: 8,
                                             runSpacing: 8,
                                             children: <Widget>[
-                                              ...facilities.map((
+                                              ...facilities.take(3).map((
                                               String facility,
                                             ) {
                                               return Container(
@@ -968,6 +968,31 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                                 ),
                                               );
                                             }),
+                                              if (facilities.length > 3)
+                                                GestureDetector(
+                                                  onTap: () => _showAllFacilities(
+                                                    context,
+                                                    facilities,
+                                                  ),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      color: const Color(0x0AFFFFFF),
+                                                    ),
+                                                    child: const Text(
+                                                      '...',
+                                                      style: TextStyle(
+                                                        color: Color(0xFF00C9A7),
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
                                               // + add facilities chip
                                               GestureDetector(
                                                 onTap: () => _addFacilityToAcademy(
@@ -1922,6 +1947,60 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
               ),
       ),
       bottomNavigationBar: null,
+    );
+  }
+
+  void _showAllFacilities(BuildContext context, List<String> facilities) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0F2027),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'All Facilities',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: facilities
+                  .map(
+                    (String facility) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        color: const Color(0x0AFFFFFF),
+                      ),
+                      child: Text(
+                        _facilityLabel(facility),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -366,10 +366,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     return null;
   }
 
-  DateTime? _extractSlotDate(Map<String, dynamic> slot) {
-    return _parseCalendarDate(slot['date']);
-  }
-
   String _apiDate(DateTime date) {
     final String month = date.month.toString().padLeft(2, '0');
     final String day = date.day.toString().padLeft(2, '0');
@@ -428,40 +424,56 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           );
 
       final Map<String, Map<String, int>> stats = <String, Map<String, int>>{};
-      for (final Map<String, dynamic> slot in slots) {
-        final DateTime? day = _extractSlotDate(slot);
-        if (day == null) {
-          continue;
-        }
-        final String key = _dayKey(day);
-        final Map<String, int> bucket =
-              stats[key] ?? <String, int>{
-                'total': 0,
-                'booked': 0,
-                'blocked': 0,
-                'available': 0,
-                'maintenance': 0,
-              };
-        bucket['total'] = (bucket['total'] ?? 0) + 1;
 
-        final String status =
-            (slot['status']?.toString() ?? 'available').toLowerCase();
+      void applyToDay(String key, String status, Map<String, dynamic> slot) {
+        final Map<String, int> bucket =
+            stats[key] ?? <String, int>{
+              'total': 0,
+              'booked': 0,
+              'blocked': 0,
+              'available': 0,
+              'maintenance': 0,
+            };
+        bucket['total'] = (bucket['total'] ?? 0) + 1;
         if (status == 'booked') {
           bucket['booked'] = (bucket['booked'] ?? 0) + 1;
         } else if (status == 'blocked') {
           bucket['blocked'] = (bucket['blocked'] ?? 0) + 1;
-            final String blockedReason =
-                (slot['blockedReason']?.toString() ?? '').toLowerCase();
-            final String notes = (slot['notes']?.toString() ?? '').toLowerCase();
-            if (blockedReason.contains('maintenance') ||
-                notes.contains('maintenance')) {
-              bucket['maintenance'] = (bucket['maintenance'] ?? 0) + 1;
-            }
-          } else {
-            bucket['available'] = (bucket['available'] ?? 0) + 1;
+          final String blockedReason =
+              (slot['blockedReason']?.toString() ?? '').toLowerCase();
+          final String notes = (slot['notes']?.toString() ?? '').toLowerCase();
+          if (blockedReason.contains('maintenance') ||
+              notes.contains('maintenance')) {
+            bucket['maintenance'] = (bucket['maintenance'] ?? 0) + 1;
+          }
+        } else {
+          bucket['available'] = (bucket['available'] ?? 0) + 1;
+        }
+        stats[key] = bucket;
+      }
+
+      for (final Map<String, dynamic> slot in slots) {
+        final String status =
+            (slot['status']?.toString() ?? 'available').toLowerCase();
+
+        // Legacy single-date slot
+        final DateTime? legacyDate = _parseCalendarDate(slot['date']);
+        if (legacyDate != null) {
+          applyToDay(_dayKey(legacyDate), status, slot);
+          continue;
         }
 
-        stats[key] = bucket;
+        // Range-based slot — expand across every day in the visible month
+        final DateTime? dateFrom = _parseCalendarDate(slot['dateFrom']);
+        final DateTime? dateTo = _parseCalendarDate(slot['dateTo']);
+        if (dateFrom != null && dateTo != null) {
+          DateTime cursor = dateFrom.isBefore(monthStart) ? monthStart : dateFrom;
+          final DateTime end = dateTo.isAfter(monthEnd) ? monthEnd : dateTo;
+          while (!cursor.isAfter(end)) {
+            applyToDay(_dayKey(cursor), status, slot);
+            cursor = cursor.add(const Duration(days: 1));
+          }
+        }
       }
 
       if (!mounted) {
@@ -1375,7 +1387,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     final List<String> facilities = rawFacilities
         .map((dynamic item) => item.toString())
         .where((String item) => item.trim().isNotEmpty)
-        .take(4)
         .toList();
 
     return Container(
@@ -1498,6 +1509,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                   runSpacing: 4,
                   children: <Widget>[
                     ...facilities
+                        .take(3)
                         .map(
                           (String item) => Container(
                             padding: const EdgeInsets.symmetric(
@@ -1516,8 +1528,29 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                               ),
                             ),
                           ),
-                        )
-                        ,
+                        ),
+                    if (facilities.length > 3)
+                      GestureDetector(
+                        onTap: () => _showAllFacilities(context, facilities),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            color: const Color(0x0AFFFFFF),
+                          ),
+                          child: const Text(
+                            '...',
+                            style: TextStyle(
+                              color: Color(0xFFDDF730),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
                     // +Add facilities chip
                     GestureDetector(
                       onTap: () => _addFacilityToGround(groundId, facilities),
@@ -1799,6 +1832,59 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     }
 
     return normalized;
+  }
+
+  void _showAllFacilities(BuildContext context, List<String> facilities) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1B1F1B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'All Facilities',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: facilities
+                  .map(
+                    (String item) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        color: const Color(0x0AFFFFFF),
+                      ),
+                      child: Text(
+                        item,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _addFacilityCard() {
