@@ -209,12 +209,80 @@ class _BoxCricketManageSlotsScreenState
   }
 
   List<Map<String, dynamic>> get _filteredSlots {
-    return _slots.where((Map<String, dynamic> slot) {
+    return _expandedSlotsForRange().where((Map<String, dynamic> slot) {
       if (_statusFilter == 'all') {
         return true;
       }
       return (slot['status']?.toString() ?? 'available') == _statusFilter;
     }).toList();
+  }
+
+  Set<String> _dayKeysFrom(dynamic raw) {
+    final List<dynamic> values = raw as List<dynamic>? ?? <dynamic>[];
+    return values
+        .map((dynamic item) {
+          if (item is String &&
+              RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').hasMatch(item.trim())) {
+            return item.trim();
+          }
+          final DateTime parsed = _parseDate(item);
+          return _dateKey(parsed);
+        })
+        .toSet();
+  }
+
+  String _statusForDay(Map<String, dynamic> slot, DateTime day) {
+    final String baseStatus =
+        (slot['status']?.toString() ?? 'available').toLowerCase();
+    if (baseStatus == 'blocked') {
+      return 'blocked';
+    }
+
+    final String dayKey = _dateKey(day);
+    final Set<String> blockedKeys = <String>{
+      ..._dayKeysFrom(slot['blockedDateKeys']),
+      ..._dayKeysFrom(slot['blockedDates']),
+    };
+    if (blockedKeys.contains(dayKey)) {
+      return 'blocked';
+    }
+
+    final Set<String> bookedKeys = <String>{
+      ..._dayKeysFrom(slot['bookedDateKeys']),
+      ..._dayKeysFrom(slot['bookedDates']),
+    };
+    if (bookedKeys.contains(dayKey)) {
+      return 'booked';
+    }
+
+    return 'available';
+  }
+
+  List<Map<String, dynamic>> _expandedSlotsForRange() {
+    final List<Map<String, dynamic>> expanded = <Map<String, dynamic>>[];
+
+    for (final Map<String, dynamic> slot in _slots) {
+      final bool isRangeSlot = slot['dateFrom'] != null && slot['dateTo'] != null;
+      if (!isRangeSlot) {
+        expanded.add(Map<String, dynamic>.from(slot));
+        continue;
+      }
+
+      final DateTime from = _parseDate(slot['dateFrom']);
+      final DateTime to = _parseDate(slot['dateTo']);
+      DateTime cursor = from.isBefore(_rangeStart) ? _rangeStart : from;
+      final DateTime end = to.isAfter(_rangeEnd) ? _rangeEnd : to;
+
+      while (!cursor.isAfter(end)) {
+        final Map<String, dynamic> entry = Map<String, dynamic>.from(slot);
+        entry['date'] = _dateKey(cursor);
+        entry['status'] = _statusForDay(slot, cursor);
+        expanded.add(entry);
+        cursor = cursor.add(const Duration(days: 1));
+      }
+    }
+
+    return expanded;
   }
 
   Map<String, dynamic>? _bookingForSlot(Map<String, dynamic> slot) {
@@ -817,6 +885,7 @@ class _BoxCricketManageSlotsScreenState
       await GroundWaleApi.instance.blockSlot(
         slotId,
         'Blocked by owner',
+        date: slot['date']?.toString(),
       );
       if (!mounted) {
         return;
@@ -1097,179 +1166,87 @@ class _BoxCricketManageSlotsScreenState
   }
 
   List<Widget> _buildDaySections(List<Map<String, dynamic>> slots) {
-    // ── Separate range-based from legacy single-date slots ────────────────
-    final List<Map<String, dynamic>> rangeSlots = slots
-        .where((Map<String, dynamic> s) => s['dateFrom'] != null)
-        .toList();
-    final List<Map<String, dynamic>> dateSlots = slots
-        .where((Map<String, dynamic> s) => s['dateFrom'] == null)
-        .toList();
-
     final List<Widget> ui = <Widget>[];
 
-    // ── Range-based slots (grouped by dateFrom–dateTo) ────────────────────
-    if (rangeSlots.isNotEmpty) {
-      final Map<String, List<Map<String, dynamic>>> rangeGroups =
-          <String, List<Map<String, dynamic>>>{};
-      for (final Map<String, dynamic> slot in rangeSlots) {
-        final String key =
-            '${slot['dateFrom']?.toString() ?? ''}|${slot['dateTo']?.toString() ?? ''}';
-        rangeGroups.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(slot);
-      }
+    final Map<String, List<Map<String, dynamic>>> grouped =
+        <String, List<Map<String, dynamic>>>{};
+    for (final Map<String, dynamic> slot in slots) {
+      final DateTime date = _parseDate(slot['date']);
+      final String key = _dateKey(date);
+      grouped.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(slot);
+    }
+
+    final List<String> keys = grouped.keys.toList()..sort();
+
+    for (final String key in keys) {
+      final DateTime day = DateTime.parse(key);
+      final List<Map<String, dynamic>> daySlots = grouped[key]!;
+      daySlots.sort(
+        (Map<String, dynamic> a, Map<String, dynamic> b) =>
+            (a['startTime']?.toString() ?? '').compareTo(
+              b['startTime']?.toString() ?? '',
+            ),
+      );
 
       ui.add(
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8),
-          child: Text(
-            'Slot Configurations',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Text(
+                _dayTitle(day),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '${daySlots.length} slots',
+                style: const TextStyle(
+                  color: Color(0xFF08B36A),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       );
 
-      for (final MapEntry<String, List<Map<String, dynamic>>> entry
-          in rangeGroups.entries) {
-        final List<Map<String, dynamic>> groupSlots = entry.value;
-        final DateTime from = _parseDate(groupSlots.first['dateFrom']);
-        final DateTime to   = _parseDate(groupSlots.first['dateTo']);
-        final String rangeLabel =
-            '${_shortDateLabel(from)} → ${_shortDateLabel(to)}';
-
+      for (final String section in <String>[
+        'Morning',
+        'Afternoon',
+        'Evening',
+      ]) {
+        final List<Map<String, dynamic>> sectionSlots =
+            _sectionSlots(daySlots, section);
+        if (sectionSlots.isEmpty) continue;
         ui.add(
           Padding(
-            padding: const EdgeInsets.only(bottom: 6, top: 4),
-            child: Row(
-              children: <Widget>[
-                const Icon(Icons.date_range_outlined,
-                    size: 15, color: Color(0xFF08B36A)),
-                const SizedBox(width: 6),
-                Text(
-                  rangeLabel,
-                  style: const TextStyle(
-                    color: Color(0xFF08B36A),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${groupSlots.length} slot${groupSlots.length == 1 ? '' : 's'}',
-                  style: const TextStyle(
-                    color: Color(0x99FFFFFF),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.only(top: 8, bottom: 8),
+            child: Text(
+              section == 'Morning'
+                  ? 'Morning (5 AM - 12 PM)'
+                  : section == 'Afternoon'
+                  ? 'Afternoon (12 PM - 5 PM)'
+                  : 'Evening (4 PM - 7 PM)',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         );
-
-        groupSlots.sort(
-          (Map<String, dynamic> a, Map<String, dynamic> b) =>
-              (a['startTime']?.toString() ?? '')
-                  .compareTo(b['startTime']?.toString() ?? ''),
-        );
-        for (final Map<String, dynamic> slot in groupSlots) {
+        for (final Map<String, dynamic> slot in sectionSlots) {
           ui.add(
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _slotCard(slot, rangeLabel: rangeLabel),
+              child: _slotCard(slot),
             ),
           );
-        }
-      }
-
-      if (dateSlots.isNotEmpty) {
-        ui.add(const SizedBox(height: 8));
-      }
-    }
-
-    // ── Legacy single-date slots (grouped by day) ─────────────────────────
-    if (dateSlots.isNotEmpty) {
-      final Map<String, List<Map<String, dynamic>>> grouped =
-          <String, List<Map<String, dynamic>>>{};
-      for (final Map<String, dynamic> slot in dateSlots) {
-        final DateTime date = _parseDate(slot['date']);
-        final String key = _dateKey(date);
-        grouped.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(slot);
-      }
-
-      final List<String> keys = grouped.keys.toList()..sort();
-
-      for (final String key in keys) {
-        final DateTime day = DateTime.parse(key);
-        final List<Map<String, dynamic>> daySlots = grouped[key]!;
-        daySlots.sort(
-          (Map<String, dynamic> a, Map<String, dynamic> b) =>
-              (a['startTime']?.toString() ?? '').compareTo(
-                b['startTime']?.toString() ?? '',
-              ),
-        );
-
-        ui.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                Text(
-                  _dayTitle(day),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '${daySlots.length} slots',
-                  style: const TextStyle(
-                    color: Color(0xFF08B36A),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-
-        for (final String section in <String>[
-          'Morning',
-          'Afternoon',
-          'Evening',
-        ]) {
-          final List<Map<String, dynamic>> sectionSlots =
-              _sectionSlots(daySlots, section);
-          if (sectionSlots.isEmpty) continue;
-          ui.add(
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 8),
-              child: Text(
-                section == 'Morning'
-                    ? 'Morning (5 AM - 12 PM)'
-                    : section == 'Afternoon'
-                    ? 'Afternoon (12 PM - 5 PM)'
-                    : 'Evening (4 PM - 7 PM)',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          );
-          for (final Map<String, dynamic> slot in sectionSlots) {
-            ui.add(
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _slotCard(slot),
-              ),
-            );
-          }
         }
       }
     }
@@ -1295,7 +1272,7 @@ class _BoxCricketManageSlotsScreenState
     return ui;
   }
 
-  Widget _slotCard(Map<String, dynamic> slot, {String? rangeLabel}) {
+  Widget _slotCard(Map<String, dynamic> slot) {
     final String status = slot['status']?.toString() ?? 'available';
     final Map<String, dynamic>? booking = _bookingForSlot(slot);
 

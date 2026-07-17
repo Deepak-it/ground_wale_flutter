@@ -608,12 +608,16 @@ class GroundWaleApi {
 
   Future<Map<String, dynamic>> blockSlot(
     String slotId,
-    String blockedReason,
-  ) async {
+    String blockedReason, {
+    String? date,
+  }) async {
     try {
       final Response<dynamic> response = await _dio.post<dynamic>(
         '/slots/$slotId/block',
-        data: <String, dynamic>{'blockedReason': blockedReason},
+        data: <String, dynamic>{
+          'blockedReason': blockedReason,
+          if (date != null && date.isNotEmpty) 'date': date,
+        },
       );
       return Map<String, dynamic>.from(response.data as Map);
     } catch (error) {

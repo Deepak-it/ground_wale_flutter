@@ -10,6 +10,7 @@ import '../../ground/flow/screens/register_ground_flow_screen.dart';
 import 'box_cricket_add_booking_screen.dart';
 import 'box_cricket_booking_details_screen.dart';
 import 'box_cricket_earning_screen.dart';
+import 'box_cricket_edit_ground_screen.dart';
 import 'box_cricket_manage_slots_screen.dart';
 import 'box_cricket_upcoming_bookings_screen.dart';
 
@@ -45,6 +46,9 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       <String, Map<String, int>>{};
   List<Map<String, dynamic>> _selectedGroundBookings =
       <Map<String, dynamic>>[];
+    List<Map<String, dynamic>> _selectedGroundAllBookings =
+      <Map<String, dynamic>>[];
+    int _visibleMonthEarnings = 0;
   Map<String, int> _selectedGroundSlotSummary = <String, int>{
     'available': 0,
     'booked': 0,
@@ -138,6 +142,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       if (mounted) {
         setState(() {
           _selectedGroundBookings = <Map<String, dynamic>>[];
+          _selectedGroundAllBookings = <Map<String, dynamic>>[];
+          _visibleMonthEarnings = 0;
           _selectedGroundSlotSummary = <String, int>{
             'available': 0,
             'booked': 0,
@@ -156,13 +162,16 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       final DateTime today = DateTime.now();
       final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
         GroundWaleApi.instance.listBookings(groundId, status: 'upcoming'),
+        GroundWaleApi.instance.listBookings(groundId),
         GroundWaleApi.instance.listSlots(groundId, date: _apiDate(today)),
       ]);
 
       final List<Map<String, dynamic>> bookings =
           results[0] as List<Map<String, dynamic>>;
-      final List<Map<String, dynamic>> todaySlots =
+      final List<Map<String, dynamic>> allBookings =
           results[1] as List<Map<String, dynamic>>;
+      final List<Map<String, dynamic>> todaySlots =
+          results[2] as List<Map<String, dynamic>>;
 
       int available = 0;
       int booked = 0;
@@ -183,6 +192,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       }
       setState(() {
         _selectedGroundBookings = bookings;
+        _selectedGroundAllBookings = allBookings;
+        _visibleMonthEarnings = _monthEarningsFor(_visibleMonth, allBookings);
         _selectedGroundSlotSummary = <String, int>{
           'available': available,
           'booked': booked,
@@ -196,6 +207,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       }
       setState(() {
         _selectedGroundBookings = <Map<String, dynamic>>[];
+        _selectedGroundAllBookings = <Map<String, dynamic>>[];
+        _visibleMonthEarnings = 0;
         _selectedGroundSlotSummary = <String, int>{
           'available': 0,
           'booked': 0,
@@ -366,6 +379,34 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     return null;
   }
 
+  int _monthEarningsFor(
+    DateTime month,
+    List<Map<String, dynamic>> bookings,
+  ) {
+    int total = 0;
+    for (final Map<String, dynamic> booking in bookings) {
+      final DateTime? date = _extractBookingDate(booking);
+      if (date == null) {
+        continue;
+      }
+      if (date.year != month.year || date.month != month.month) {
+        continue;
+      }
+      final String bookingStatus =
+          (booking['bookingStatus']?.toString() ?? '').toLowerCase();
+      if (bookingStatus == 'cancelled') {
+        continue;
+      }
+      final String paymentStatus =
+          (booking['paymentStatus']?.toString() ?? '').toLowerCase();
+      if (paymentStatus != 'paid') {
+        continue;
+      }
+      total += _toInt(booking['amount']);
+    }
+    return total;
+  }
+
   String _apiDate(DateTime date) {
     final String month = date.month.toString().padLeft(2, '0');
     final String day = date.day.toString().padLeft(2, '0');
@@ -454,7 +495,33 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
 
       for (final Map<String, dynamic> slot in slots) {
         final String status =
-            (slot['status']?.toString() ?? 'available').toLowerCase();
+          (slot['status']?.toString() ?? 'available').toLowerCase();
+        final List<String> bookedDateKeysFromApi =
+            ((slot['bookedDateKeys'] as List<dynamic>?) ?? <dynamic>[])
+                .map((dynamic item) => item.toString())
+                .where((String item) => item.trim().isNotEmpty)
+                .toList();
+        final List<String> bookedDayKeys =
+            bookedDateKeysFromApi.isNotEmpty
+                ? bookedDateKeysFromApi
+                : ((slot['bookedDates'] as List<dynamic>?) ?? <dynamic>[])
+                    .map((dynamic item) => _parseCalendarDate(item))
+                    .whereType<DateTime>()
+                    .map(_dayKey)
+                    .toList();
+        final List<String> blockedDateKeysFromApi =
+          ((slot['blockedDateKeys'] as List<dynamic>?) ?? <dynamic>[])
+            .map((dynamic item) => item.toString())
+            .where((String item) => item.trim().isNotEmpty)
+            .toList();
+        final List<String> blockedDayKeys =
+          blockedDateKeysFromApi.isNotEmpty
+            ? blockedDateKeysFromApi
+            : ((slot['blockedDates'] as List<dynamic>?) ?? <dynamic>[])
+              .map((dynamic item) => _parseCalendarDate(item))
+              .whereType<DateTime>()
+              .map(_dayKey)
+              .toList();
 
         // Legacy single-date slot
         final DateTime? legacyDate = _parseCalendarDate(slot['date']);
@@ -470,7 +537,13 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           DateTime cursor = dateFrom.isBefore(monthStart) ? monthStart : dateFrom;
           final DateTime end = dateTo.isAfter(monthEnd) ? monthEnd : dateTo;
           while (!cursor.isAfter(end)) {
-            applyToDay(_dayKey(cursor), status, slot);
+            final String dayKey = _dayKey(cursor);
+            final bool blockedForDay =
+              status == 'blocked' || blockedDayKeys.contains(dayKey);
+            final String dayStatus = blockedForDay
+              ? 'blocked'
+              : (bookedDayKeys.contains(dayKey) ? 'booked' : 'available');
+            applyToDay(dayKey, dayStatus, slot);
             cursor = cursor.add(const Duration(days: 1));
           }
         }
@@ -556,6 +629,10 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           _selectedDate.month != _visibleMonth.month) {
         _selectedDate = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
       }
+      _visibleMonthEarnings = _monthEarningsFor(
+        _visibleMonth,
+        _selectedGroundAllBookings,
+      );
     });
     _loadCalendarSlots();
   }
@@ -567,6 +644,10 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           _selectedDate.month != _visibleMonth.month) {
         _selectedDate = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
       }
+      _visibleMonthEarnings = _monthEarningsFor(
+        _visibleMonth,
+        _selectedGroundAllBookings,
+      );
     });
     _loadCalendarSlots();
   }
@@ -576,6 +657,10 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     setState(() {
       _visibleMonth = DateTime(now.year, now.month, 1);
       _selectedDate = now;
+      _visibleMonthEarnings = _monthEarningsFor(
+        _visibleMonth,
+        _selectedGroundAllBookings,
+      );
     });
     _loadCalendarSlots();
   }
@@ -604,9 +689,27 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     );
   }
 
+  Future<void> _openEditGround() async {
+    final bool? updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const BoxCricketEditGroundScreen(),
+      ),
+    );
+    if (updated == true && mounted) {
+      await _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final int todaysEarnings = _toInt(_dashboard['todaysEarnings']);
+    final int fallbackMonthEarnings = _toInt(
+      _dashboard['thisMonthEarnings'] ??
+          _dashboard['monthEarnings'] ??
+          _dashboard['todaysEarnings'],
+    );
+    final int thisMonthEarnings = _selectedGroundId == null
+        ? fallbackMonthEarnings
+        : _visibleMonthEarnings;
     final int availableSlots = _selectedGroundId == null
       ? _toInt(_dashboard['slotStatus']?['available'])
       : (_selectedGroundSlotSummary['available'] ?? 0);
@@ -751,7 +854,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  'Rs $todaysEarnings',
+                                  'Rs $thisMonthEarnings',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 26,
@@ -1230,7 +1333,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                     sub = 'Blocked';
                     subColor = const Color(0xFFEF4444);
                   } else if (booked > 0) {
-                    sub = '$booked/$total booked';
+                    sub = '$booked/$total';
                     subColor = const Color(0xFF0B84FF);
                   } else if (available > 0) {
                     sub = 'No Booking';
@@ -1447,17 +1550,21 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                   Positioned(
                     right: 10,
                     top: 10,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(7),
-                        color: const Color(0xFF08B36A),
-                      ),
-                      child: const Icon(
-                        Icons.edit_outlined,
-                        size: 14,
-                        color: Colors.white,
+                    child: InkWell(
+                      onTap: _openEditGround,
+                      borderRadius: BorderRadius.circular(7),
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(7),
+                          color: const Color(0xFF08B36A),
+                        ),
+                        child: const Icon(
+                          Icons.edit_outlined,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
