@@ -1547,27 +1547,28 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                       ),
                     ),
                   ),
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    child: InkWell(
-                      onTap: _openEditGround,
-                      borderRadius: BorderRadius.circular(7),
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(7),
-                          color: const Color(0xFF08B36A),
-                        ),
-                        child: const Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: Colors.white,
+                  if (selected)
+                    Positioned(
+                      right: 10,
+                      top: 10,
+                      child: InkWell(
+                        onTap: _openEditGround,
+                        borderRadius: BorderRadius.circular(7),
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(7),
+                            color: const Color(0xFF08B36A),
+                          ),
+                          child: const Icon(
+                            Icons.edit_outlined,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
