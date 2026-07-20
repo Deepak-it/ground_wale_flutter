@@ -55,12 +55,16 @@ class _SportsNeoLedgerPaymentsScreenState
           final SportsNeoMatchLedgerData sarpanch =
               await _repo.loadSarpanchLedger(groundId);
           data = SportsNeoLedgerHomeData(
-            title: 'Sarpanch',
+            title: sarpanch.matchTitle,
             netBalance: sarpanch.netBalance,
             netPositive: sarpanch.netPositive,
             addReceiptLabel: 'Add Money',
             addPaymentLabel: 'Add Dues',
             entries: sarpanch.transactions,
+            balanceLabel: 'Net Balance',
+            statChips: sarpanch.paymentLines,
+            sectionTitle: sarpanch.bookingTitle,
+            showShareInSection: true,
           );
         case SportsNeoLedgerMode.home:
           data = await _repo.loadLedgerHome(groundId);
@@ -86,8 +90,7 @@ class _SportsNeoLedgerPaymentsScreenState
   }
 
   bool get _showBellIcon {
-    return widget.mode == SportsNeoLedgerMode.pending ||
-      widget.mode == SportsNeoLedgerMode.advance;
+    return widget.mode == SportsNeoLedgerMode.pending;
   }
 
   String get _footerButton {
@@ -351,9 +354,67 @@ class _SportsNeoLedgerPaymentsScreenState
                         positive: home.netPositive,
                         actionPrimaryText: home.addReceiptLabel,
                         actionSecondaryText: home.addPaymentLabel,
+                        balanceLabel: home.balanceLabel,
+                        mode: widget.mode,
+                        onBellTap: _onFooterTap,
                         onPrimaryTap: () => _openAddMoney('receipt'),
                         onSecondaryTap: () => _openAddMoney('payment'),
                       ),
+                      // Stat chips row (sarpanch: Total Paid / Total Expense / Matches Played)
+                      if (home.statChips.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: home.statChips.map((SportsNeoSummaryLine chip) {
+                            final Color chipBorder = chip.label == 'Total Paid'
+                                ? const Color(0x3D08B36A)
+                                : chip.label == 'Total Expense'
+                                    ? const Color(0x3DE3220D)
+                                    : const Color(0x3DEB8B34);
+                            final Color chipBg = chip.label == 'Total Paid'
+                                ? const Color(0x0F08B36A)
+                                : chip.label == 'Total Expense'
+                                    ? const Color(0x1FE3220D)
+                                    : const Color(0x1FEB8B34);
+                            return Expanded(
+                              child: Container(
+                                margin: EdgeInsets.only(
+                                  right: chip == home.statChips.last ? 0 : 8,
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: chipBorder),
+                                  color: chipBg,
+                                ),
+                                child: Column(
+                                  children: <Widget>[
+                                    Text(
+                                      chip.label == 'Matches Played'
+                                          ? '${chip.amount}'
+                                          : '₹${chip.amount}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      chip.label,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -365,21 +426,53 @@ class _SportsNeoLedgerPaymentsScreenState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            const Text(
-                              'Ledgers',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: <Widget>[
+                                Text(
+                                  home.sectionTitle,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (home.showShareInSection)
+                                  InkWell(
+                                    onTap: () {},
+                                    child: const Row(
+                                      children: <Widget>[
+                                        Text(
+                                          'Share',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        SizedBox(width: 4),
+                                        Icon(
+                                          Icons.share_outlined,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
                             const SizedBox(height: 12),
-                            ...home.entries.map(
-                              (SportsNeoLedgerEntry item) => _LedgerRow(
-                                entry: item,
-                                onTap: () => _onEntryTap(item),
+                            if (widget.mode == SportsNeoLedgerMode.sarpanch)
+                              ...home.entries.map(
+                                (SportsNeoLedgerEntry item) => _SarpanchTxRow(entry: item),
+                              )
+                            else
+                              ...home.entries.map(
+                                (SportsNeoLedgerEntry item) => _LedgerRow(
+                                  entry: item,
+                                  onTap: () => _onEntryTap(item),
+                                ),
                               ),
-                            ),
                             if (widget.mode != SportsNeoLedgerMode.home) ...<Widget>[
                               const SizedBox(height: 8),
                               OutlinedButton(
@@ -391,9 +484,11 @@ class _SportsNeoLedgerPaymentsScreenState
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                child: const Text(
-                                  'View full player ledger',
-                                  style: TextStyle(color: Color(0xFF2563EB)),
+                                child: Text(
+                                  widget.mode == SportsNeoLedgerMode.sarpanch
+                                      ? 'View all Payment history'
+                                      : 'View full player ledger',
+                                  style: const TextStyle(color: Color(0xFF2563EB)),
                                 ),
                               ),
                             ],
@@ -492,6 +587,7 @@ class _SportsNeoMatchLedgerScreenState extends State<SportsNeoMatchLedgerScreen>
                             MaterialPageRoute<void>(
                               builder: (_) => SportsNeoAddMoneyScreen(
                                 title: 'Add Receipt',
+                                subtitle: data?.matchTitle,
                                 kind: 'receipt',
                                 repository: widget.repository,
                                 groundId: widget.groundId,
@@ -504,6 +600,7 @@ class _SportsNeoMatchLedgerScreenState extends State<SportsNeoMatchLedgerScreen>
                             MaterialPageRoute<void>(
                               builder: (_) => SportsNeoAddMoneyScreen(
                                 title: 'Add Payment',
+                                subtitle: data?.matchTitle,
                                 kind: 'payment',
                                 repository: widget.repository,
                                 groundId: widget.groundId,
@@ -575,12 +672,14 @@ class SportsNeoAddMoneyScreen extends StatefulWidget {
   const SportsNeoAddMoneyScreen({
     super.key,
     required this.title,
+    this.subtitle,
     required this.kind,
     required this.repository,
     required this.groundId,
   });
 
   final String title;
+  final String? subtitle;
   final String kind;
   final SportsNeoLedgerRepository repository;
   final String groundId;
@@ -641,8 +740,8 @@ class _SportsNeoAddMoneyScreenState extends State<SportsNeoAddMoneyScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: <Widget>[
-            _SportsNeoHeader(title: widget.title),
-            const SizedBox(height: 20),
+            _SportsNeoHeader(title: widget.title, subtitle: widget.subtitle),
+            const SizedBox(height: 24),
             const _InputLabel('Enter Amount'),
             const SizedBox(height: 8),
             _AmountField(controller: _amountController),
@@ -660,30 +759,45 @@ class _SportsNeoAddMoneyScreenState extends State<SportsNeoAddMoneyScreen> {
               onChanged: (String value) => setState(() => _selectedPlayer = value),
             ),
             const SizedBox(height: 14),
-            const _InputLabel('Description / Note'),
+            const _InputLabel('Description / Note '),
             const SizedBox(height: 8),
-            _TextAreaField(controller: _noteController),
-            const SizedBox(height: 14),
-            const _InputLabel('Select Payment Method'),
-            const SizedBox(height: 8),
+            _TextAreaField(
+              controller: _noteController,
+              hintText: widget.kind == 'receipt'
+                  ? 'e.g. Winning Amount, Donation etc'
+                  : 'e.g. Refreshment expense, tent expense',
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Select Payment Method',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
             _PaymentMethodItem(
               selected: _method == 'UPI',
               title: 'UPI',
               subtitle: 'GPay / PhonePe / Paytm',
+              icon: Icons.payment_outlined,
               onTap: () => setState(() => _method = 'UPI'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _PaymentMethodItem(
               selected: _method == 'Card',
               title: 'Card',
               subtitle: 'Debit / Credit Card',
+              icon: Icons.credit_card_outlined,
               onTap: () => setState(() => _method = 'Card'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             _PaymentMethodItem(
               selected: _method == 'Cash',
               title: 'Cash',
               subtitle: 'In hand payment',
+              icon: Icons.account_balance_wallet_outlined,
               onTap: () => setState(() => _method = 'Cash'),
             ),
             const SizedBox(height: 18),
@@ -699,8 +813,8 @@ class _SportsNeoAddMoneyScreenState extends State<SportsNeoAddMoneyScreen> {
                   ),
                 ),
                 child: Text(
-                  _saving ? 'Saving...' : 'Save Receipt',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  _saving ? 'Saving...' : (widget.kind == 'receipt' ? 'Save Receipt' : 'Save Payment'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -868,11 +982,13 @@ class _SportsNeoReplacePlayerScreenState extends State<SportsNeoReplacePlayerScr
 class _SportsNeoHeader extends StatelessWidget {
   const _SportsNeoHeader({
     required this.title,
+    this.subtitle,
     this.showBell = false,
     this.onBellTap,
   });
 
   final String title;
+  final String? subtitle;
   final bool showBell;
   final VoidCallback? onBellTap;
 
@@ -891,14 +1007,37 @@ class _SportsNeoHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          child: subtitle != null
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                )
+              : Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
         ),
         if (showBell)
           InkWell(
@@ -923,6 +1062,9 @@ class _BalanceCard extends StatelessWidget {
     required this.actionSecondaryText,
     required this.onPrimaryTap,
     required this.onSecondaryTap,
+    this.balanceLabel = 'Net Balance',
+    this.mode = SportsNeoLedgerMode.home,
+    this.onBellTap,
   });
 
   final int amount;
@@ -931,11 +1073,22 @@ class _BalanceCard extends StatelessWidget {
   final String actionSecondaryText;
   final VoidCallback onPrimaryTap;
   final VoidCallback onSecondaryTap;
+  final String balanceLabel;
+  final SportsNeoLedgerMode mode;
+  final VoidCallback? onBellTap;
 
   @override
   Widget build(BuildContext context) {
+    final bool isPending = mode == SportsNeoLedgerMode.pending;
+    final bool isAdvance = mode == SportsNeoLedgerMode.advance;
+    final bool isShareMode = isPending || isAdvance;
+
+    final Color amountColor = isPending
+        ? const Color(0xFFF59E0B)
+        : positive
+            ? const Color(0xFF08B36A)
+            : const Color(0xFFE03624);
     final String amountText = '${positive ? '+' : '-'}₹${amount.abs()}';
-    final Color amountColor = positive ? const Color(0xFF08B36A) : const Color(0xFFE03624);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -945,38 +1098,148 @@ class _BalanceCard extends StatelessWidget {
         color: const Color(0x14EDFFF7),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'Net Balance',
-            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Text(
+                balanceLabel,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (isAdvance && onBellTap != null)
+                InkWell(
+                  onTap: onBellTap,
+                  borderRadius: BorderRadius.circular(20),
+                  child: const SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      Icons.notifications_none_rounded,
+                      color: Color(0xFF2563EB),
+                      size: 22,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 6),
           Text(
             amountText,
-            style: TextStyle(color: amountColor, fontSize: 32, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: amountColor,
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _MiniActionButton(
-                  text: actionPrimaryText,
-                  color: const Color(0xFF08B36A),
-                  border: const Color(0xFFA5FDD7),
-                  onTap: onPrimaryTap,
+          if (isShareMode)
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onPrimaryTap,
+                    icon: const Icon(
+                      Icons.share_outlined,
+                      color: Color(0xFF2563EB),
+                      size: 18,
+                    ),
+                    label: const Text(
+                      'Share',
+                      style: TextStyle(
+                        color: Color(0xFF2563EB),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      side: const BorderSide(color: Color(0xFF2563EB)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MiniActionButton(
-                  text: actionSecondaryText,
-                  color: const Color(0xFFF59E0B),
-                  border: const Color(0xFFFFEBC9),
-                  onTap: onSecondaryTap,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onSecondaryTap,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      side: const BorderSide(color: Color(0xFF08B36A)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        const Icon(
+                          Icons.whatsapp,
+                          color: Color(0xFF08B36A),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: const <Widget>[
+                            Text(
+                              'WhatsApp',
+                              style: TextStyle(
+                                color: Color(0xFF08B36A),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            Text(
+                              'Send to all',
+                              style: TextStyle(
+                                color: Color(0xFF08B36A),
+                                fontSize: 8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: _MiniActionButton(
+                    text: actionPrimaryText,
+                    icon: actionPrimaryText == 'Add Money'
+                        ? Icons.arrow_upward_rounded
+                        : null,
+                    color: const Color(0xFF08B36A),
+                    border: const Color(0xFFA5FDD7),
+                    onTap: onPrimaryTap,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _MiniActionButton(
+                    text: actionSecondaryText,
+                    icon: actionSecondaryText == 'Add Dues'
+                        ? Icons.arrow_downward_rounded
+                        : null,
+                    color: const Color(0xFFF59E0B),
+                    border: const Color(0xFFFFEBC9),
+                    onTap: onSecondaryTap,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -989,12 +1252,14 @@ class _MiniActionButton extends StatelessWidget {
     required this.color,
     required this.border,
     required this.onTap,
+    this.icon,
   });
 
   final String text;
   final Color color;
   final Color border;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -1009,9 +1274,23 @@ class _MiniActionButton extends StatelessWidget {
           color: color,
           border: Border.all(color: border),
         ),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (icon != null) ...<Widget>[
+              Icon(icon, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1252,9 +1531,10 @@ class _AmountField extends StatelessWidget {
 }
 
 class _TextAreaField extends StatelessWidget {
-  const _TextAreaField({required this.controller});
+  const _TextAreaField({required this.controller, this.hintText});
 
   final TextEditingController controller;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -1269,11 +1549,11 @@ class _TextAreaField extends StatelessWidget {
         minLines: 3,
         maxLines: 3,
         style: const TextStyle(color: Colors.white),
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.all(12),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.all(16),
           border: InputBorder.none,
-          hintText: 'e.g. Refreshment expense, tent expense',
-          hintStyle: TextStyle(color: Color(0x99FFFFFF)),
+          hintText: hintText ?? 'e.g. Refreshment expense, tent expense',
+          hintStyle: const TextStyle(color: Color(0x99FFFFFF)),
         ),
       ),
     );
@@ -1332,12 +1612,14 @@ class _PaymentMethodItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.icon,
   });
 
   final bool selected;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -1345,19 +1627,23 @@ class _PaymentMethodItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0x1FFFFFFF)),
-          color: const Color(0x08FFFFFF),
         ),
         child: Row(
           children: <Widget>[
             Icon(
               selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: selected ? const Color(0xFF2563EB) : Colors.white54,
+              color: selected ? const Color(0xFF2563EB) : Colors.white38,
+              size: 24,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
+            if (icon != null) ...<Widget>[
+              Icon(icon, color: Colors.white, size: 24),
+              const SizedBox(width: 12),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1373,6 +1659,181 @@ class _PaymentMethodItem extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SarpanchTxRow extends StatelessWidget {
+  const _SarpanchTxRow({required this.entry});
+
+  final SportsNeoLedgerEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDue = entry.title.toLowerCase().contains('dues');
+    final Color titleColor = isDue ? const Color(0xFFF59E0B) : Colors.white;
+    final Color amountColor = entry.isCredit ? Colors.white : const Color(0xFFE3220D);
+    final String amountText =
+        '${entry.isCredit ? '' : '-'}\u20b9${entry.amount}';
+
+    final bool hasRunning = entry.runningBalance != null;
+    final Color runningColor =
+        entry.isRunning ? const Color(0xFF08B36A) : const Color(0xFFF59E0B);
+    final Color runningBg =
+        entry.isRunning ? const Color(0x1F08B36A) : const Color(0x1FF59E0B);
+    final Color runningBorder =
+        entry.isRunning ? const Color(0x0808B36A) : const Color(0x08F59E0B);
+    final String runningLabel =
+        entry.isRunning ? 'Running Balance' : 'Pending Balance';
+    final String runningText =
+        '${entry.isRunning ? '+' : '-'}\u20b9${entry.runningBalance?.abs() ?? 0}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0x1FFFFFFF)),
+          color: const Color(0x0AFFFFFF),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        entry.title,
+                        style: TextStyle(
+                          color: titleColor,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (entry.date.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            entry.date,
+                            style: const TextStyle(
+                              color: Color(0xFF667084),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    if (entry.paymentMethod.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0x0AFFFFFF)),
+                          color: const Color(0x0A10B981),
+                        ),
+                        child: Text(
+                          entry.paymentMethod,
+                          style: const TextStyle(
+                            color: Color(0xFF10B981),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    if (entry.paymentMethod.isNotEmpty)
+                      const SizedBox(height: 4),
+                    Text(
+                      entry.amount == 0 && entry.isCredit
+                          ? '\u20b90'
+                          : amountText,
+                      style: TextStyle(
+                        color: entry.amount == 0
+                            ? Colors.white54
+                            : amountColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (hasRunning) ...<Widget>[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: runningBorder),
+                      color: runningBg,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Text(
+                          runningText,
+                          style: TextStyle(
+                            color: runningColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          runningLabel,
+                          style: TextStyle(
+                            color: runningColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (entry.hasEdit || entry.hasDelete)
+                    Row(
+                      children: <Widget>[
+                        if (entry.hasEdit)
+                          const Icon(
+                            Icons.edit_outlined,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        if (entry.hasEdit && entry.hasDelete)
+                          const SizedBox(width: 16),
+                        if (entry.hasDelete)
+                          const Icon(
+                            Icons.delete_outline,
+                            color: Color(0xFFE3220D),
+                            size: 22,
+                          ),
+                      ],
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

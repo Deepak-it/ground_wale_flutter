@@ -13,6 +13,10 @@ class SportsNeoLedgerHomeData {
     required this.addReceiptLabel,
     required this.addPaymentLabel,
     required this.entries,
+    this.balanceLabel = 'Net Balance',
+    this.statChips = const <SportsNeoSummaryLine>[],
+    this.sectionTitle = 'Ledgers',
+    this.showShareInSection = false,
   });
 
   final String title;
@@ -21,6 +25,10 @@ class SportsNeoLedgerHomeData {
   final String addReceiptLabel;
   final String addPaymentLabel;
   final List<SportsNeoLedgerEntry> entries;
+  final String balanceLabel;
+  final List<SportsNeoSummaryLine> statChips;
+  final String sectionTitle;
+  final bool showShareInSection;
 }
 
 class SportsNeoMatchLedgerData {
@@ -67,6 +75,12 @@ class SportsNeoLedgerEntry {
     this.phone = '',
     this.status = '',
     this.hasWhatsapp = false,
+    this.date = '',
+    this.runningBalance,
+    this.isRunning = true,
+    this.hasEdit = false,
+    this.hasDelete = false,
+    this.paymentMethod = '',
   });
 
   final String id;
@@ -78,6 +92,13 @@ class SportsNeoLedgerEntry {
   final String phone;
   final String status;
   final bool hasWhatsapp;
+  // sarpanch transaction fields
+  final String date;
+  final int? runningBalance;
+  final bool isRunning;
+  final bool hasEdit;
+  final bool hasDelete;
+  final String paymentMethod;
 }
 
 class SportsNeoAddMoneyPayload {
@@ -250,6 +271,12 @@ class _ApiSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
       phone: item['phone']?.toString() ?? '',
       status: item['status']?.toString() ?? '',
       hasWhatsapp: item['hasWhatsapp'] == true,
+      date: item['date']?.toString() ?? '',
+      runningBalance: (item['runningBalance'] as num?)?.round(),
+      isRunning: item['isRunning'] != false,
+      hasEdit: item['hasEdit'] == true,
+      hasDelete: item['hasDelete'] == true,
+      paymentMethod: item['paymentMethod']?.toString() ?? '',
     );
   }
 }
@@ -270,6 +297,7 @@ class _MockSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
       netPositive: true,
       addReceiptLabel: 'Share',
       addPaymentLabel: 'WhatsApp',
+      balanceLabel: 'Total Advance Collected',
       entries: _mockPlayers().map((SportsNeoLedgerEntry e) => SportsNeoLedgerEntry(
             id: e.id,
             index: e.index,
@@ -381,6 +409,7 @@ class _MockSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
       netPositive: false,
       addReceiptLabel: 'Share',
       addPaymentLabel: 'WhatsApp',
+      balanceLabel: 'Total Pending Amount',
       entries: _mockPlayers().map((SportsNeoLedgerEntry e) => SportsNeoLedgerEntry(
             id: e.id,
             index: e.index,
@@ -412,28 +441,90 @@ class _MockSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
       ],
       transactions: const <SportsNeoLedgerEntry>[
         SportsNeoLedgerEntry(
-          id: 'fee',
+          id: 'fee1',
           index: 1,
           title: 'Match Fee vs Manu XI',
-          subtitle: '30-12-2026',
+          subtitle: '',
+          date: '30-12-2026',
           amount: 100,
           isCredit: false,
+          runningBalance: 2900,
+          isRunning: true,
         ),
         SportsNeoLedgerEntry(
           id: 'added1',
           index: 2,
           title: 'Amount Added',
-          subtitle: 'UPI',
+          subtitle: '',
+          date: '01-12-2026',
           amount: 1000,
           isCredit: true,
+          paymentMethod: '\u2705 UPI',
+          runningBalance: 3000,
+          isRunning: true,
+          hasEdit: true,
+          hasDelete: true,
         ),
         SportsNeoLedgerEntry(
-          id: 'dues',
+          id: 'dues1',
           index: 3,
           title: 'Dues Added',
-          subtitle: '01-12-2026',
+          subtitle: '',
+          date: '01-12-2026',
           amount: 500,
           isCredit: false,
+          runningBalance: 1000,
+          isRunning: false,
+          hasEdit: true,
+          hasDelete: true,
+        ),
+        SportsNeoLedgerEntry(
+          id: 'fee2',
+          index: 4,
+          title: 'Match Fee vs Manu XI',
+          subtitle: '',
+          date: '24-11-2026',
+          amount: 100,
+          isCredit: false,
+          runningBalance: 400,
+          isRunning: true,
+        ),
+        SportsNeoLedgerEntry(
+          id: 'added2',
+          index: 5,
+          title: 'Amount Added',
+          subtitle: '',
+          date: '01-12-2026',
+          amount: 1000,
+          isCredit: true,
+          paymentMethod: '\u2705 Cash',
+          runningBalance: 2000,
+          isRunning: true,
+          hasEdit: true,
+          hasDelete: true,
+        ),
+        SportsNeoLedgerEntry(
+          id: 'dues2',
+          index: 6,
+          title: 'Dues Added',
+          subtitle: '',
+          date: '01-12-2026',
+          amount: 500,
+          isCredit: false,
+          runningBalance: 100,
+          isRunning: false,
+          hasEdit: true,
+          hasDelete: true,
+        ),
+        SportsNeoLedgerEntry(
+          id: 'opening',
+          index: 7,
+          title: 'Opening Balance',
+          subtitle: '',
+          date: '24-11-2026',
+          amount: 0,
+          isCredit: true,
+          hasEdit: true,
         ),
       ],
     );
