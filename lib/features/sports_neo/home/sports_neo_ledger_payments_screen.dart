@@ -582,12 +582,12 @@ class _SportsNeoMatchLedgerScreenState extends State<SportsNeoMatchLedgerScreen>
                         positive: data.netPositive,
                         actionPrimaryText: 'Add Receipt',
                         actionSecondaryText: 'Add Payment',
-                        onPrimaryTap: () {
+                      onPrimaryTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => SportsNeoAddMoneyScreen(
                                 title: 'Add Receipt',
-                                subtitle: data?.matchTitle,
+                                subtitle: data.matchTitle,
                                 kind: 'receipt',
                                 repository: widget.repository,
                                 groundId: widget.groundId,
@@ -600,7 +600,7 @@ class _SportsNeoMatchLedgerScreenState extends State<SportsNeoMatchLedgerScreen>
                             MaterialPageRoute<void>(
                               builder: (_) => SportsNeoAddMoneyScreen(
                                 title: 'Add Payment',
-                                subtitle: data?.matchTitle,
+                                subtitle: data.matchTitle,
                                 kind: 'payment',
                                 repository: widget.repository,
                                 groundId: widget.groundId,
@@ -1180,7 +1180,7 @@ class _BalanceCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
                         const Icon(
-                          Icons.whatsapp,
+                          Icons.chat_rounded,
                           color: Color(0xFF08B36A),
                           size: 16,
                         ),

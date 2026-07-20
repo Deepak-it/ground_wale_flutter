@@ -30,6 +30,10 @@ class _BoxCricketManageSlotsScreenState
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _bookings = <Map<String, dynamic>>[];
 
+  // Pre-expanded slot list – recomputed once after each load, not on every
+  // build / status-filter change.
+  List<Map<String, dynamic>> _cachedExpanded = <Map<String, dynamic>>[];
+
   @override
   void initState() {
     super.initState();
@@ -182,10 +186,15 @@ class _BoxCricketManageSlotsScreenState
     try {
       final String from = _dateKey(_rangeStart);
       final String to = _dateKey(_rangeEnd);
-      final List<Map<String, dynamic>> slots = await GroundWaleApi.instance
-          .listSlots(groundId, from: from, to: to);
-      final List<Map<String, dynamic>> bookings = await GroundWaleApi.instance
-          .listBookings(groundId);
+      // Fetch slots and bookings in parallel – they are independent.
+      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
+        GroundWaleApi.instance.listSlots(groundId, from: from, to: to),
+        GroundWaleApi.instance.listBookings(groundId),
+      ]);
+      final List<Map<String, dynamic>> slots =
+          results[0] as List<Map<String, dynamic>>;
+      final List<Map<String, dynamic>> bookings =
+          results[1] as List<Map<String, dynamic>>;
 
       if (!mounted) {
         return;
@@ -193,6 +202,8 @@ class _BoxCricketManageSlotsScreenState
       setState(() {
         _slots = slots;
         _bookings = bookings;
+        // Pre-expand once so _filteredSlots never recomputes on every rebuild.
+        _cachedExpanded = _expandedSlotsForRange();
         _isLoading = false;
       });
     } catch (error) {
@@ -209,7 +220,8 @@ class _BoxCricketManageSlotsScreenState
   }
 
   List<Map<String, dynamic>> get _filteredSlots {
-    return _expandedSlotsForRange().where((Map<String, dynamic> slot) {
+    // Uses the pre-expanded cache – avoids re-expanding on every setState.
+    return _cachedExpanded.where((Map<String, dynamic> slot) {
       if (_statusFilter == 'all') {
         return true;
       }

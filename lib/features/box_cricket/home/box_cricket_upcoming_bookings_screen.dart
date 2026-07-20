@@ -27,21 +27,16 @@ class _BoxCricketUpcomingBookingsScreenState
   List<Map<String, dynamic>> _bookings = <Map<String, dynamic>>[];
   Map<String, dynamic> _summary = <String, dynamic>{};
 
+  // Per-tab caches – loaded once, switched locally without extra API calls.
+  final Map<int, List<Map<String, dynamic>>> _cachedBookings =
+      <int, List<Map<String, dynamic>>>{};
+  final Map<int, Map<String, dynamic>> _cachedSummaries =
+      <int, Map<String, dynamic>>{};
+
   @override
   void initState() {
     super.initState();
     _load();
-  }
-
-  String get _statusParam {
-    switch (_tabIndex) {
-      case 1:
-        return 'completed';
-      case 2:
-        return 'rejected';
-      default:
-        return 'upcoming';
-    }
   }
 
   String _groundId(Map<String, dynamic> ground) {
@@ -111,36 +106,45 @@ class _BoxCricketUpcomingBookingsScreenState
 
     setState(() => _isLoading = true);
 
-    try {
-      final List<Map<String, dynamic>> bookings = await GroundWaleApi.instance
-          .listBookings(groundId, status: _statusParam);
-      final Map<String, dynamic> summary = await GroundWaleApi.instance
-          .getBookingSummary(groundId, status: _statusParam);
-      if (!mounted) {
-        return;
+    // Helper: swallow individual call errors so one failure doesn't abort
+    // the rest.
+    Future<T?> safely<T>(Future<T> Function() fn) async {
+      try {
+        return await fn();
+      } catch (_) {
+        return null;
       }
-      setState(() {
-        _bookings = bookings;
-        _summary = summary;
-        _hasLoadError = false;
-        _isLoading = false;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _bookings = <Map<String, dynamic>>[];
-        _summary = <String, dynamic>{};
-        _hasLoadError = true;
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
     }
+
+    // Fetch all three tab statuses in parallel – single round-trip cost.
+    const List<String> statuses = <String>['upcoming', 'completed', 'rejected'];
+    final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
+      safely(() => GroundWaleApi.instance.listBookings(groundId, status: statuses[0])),
+      safely(() => GroundWaleApi.instance.listBookings(groundId, status: statuses[1])),
+      safely(() => GroundWaleApi.instance.listBookings(groundId, status: statuses[2])),
+      safely(() => GroundWaleApi.instance.getBookingSummary(groundId, status: statuses[0])),
+      safely(() => GroundWaleApi.instance.getBookingSummary(groundId, status: statuses[1])),
+      safely(() => GroundWaleApi.instance.getBookingSummary(groundId, status: statuses[2])),
+    ]);
+
+    if (!mounted) {
+      return;
+    }
+
+    final bool anyError = results.every((dynamic r) => r == null);
+    for (int i = 0; i < 3; i++) {
+      _cachedBookings[i] =
+          (results[i] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+      _cachedSummaries[i] =
+          (results[i + 3] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    }
+
+    setState(() {
+      _bookings = _cachedBookings[_tabIndex] ?? <Map<String, dynamic>>[];
+      _summary = _cachedSummaries[_tabIndex] ?? <String, dynamic>{};
+      _hasLoadError = anyError;
+      _isLoading = false;
+    });
   }
 
   int _toInt(dynamic value) {
@@ -214,6 +218,10 @@ class _BoxCricketUpcomingBookingsScreenState
                           }
                           setState(() => _selectedGroundId = value);
                           ApiSession.instance.setGroundId(value);
+                          // Clear per-tab caches so the new ground's data is
+                          // fetched fresh.
+                          _cachedBookings.clear();
+                          _cachedSummaries.clear();
                           _load();
                         },
                       ),
@@ -298,8 +306,15 @@ class _BoxCricketUpcomingBookingsScreenState
     final bool selected = _tabIndex == index;
     return InkWell(
       onTap: () {
-        setState(() => _tabIndex = index);
-        _load();
+        if (_tabIndex == index) {
+          return;
+        }
+        // Switch from the in-memory cache – no API call needed.
+        setState(() {
+          _tabIndex = index;
+          _bookings = _cachedBookings[index] ?? <Map<String, dynamic>>[];
+          _summary = _cachedSummaries[index] ?? <String, dynamic>{};
+        });
       },
       borderRadius: BorderRadius.circular(10),
       child: Container(

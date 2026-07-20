@@ -50,7 +50,9 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   String _location = 'Sector 118, Mohali';
   List<Map<String, dynamic>> _allGroundsRaw = const <Map<String, dynamic>>[];
 
-  List<_GroundCardData> _grounds = const <_GroundCardData>[];
+  // Pre-filtered display list – rebuilt whenever _allGroundsRaw or _filterCity
+  // changes.  Avoids re-mapping and re-filtering on every build().
+  List<_GroundCardData> _displayGrounds = const <_GroundCardData>[];
 
   List<_InfoCardData> _teams = const <_InfoCardData>[];
 
@@ -89,33 +91,55 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     List<Map<String, dynamic>> ownerBookings = <Map<String, dynamic>>[];
     List<Map<String, dynamic>> ownerLedger = <Map<String, dynamic>>[];
 
-    try {
-      grounds = await _api.listGrounds();
-    } catch (_) {}
+    // Helper: swallow individual call failures so one bad endpoint doesn’t
+    // prevent other data from loading.
+    Future<T?> safely<T>(Future<T> Function() fn) async {
+      try {
+        return await fn();
+      } catch (_) {
+        return null;
+      }
+    }
 
     if (ownerId != null && ownerId.isNotEmpty) {
-      try {
-        profile = await _api.getOwnerProfile(ownerId);
-      } catch (_) {}
-      try {
-        dashboard = await _api.getDashboard(ownerId);
-      } catch (_) {}
-      try {
-        teams = await _api.listTeams(ownerId);
-      } catch (_) {}
-      try {
-        final String? groundId = await _api.ensureGroundIdForOwner(ownerId);
-        if (groundId != null && groundId.isNotEmpty) {
-          ownerBookings = await _api.listBookings(groundId);
-          ownerLedger = await _api.getTransactions(groundId);
-        }
-      } catch (_) {}
-      try {
-        final List<Map<String, dynamic>> notifications = await _api
-            .listNotifications(ownerId);
+      // Batch 1 – all independent calls in parallel.
+      final List<dynamic> batch1 = await Future.wait<dynamic>(<Future<dynamic>>[
+        safely(() => _api.listGrounds()),
+        safely(() => _api.getOwnerProfile(ownerId)),
+        safely(() => _api.getDashboard(ownerId)),
+        safely(() => _api.listTeams(ownerId)),
+        safely(() => _api.ensureGroundIdForOwner(ownerId)),
+        safely(() => _api.listNotifications(ownerId)),
+      ]);
+
+      grounds = (batch1[0] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+      profile = batch1[1] as Map<String, dynamic>?;
+      dashboard = batch1[2] as Map<String, dynamic>?;
+      teams = (batch1[3] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+      final String? groundId = batch1[4] as String?;
+      final List<Map<String, dynamic>>? notifications =
+          batch1[5] as List<Map<String, dynamic>>?;
+      if (notifications != null) {
         _unreadNotifications = notifications
             .where((Map<String, dynamic> item) => item['isRead'] != true)
             .length;
+      }
+
+      // Batch 2 – ground-scoped calls (depend on groundId from batch 1).
+      if (groundId != null && groundId.isNotEmpty) {
+        final List<dynamic> batch2 = await Future.wait<dynamic>(<Future<dynamic>>[
+          safely(() => _api.listBookings(groundId)),
+          safely(() => _api.getTransactions(groundId)),
+        ]);
+        ownerBookings =
+            (batch2[0] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+        ownerLedger =
+            (batch2[1] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+      }
+    } else {
+      // No owner – only load public grounds list.
+      try {
+        grounds = await _api.listGrounds();
       } catch (_) {}
     }
 
@@ -191,7 +215,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         _filterCity = profileCity;
       }
       _allGroundsRaw = grounds;
-      _grounds = mappedGrounds;
+      _displayGrounds = _buildDisplayGrounds(grounds, _filterCity);
       _teams = mappedTeams;
       _bookings = mappedBookings;
       _ledger = mappedLedger;
@@ -203,36 +227,46 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
   // ── Filtered grounds ────────────────────────────────────────────────────
 
+  /// Builds the city-filtered ground card list from raw data.
+  /// Called once after load and once on filter change – result cached in
+  /// [_displayGrounds] so [build] never does this work.
+  List<_GroundCardData> _buildDisplayGrounds(
+    List<Map<String, dynamic>> raw,
+    String city,
+  ) {
+    if (city.isEmpty) {
+      return _mapGrounds(raw);
+    }
+    final String lower = city.toLowerCase().trim();
+    final List<Map<String, dynamic>> matched = raw.where(
+      (Map<String, dynamic> g) {
+        final String gCity =
+            <String>['city', 'areaLocation', 'location', 'address']
+                .map((String k) => g[k]?.toString().trim() ?? '')
+                .firstWhere((String v) => v.isNotEmpty, orElse: () => '');
+        return gCity.toLowerCase().contains(lower);
+      },
+    ).toList();
+    return _mapGrounds(matched);
+  }
+
   /// Returns raw ground maps filtered by the active city selection.
   List<Map<String, dynamic>> get _filteredGroundsRaw {
     if (_filterCity.isEmpty) return _allGroundsRaw;
-
     final String cityLower = _filterCity.toLowerCase().trim();
     return _allGroundsRaw.where(
       (Map<String, dynamic> g) {
-        final String gCity = <String>['city', 'areaLocation', 'location', 'address']
-            .map((String k) => g[k]?.toString().trim() ?? '')
-            .firstWhere((String v) => v.isNotEmpty, orElse: () => '');
+        final String gCity =
+            <String>['city', 'areaLocation', 'location', 'address']
+                .map((String k) => g[k]?.toString().trim() ?? '')
+                .firstWhere((String v) => v.isNotEmpty, orElse: () => '');
         return gCity.toLowerCase().contains(cityLower);
       },
     ).toList();
   }
 
-  /// Returns grounds filtered by the active city selection.
-  List<_GroundCardData> get _filteredGrounds {
-    if (_filterCity.isEmpty) return _grounds;
-
-    final String cityLower = _filterCity.toLowerCase().trim();
-    final List<Map<String, dynamic>> cityMatched = _allGroundsRaw.where(
-      (Map<String, dynamic> g) {
-        final String gCity = <String>['city', 'areaLocation', 'location', 'address']
-            .map((String k) => g[k]?.toString().trim() ?? '')
-            .firstWhere((String v) => v.isNotEmpty, orElse: () => '');
-        return gCity.toLowerCase().contains(cityLower);
-      },
-    ).toList();
-    return _mapGrounds(cityMatched);
-  }
+  /// Returns the pre-computed city-filtered ground card list.
+  List<_GroundCardData> get _filteredGrounds => _displayGrounds;
 
   // ── City filter sheet ───────────────────────────────────────────────────
 
@@ -318,8 +352,12 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     if (!mounted) {
       return;
     }
+    final String trimmed = city.trim();
+    // Pre-compute the filtered list inside setState so build() just reads a
+    // field – no iteration or object creation in the widget tree.
     setState(() {
-      _filterCity = city.trim();
+      _filterCity = trimmed;
+      _displayGrounds = _buildDisplayGrounds(_allGroundsRaw, trimmed);
     });
   }
 

@@ -90,8 +90,12 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
         _isLoading = false;
       });
       _syncSelectedGroundFromDashboard();
-      await _loadGroundScopedData();
-      await _loadCalendarSlots();
+      // Load ground-scoped data and calendar slots in parallel – they are
+      // independent of each other.
+      await Future.wait(<Future<void>>[
+        _loadGroundScopedData(),
+        _loadCalendarSlots(),
+      ]);
     } catch (error) {
       if (!mounted) {
         return;
@@ -223,11 +227,13 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     if (!mounted) {
       return;
     }
-
+    // Only refresh ground-scoped data (bookings, slots) – do NOT re-fetch the
+    // full dashboard overview, which would blank the entire screen.
     setState(() {
       _selectedGroundId = groundId;
-      _isLoading = true;
       _selectedGroundBookings = <Map<String, dynamic>>[];
+      _selectedGroundAllBookings = <Map<String, dynamic>>[];
+      _visibleMonthEarnings = 0;
       _selectedGroundSlotSummary = <String, int>{
         'available': 0,
         'booked': 0,
@@ -237,7 +243,11 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     });
 
     ApiSession.instance.setGroundId(groundId);
-    await _load();
+    // Run both independent ground-scoped fetches in parallel.
+    await Future.wait(<Future<void>>[
+      _loadGroundScopedData(),
+      _loadCalendarSlots(),
+    ]);
   }
 
   int _toInt(dynamic value) {
@@ -1336,8 +1346,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                     sub = '$booked/$total';
                     subColor = const Color(0xFF0B84FF);
                   } else if (available > 0) {
-                    sub = 'No Booking';
-                    subColor = const Color(0xFF9CA3AF);
+                    sub = 'Open';
+                    subColor = const Color(0xFF10B981);
                   } else {
                     sub = 'No Slots';
                   subColor = const Color(0xFF9CA3AF);
