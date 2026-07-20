@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
+import '../../../../core/utils/location_service.dart';
 import '../../../../core/widgets/google_city_picker_sheet.dart';
 import '../../../../core/widgets/labeled_text_field.dart';
 import '../../../../core/widgets/neon_button.dart';
@@ -22,6 +24,9 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
   late final TextEditingController _addressController;
   late final TextEditingController _pinCodeController;
   late final TextEditingController _landmarkController;
+
+  bool _locationFetched = false;
+  bool _isFetchingLocation = false;
 
   @override
   void initState() {
@@ -46,6 +51,53 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
     _pinCodeController.dispose();
     _landmarkController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchLocation() async {
+    setState(() => _isFetchingLocation = true);
+    try {
+      final LocationResult result = await LocationService.fetchCurrentLocation();
+      if (!mounted) return;
+      if (result.geocodingSucceeded) {
+        setState(() {
+          _stateController.text = result.state;
+          _cityController.text = result.city;
+          _locationFetched = true;
+        });
+        _sync();
+      } else {
+        setState(() => _locationFetched = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('GPS location found. Please enter city/state manually.'),
+            ),
+          );
+        }
+      }
+    } on LocationServiceException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message ?? 'Could not fetch location'),
+            action: e.error == LocationError.permissionDeniedForever
+                ? SnackBarAction(
+                    label: 'Settings',
+                    onPressed: Geolocator.openAppSettings,
+                  )
+                : null,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location error. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFetchingLocation = false);
+    }
   }
 
   void _sync() {
@@ -109,6 +161,68 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
                   controller: _nameController,
                   hint: 'Elite Cricket Academy',
                   onChanged: (_) => _sync(),
+                ),
+                const SizedBox(height: 16),
+                // ── Use Location button ──────────────────────────────
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        _locationFetched
+                            ? 'Location detected'
+                            : 'Detect your location',
+                        style: TextStyle(
+                          color: _locationFetched
+                              ? const Color(0xFF4ADE80)
+                              : Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _isFetchingLocation ? null : _fetchLocation,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: const Color(0xFF1C333B),
+                          border: Border.all(color: const Color(0xFF2563EB)),
+                        ),
+                        child: _isFetchingLocation
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.my_location,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'Use Location',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 LabeledTextField(
