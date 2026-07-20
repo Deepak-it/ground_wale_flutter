@@ -359,25 +359,37 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             icon: Icons.home_outlined,
             label: 'Home',
             selected: _groundNavIndex == 0,
-            onTap: () => setState(() => _groundNavIndex = 0),
+            onTap: () {
+              _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              setState(() => _groundNavIndex = 0);
+            },
           ),
           _bottomNavItem(
             icon: Icons.confirmation_num_outlined,
             label: 'Bookings',
             selected: _groundNavIndex == 1,
-            onTap: () => setState(() => _groundNavIndex = 1),
+            onTap: () {
+              _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              setState(() => _groundNavIndex = 1);
+            },
           ),
           _bottomNavItem(
             icon: Icons.schedule_outlined,
             label: 'Slots',
             selected: _groundNavIndex == 2,
-            onTap: () => setState(() => _groundNavIndex = 2),
+            onTap: () {
+              _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              setState(() => _groundNavIndex = 2);
+            },
           ),
           _bottomNavItem(
             icon: Icons.person_outline_rounded,
             label: 'Profile',
             selected: _groundNavIndex == 3,
-            onTap: () => setState(() => _groundNavIndex = 3),
+            onTap: () {
+              _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              setState(() => _groundNavIndex = 3);
+            },
           ),
         ],
       ),
@@ -397,19 +409,28 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             icon: Icons.home_outlined,
             label: 'Home',
             selected: _academyNavIndex == 0,
-            onTap: () => setState(() => _academyNavIndex = 0),
+            onTap: () {
+              _academyNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              setState(() => _academyNavIndex = 0);
+            },
           ),
           _bottomNavItem(
             icon: Icons.campaign_outlined,
             label: 'Announcement',
             selected: _academyNavIndex == 1,
-            onTap: () => setState(() => _academyNavIndex = 1),
+            onTap: () {
+              _academyNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              setState(() => _academyNavIndex = 1);
+            },
           ),
           _bottomNavItem(
             icon: Icons.person_outline_rounded,
             label: 'Profile',
             selected: _academyNavIndex == 2,
-            onTap: () => setState(() => _academyNavIndex = 2),
+            onTap: () {
+              _academyNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              setState(() => _academyNavIndex = 2);
+            },
           ),
         ],
       ),
