@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'sports_neo_change_my_team_screen.dart';
 import 'sports_neo_choose_opponent_team_screen.dart';
+import 'sports_neo_split_payment_flow_screens.dart';
 
 class SportsNeoTeamInfo {
   const SportsNeoTeamInfo({
@@ -99,9 +100,13 @@ class _SportsNeoChooseTeamScreenState extends State<SportsNeoChooseTeamScreen> {
                         height: 52,
                         child: ElevatedButton(
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Squad added and payment split initiated'),
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => SportsNeoSplitWithOpponentTeamScreen(
+                                  myTeam: _myTeam,
+                                  opponentTeam: _opponentTeam!,
+                                  amount: widget.amount,
+                                ),
                               ),
                             );
                           },

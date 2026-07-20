@@ -4,12 +4,16 @@ import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/base64_image.dart';
 import '../../../core/widgets/google_city_picker_sheet.dart';
+import 'sports_neo_academy_flow_screens.dart';
 import 'sports_neo_booking_cart_screen.dart';
+import 'sports_neo_choose_team_screen.dart';
 import 'sports_neo_ground_detail_screen.dart';
+import 'sports_neo_ledger_payments_screen.dart';
 import 'sports_neo_manage_teams_screen.dart';
 import 'sports_neo_nearby_grounds_screen.dart';
 import 'sports_neo_notifications_screen.dart';
 import 'sports_neo_onboarding_flow.dart';
+import 'sports_neo_split_payment_flow_screens.dart';
 import 'sports_neo_settings_screen.dart';
 
 class SportsNeoDashboardScreen extends StatefulWidget {
@@ -605,10 +609,38 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         teamsCount: _teamsCount,
         bookingsCount: _bookingsCount,
         onMenuTap: (String label) {
+          if (label == 'Ledger & Payments') {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SportsNeoLedgerPaymentsScreen(),
+              ),
+            );
+            return;
+          }
           if (label == 'Settings') {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const SportsNeoSettingsScreen(),
+              ),
+            );
+            return;
+          }
+          if (label == 'Add a Match') {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => SportsNeoAddMatchScreen(
+                  myTeam: const SportsNeoTeamInfo(
+                    name: 'Thunderbolts XI',
+                    players: 11,
+                    color: Color(0xFF0EA5E9),
+                  ),
+                  opponentTeam: const SportsNeoTeamInfo(
+                    name: 'Manu XI',
+                    players: 11,
+                    color: Color(0xFF2563EB),
+                  ),
+                  amount: 2500,
+                ),
               ),
             );
             return;
@@ -828,14 +860,23 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                             ),
                           ),
                           Expanded(
-                            child: Container(
-                              alignment: Alignment.center,
-                              child: const Text(
-                                'Academies',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const SportsNeoAcademyDetailScreen(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                alignment: Alignment.center,
+                                child: const Text(
+                                  'Academies',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1076,12 +1117,21 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                             ),
                           ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Full ledger',
-                      style: TextStyle(
-                        color: Color(0xFF638FEF),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SportsNeoLedgerPaymentsScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Full ledger',
+                        style: TextStyle(
+                          color: Color(0xFF638FEF),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),

@@ -29,6 +29,96 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Color(0xFF0A0F1E),
+            border: Border(top: BorderSide(color: Color(0x1F000000))),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Color(0x0F000000),
+                blurRadius: 24,
+              ),
+            ],
+          ),
+          child: Row(
+            children: <Widget>[
+              const Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '1 slot(s) selected',
+                      style: TextStyle(
+                        color: Color(0x99FFFFFF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      '₹2500',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF2563EB)),
+                ),
+                child: const Icon(
+                  Icons.shopping_cart_outlined,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => SportsNeoBookingSummaryScreen(
+                          groundName: name,
+                          location: location,
+                        ),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Book Now',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
       body: Stack(
         children: <Widget>[
           Positioned(
@@ -59,158 +149,169 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                   onBack: () => Navigator.of(context).pop(),
                 ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(top: 344, bottom: 96),
-                    child: Column(
-                      children: <Widget>[
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
+                  child: Stack(
+                    children: <Widget>[
+                      Positioned(
+                        top: 224,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
                           decoration: const BoxDecoration(
-                            color: Color(0x0AFFFFFF),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: Color(0x0DFFFFFF),
-                                blurRadius: 2,
-                              ),
-                            ],
+                            color: Color(0xFF0A0F1E),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Text(
-                                          name,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: <Widget>[
-                                            const Icon(
-                                              Icons.location_on_outlined,
-                                              color: Color(0x99FFFFFF),
-                                              size: 18,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                location,
-                                                style: const TextStyle(
-                                                  color: Color(0x99FFFFFF),
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w500,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              children: <Widget>[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF0A0F1E),
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(24),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: <Widget>[
+                                                Text(
+                                                  name,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
                                                 ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  children: <Widget>[
+                                                    const Icon(
+                                                      Icons.location_on_outlined,
+                                                      color: Color(0x99FFFFFF),
+                                                      size: 18,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Expanded(
+                                                      child: Text(
+                                                        location,
+                                                        style: const TextStyle(
+                                                          color: Color(0x99FFFFFF),
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    const Text(
+                                                      '2.0M',
+                                                      style: TextStyle(
+                                                        color: Color(0x99FFFFFF),
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 6),
-                                            const Text(
-                                              '2.0M',
-                                              style: TextStyle(
-                                                color: Color(0x99FFFFFF),
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0x3DFFFFFF),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      children: <Widget>[
-                                        const Icon(
-                                          Icons.star_border_rounded,
-                                          color: Color(0xFFEAB308),
-                                          size: 14,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          rating > 0
-                                              ? rating.toStringAsFixed(1)
-                                              : '4.6',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 4,
-                                runSpacing: 4,
-                                children: shownFacilities.take(4).map((String f) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(6),
-                                      color: const Color(0x14FFFFFF),
-                                    ),
-                                    child: Text(
-                                      f,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w400,
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0x3DFFFFFF),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Row(
+                                              children: <Widget>[
+                                                const Icon(
+                                                  Icons.star_border_rounded,
+                                                  color: Color(0xFFEAB308),
+                                                  size: 14,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  rating > 0
+                                                      ? rating.toStringAsFixed(1)
+                                                      : '4.6',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                              const SizedBox(height: 14),
-                              Row(
-                                children: <Widget>[
-                                  const Icon(
-                                    Icons.wb_sunny_outlined,
-                                    color: Color(0xFFF59E0B),
-                                    size: 18,
+                                      const SizedBox(height: 12),
+                                      Wrap(
+                                        spacing: 4,
+                                        runSpacing: 4,
+                                        children: shownFacilities.take(4).map((String f) {
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(6),
+                                              color: const Color(0x14FFFFFF),
+                                            ),
+                                            child: Text(
+                                              f,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Row(
+                                        children: <Widget>[
+                                          const Icon(
+                                            Icons.wb_sunny_outlined,
+                                            color: Color(0xFFF59E0B),
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            'Today: Mostly Sunny • 22°–28°C',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Today: Mostly Sunny • 22°–28°C',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                          child: Column(
-                            children: <Widget>[
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                                  child: Column(
+                                    children: <Widget>[
                               _PanelCard(
                                 title: 'About Us',
                                 child: const Text(
@@ -346,135 +447,48 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 16),
-                              _SlotSection(
-                                title: 'Evening',
-                                slots: const <_SlotItem>[
-                                  _SlotItem(
-                                    time: '04:30 - 05:30 PM',
-                                    weather: 'Cloudy',
-                                    temp: '22°C',
-                                    status: 'Available',
-                                    colorA: Color(0xFF77A2C4),
-                                    colorB: Color(0xFF7FC2F9),
+                                      const SizedBox(height: 16),
+                                      _SlotSection(
+                                        title: 'Evening',
+                                        slots: const <_SlotItem>[
+                                          _SlotItem(
+                                            time: '04:30 - 05:30 PM',
+                                            weather: 'Cloudy',
+                                            temp: '22°C',
+                                            status: 'Available',
+                                            colorA: Color(0xFF77A2C4),
+                                            colorB: Color(0xFF7FC2F9),
+                                          ),
+                                          _SlotItem(
+                                            time: '06:00 - 07:00 PM',
+                                            weather: 'Moon Night',
+                                            temp: '26°C',
+                                            status: 'Booked',
+                                            colorA: Color(0xFFE5C28F),
+                                            colorB: Color(0xFFDE8E19),
+                                          ),
+                                          _SlotItem(
+                                            time: '07:30 - 08:30 PM',
+                                            weather: 'Moon Night',
+                                            temp: '24°C',
+                                            status: 'Blocked',
+                                            colorA: Color(0xFF629CDD),
+                                            colorB: Color(0xFF1F5C9F),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  _SlotItem(
-                                    time: '06:00 - 07:00 PM',
-                                    weather: 'Moon Night',
-                                    temp: '26°C',
-                                    status: 'Booked',
-                                    colorA: Color(0xFFE5C28F),
-                                    colorB: Color(0xFFDE8E19),
-                                  ),
-                                  _SlotItem(
-                                    time: '07:30 - 08:30 PM',
-                                    weather: 'Moon Night',
-                                    temp: '24°C',
-                                    status: 'Blocked',
-                                    colorA: Color(0xFF629CDD),
-                                    colorB: Color(0xFF1F5C9F),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color(0x0AFFFFFF),
-                border: Border(top: BorderSide(color: Color(0x1F000000))),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x0F000000),
-                    blurRadius: 24,
-                  ),
-                ],
-              ),
-              child: Row(
-                children: <Widget>[
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          '1 slot(s) selected',
-                          style: TextStyle(
-                            color: Color(0x99FFFFFF),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 6),
-                        Text(
-                          '₹2500',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF2563EB)),
-                    ),
-                    child: const Icon(
-                      Icons.shopping_cart_outlined,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => SportsNeoBookingSummaryScreen(
-                              groundName: name,
-                              location: location,
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          'Book Now',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],

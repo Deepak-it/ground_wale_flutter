@@ -760,6 +760,119 @@ class GroundWaleApi {
     }
   }
 
+  Future<Map<String, dynamic>> sportsNeoGetLedgerHome(String groundId) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> sportsNeoGetMatchLedger(
+    String groundId,
+    String matchId,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger/matches/$matchId',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> sportsNeoGetPendingLedger(String groundId) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger/pending',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> sportsNeoGetAdvanceLedger(String groundId) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger/advance',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> sportsNeoGetSarpanchLedger(String groundId) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger/sarpanch',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> sportsNeoAddLedgerMoney(
+    String groundId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final String kind = payload['kind']?.toString() == 'payment'
+          ? 'payments'
+          : 'receipts';
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger/$kind',
+        data: payload,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> sportsNeoReplaceLedgerPlayer(
+    String groundId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger/replacements',
+        data: payload,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> sportsNeoSendPendingReminder(String groundId) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger/pending/reminder',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> sportsNeoSendAdvanceUpdate(String groundId) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/grounds/$groundId/sports-neo/ledger/advance/update',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<Map<String, dynamic>> withdraw(
     String groundId,
     double amount, {
