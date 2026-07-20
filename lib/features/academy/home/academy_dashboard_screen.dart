@@ -1455,11 +1455,13 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           icon: Icons.person_add_alt_1_rounded,
                           label: 'Add Student',
                           onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const AcademyAddStudentScreen(),
-                              ),
-                            );
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const AcademyAddStudentScreen(),
+                                  ),
+                                )
+                                .then((_) => _load());
                           },
                           highlighted: true,
                         ),
@@ -1481,23 +1483,27 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           icon: Icons.manage_accounts_outlined,
                           label: 'Manage Student',
                           onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    const AcademyManageStudentsScreen(),
-                              ),
-                            );
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        const AcademyManageStudentsScreen(),
+                                  ),
+                                )
+                                .then((_) => _load());
                           },
                         ),
                         _actionTile(
                           icon: Icons.notifications_active_outlined,
                           label: 'Fees Reminder',
                           onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const AcademyFeeDetailsScreen(),
-                              ),
-                            );
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const AcademyFeeDetailsScreen(),
+                                  ),
+                                )
+                                .then((_) => _load());
                           },
                         ),
                       ],
@@ -1615,12 +1621,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             height: 40,
                             child: ElevatedButton(
                               onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyMarkAttendanceScreen(),
-                                  ),
-                                );
+                                Navigator.of(context)
+                                    .push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            const AcademyMarkAttendanceScreen(),
+                                      ),
+                                    )
+                                    .then((_) => _load());
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF00C9A7),
@@ -1683,12 +1691,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             height: 40,
                             child: ElevatedButton(
                               onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyFeeDetailsScreen(),
-                                  ),
-                                );
+                                Navigator.of(context)
+                                    .push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            const AcademyFeeDetailsScreen(),
+                                      ),
+                                    )
+                                    .then((_) => _load());
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF203A43),
@@ -1843,10 +1853,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                       child: _darkActionButton(
                                         'View Batch',
                                         () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute<void>(
-                                              builder: (_) =>
-                                                  AcademyViewBatchScreen(
+                                          Navigator.of(context)
+                                              .push(
+                                                MaterialPageRoute<void>(
+                                                  builder: (_) =>
+                                                      AcademyViewBatchScreen(
                                                     batchId:
                                                         batch['_id']
                                                             ?.toString() ??
@@ -1857,7 +1868,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                                     days: _batchDays(batch),
                                                   ),
                                             ),
-                                          );
+                                          ).then((_) => _load());
                                         },
                                       ),
                                     ),
