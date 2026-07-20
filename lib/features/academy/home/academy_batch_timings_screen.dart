@@ -108,6 +108,15 @@ class _AcademyBatchTimingsScreenState extends State<AcademyBatchTimingsScreen> {
           capacity: (batch?['capacity'] as num?)?.toInt() ?? 30,
           status: batch?['status']?.toString() ?? 'active',
           monthlyFee: (batch?['monthlyFee'] as num?)?.toDouble() ?? 0,
+          feePlans: (batch?['feePlans'] as List<dynamic>? ?? <dynamic>[])
+              .whereType<Map>()
+              .map(
+                (Map p) => <String, String>{
+                  'duration': p['duration']?.toString() ?? 'Monthly',
+                  'price': p['price']?.toString() ?? '0',
+                },
+              )
+              .toList(),
           enrolledStudents: (batch?['studentsCount'] as num?)?.toInt() ?? 0,
           isCreate: batch == null,
         ),
