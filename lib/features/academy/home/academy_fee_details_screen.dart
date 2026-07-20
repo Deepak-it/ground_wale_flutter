@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
 
@@ -813,6 +816,49 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
+  Widget _studentAvatarWidget(Map<String, dynamic> student, String studentName) {
+    final String raw = student['photoBase64']?.toString() ?? '';
+    if (raw.isNotEmpty) {
+      try {
+        String base64Part = raw;
+        if (raw.contains(',')) base64Part = raw.split(',').last;
+        base64Part = base64Part.trim().replaceAll(RegExp(r'\s+'), '');
+        final int rem = base64Part.length % 4;
+        if (rem != 0) base64Part = base64Part.padRight(base64Part.length + (4 - rem), '=');
+        final Uint8List bytes = base64Decode(base64Part);
+        return Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            color: const Color(0x1AFFFFFF),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Image.memory(bytes, fit: BoxFit.cover),
+        );
+      } catch (_) {
+        // fall through to initials
+      }
+    }
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        color: const Color(0x1AFFFFFF),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        _initials(studentName),
+        style: const TextStyle(
+          color: Color(0xFFE6F7F4),
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   String _fmtExpiry(String? raw) {
     if (raw == null || raw.isEmpty) return '-';
     final DateTime? d = DateTime.tryParse(raw);
@@ -1305,23 +1351,7 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
                                     ),
                                   ),
                                 if (allowSelection) const SizedBox(width: 12),
-                                Container(
-                                  width: 52,
-                                  height: 52,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(26),
-                                    color: const Color(0x1AFFFFFF),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    _initials(studentName),
-                                    style: const TextStyle(
-                                      color: Color(0xFFE6F7F4),
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
+                                _studentAvatarWidget(student, studentName),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
