@@ -407,11 +407,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       if (bookingStatus == 'cancelled') {
         continue;
       }
-      final String paymentStatus =
-          (booking['paymentStatus']?.toString() ?? '').toLowerCase();
-      if (paymentStatus != 'paid') {
-        continue;
-      }
       total += _toInt(booking['amount']);
     }
     return total;
@@ -720,15 +715,17 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     final int thisMonthEarnings = _selectedGroundId == null
         ? fallbackMonthEarnings
         : _visibleMonthEarnings;
+    final Map<String, int> selectedDayStats =
+        _slotStatsByDate[_dayKey(_selectedDate)] ?? <String, int>{};
     final int availableSlots = _selectedGroundId == null
-      ? _toInt(_dashboard['slotStatus']?['available'])
-      : (_selectedGroundSlotSummary['available'] ?? 0);
+        ? _toInt(_dashboard['slotStatus']?['available'])
+        : (selectedDayStats['available'] ?? _selectedGroundSlotSummary['available'] ?? 0);
     final int bookedSlots = _selectedGroundId == null
-      ? _toInt(_dashboard['slotStatus']?['booked'])
-      : (_selectedGroundSlotSummary['booked'] ?? 0);
+        ? _toInt(_dashboard['slotStatus']?['booked'])
+        : (selectedDayStats['booked'] ?? _selectedGroundSlotSummary['booked'] ?? 0);
     final int blockedSlots = _selectedGroundId == null
-      ? _toInt(_dashboard['slotStatus']?['blocked'])
-      : (_selectedGroundSlotSummary['blocked'] ?? 0);
+        ? _toInt(_dashboard['slotStatus']?['blocked'])
+        : (selectedDayStats['blocked'] ?? _selectedGroundSlotSummary['blocked'] ?? 0);
     final int totalSlots = availableSlots + bookedSlots + blockedSlots;
 
     final List<Map<String, dynamic>> bookings = _selectedGroundId == null
@@ -849,43 +846,50 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0x333B82F6)),
-                        color: const Color(0x143B82F6),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const BoxCricketEarningScreen(),
+                        ),
                       ),
-                      child: Row(
-                        children: <Widget>[
-                          SizedBox(
-                            width: 112,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  'Rs $thisMonthEarnings',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w700,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0x333B82F6)),
+                          color: const Color(0x143B82F6),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            SizedBox(
+                              width: 112,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    'Rs $thisMonthEarnings',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Earnings This Month',
-                                  style: TextStyle(
-                                    color: Color(0xFF9CA3AF),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Earnings This Month',
+                                    style: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(child: _MiniWeeklyGraph()),
-                        ],
+                            const SizedBox(width: 12),
+                            const Expanded(child: _MiniWeeklyGraph()),
+                          ],
+                        ),
                       ),
                     ),
                                         const SizedBox(height: 12),

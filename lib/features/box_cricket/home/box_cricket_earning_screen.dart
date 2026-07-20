@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import 'box_cricket_bank_account_screen.dart';
 
 class BoxCricketEarningScreen extends StatefulWidget {
   const BoxCricketEarningScreen({super.key});
@@ -13,15 +14,24 @@ class BoxCricketEarningScreen extends StatefulWidget {
 
 class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
   bool _isLoading = true;
+  bool _isWithdrawing = false;
   int _walletTabIndex = 0;
+  String? _groundId;
   Map<String, dynamic> _wallet = <String, dynamic>{};
+  Map<String, dynamic> _bankAccount = <String, dynamic>{};
   List<Map<String, dynamic>> _transactions = <Map<String, dynamic>>[];
+  int _earningsToday = 0;
+  int _earningsWeek = 0;
+  int _earningsMonth = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
   }
+
+  String _formatDate(DateTime dt) =>
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 
   Future<String?> _resolveGroundId() async {
     final String? currentGroundId = ApiSession.instance.groundId;
@@ -54,18 +64,69 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
       return;
     }
 
+    final String? ownerId = ApiSession.instance.ownerId;
+
+    final DateTime now = DateTime.now();
+    final String todayStr = _formatDate(now);
+    final DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final String weekStartStr = _formatDate(startOfWeek);
+    final String monthStartStr =
+        _formatDate(DateTime(now.year, now.month, 1));
+    final String monthEndStr =
+        _formatDate(DateTime(now.year, now.month + 1, 0));
+
     try {
-      final Map<String, dynamic> wallet = await GroundWaleApi.instance
-          .getWallet(groundId);
-      final List<Map<String, dynamic>> transactions = await GroundWaleApi
-          .instance
-          .getTransactions(groundId);
+      final List<dynamic> results = await Future.wait(<Future<dynamic>>[
+        GroundWaleApi.instance.getWallet(groundId),
+        GroundWaleApi.instance.getTransactions(groundId),
+        if (ownerId != null && ownerId.isNotEmpty)
+          GroundWaleApi.instance.getBankAccount(ownerId)
+        else
+          Future<Map<String, dynamic>>.value(<String, dynamic>{}),
+        GroundWaleApi.instance.getEarningsReport(
+          groundId,
+          from: todayStr,
+          to: todayStr,
+        ),
+        GroundWaleApi.instance.getEarningsReport(
+          groundId,
+          from: weekStartStr,
+          to: todayStr,
+        ),
+        GroundWaleApi.instance.getEarningsReport(
+          groundId,
+          from: monthStartStr,
+          to: monthEndStr,
+        ),
+      ]);
+
       if (!mounted) {
         return;
       }
+
+      final Map<String, dynamic> bankResp =
+          results[2] as Map<String, dynamic>;
+      final Map<String, dynamic> bank = Map<String, dynamic>.from(
+        bankResp['bankAccount'] as Map? ?? bankResp,
+      );
+
+      final Map<String, dynamic> todayReport =
+          results[3] as Map<String, dynamic>;
+      final Map<String, dynamic> weekReport =
+          results[4] as Map<String, dynamic>;
+      final Map<String, dynamic> monthReport =
+          results[5] as Map<String, dynamic>;
+
       setState(() {
-        _wallet = wallet;
-        _transactions = transactions;
+        _groundId = groundId;
+        _wallet = results[0] as Map<String, dynamic>;
+        _transactions = (results[1] as List<dynamic>)
+            .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        _bankAccount = bank;
+        _earningsToday = _toInt(todayReport['grossRevenue']);
+        _earningsWeek = _toInt(weekReport['grossRevenue']);
+        _earningsMonth = _toInt(monthReport['grossRevenue']);
         _isLoading = false;
       });
     } catch (_) {
@@ -74,6 +135,114 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
       }
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _onWithdraw(int availableBalance) async {
+    if (availableBalance <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No available balance to withdraw.')),
+      );
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text(
+          'Confirm Withdrawal',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Withdraw Rs $availableBalance to your linked bank account?',
+          style: const TextStyle(color: Color(0xCCFFFFFF)),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0x99FFFFFF)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              'Withdraw',
+              style: TextStyle(color: Color(0xFF08B36A)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    final String? groundId = _groundId ?? ApiSession.instance.groundId;
+    if (groundId == null || groundId.isEmpty) {
+      return;
+    }
+
+    setState(() => _isWithdrawing = true);
+    try {
+      await GroundWaleApi.instance.withdraw(
+        groundId,
+        availableBalance.toDouble(),
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Withdrawal request submitted successfully.'),
+        ),
+      );
+      await _load();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Withdrawal failed. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isWithdrawing = false);
+      }
+    }
+  }
+
+  Future<void> _openBankAccount() async {
+    final bool? updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const BoxCricketBankAccountScreen(),
+      ),
+    );
+    if (updated == true && mounted) {
+      await _load();
+    }
+  }
+
+  bool get _hasBankAccount {
+    final String account =
+        _bankAccount['accountNumber']?.toString() ?? '';
+    return account.isNotEmpty;
+  }
+
+  String _maskedAccount(String accountNumber) {
+    if (accountNumber.isEmpty) {
+      return 'Linked';
+    }
+    if (accountNumber.length <= 4) {
+      return accountNumber;
+    }
+    final String bankName = _bankAccount['bankName']?.toString() ?? '';
+    final String suffix = accountNumber.substring(accountNumber.length - 4);
+    return bankName.isNotEmpty
+        ? '$bankName .....${suffix} Linked'
+        : '.....${suffix} Linked';
   }
 
   int _toInt(dynamic value) {
@@ -110,12 +279,9 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final int totalBalance = _toInt(_wallet['balance']);
+    final int totalBalance = _toInt(_wallet['totalBalance']);
     final int pendingBalance = _toInt(_wallet['pendingBalance']);
-    final int availableBalance = (totalBalance - pendingBalance).clamp(
-      0,
-      999999999,
-    );
+    final int availableBalance = _toInt(_wallet['availableBalance']);
 
     final List<Map<String, dynamic>> items = _filteredTransactions();
 
@@ -227,68 +393,79 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: _cardBorder(),
-                    child: Row(
-                      children: <Widget>[
-                        const Icon(
-                          Icons.account_balance_outlined,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                'Bank Account',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                  if (_hasBankAccount)
+                    GestureDetector(
+                      onTap: _openBankAccount,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: _cardBorder(),
+                        child: Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.account_balance_outlined,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    _bankAccount['bankName']?.toString().isNotEmpty == true
+                                        ? _bankAccount['bankName'].toString()
+                                        : 'Bank Account',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _maskedAccount(
+                                      _bankAccount['accountNumber']?.toString() ?? '',
+                                    ),
+                                    style: const TextStyle(
+                                      color: Color(0x99FFFFFF),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              SizedBox(height: 2),
-                              Text(
-                                'HDFC Bank .....2048 Linked',
-                                style: TextStyle(
-                                  color: Color(0x99FFFFFF),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                            ),
+                            const Text(
+                              'Edit',
+                              style: TextStyle(
+                                color: Color(0xFFDDF730),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        const Text(
-                          'Edit',
-                          style: TextStyle(
-                            color: Color(0xFFDDF730),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFF08B36A),
-                        style: BorderStyle.solid,
                       ),
                     ),
-                    child: const Center(
-                      child: Text(
-                        'Add Bank Account',
-                        style: TextStyle(
-                          color: Color(0xFF08B36A),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                  if (_hasBankAccount) const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: _openBankAccount,
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFF08B36A),
+                          style: BorderStyle.solid,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _hasBankAccount ? 'Manage Bank Account' : 'Add Bank Account',
+                          style: const TextStyle(
+                            color: Color(0xFF08B36A),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -305,12 +482,16 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                   const SizedBox(height: 12),
                   Row(
                     children: <Widget>[
-                      Expanded(child: _summaryCard('Today', 'Rs 12,500')),
-                      const SizedBox(width: 12),
-                      Expanded(child: _summaryCard('This Week', 'Rs 48,000')),
+                      Expanded(
+                        child: _summaryCard('Today', 'Rs $_earningsToday'),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _summaryCard('This Month', 'Rs 1,80,000'),
+                        child: _summaryCard('This Week', 'Rs $_earningsWeek'),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _summaryCard('This Month', 'Rs $_earningsMonth'),
                       ),
                     ],
                   ),
@@ -366,19 +547,32 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                   SizedBox(
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: _isWithdrawing
+                          ? null
+                          : () => _onWithdraw(availableBalance),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF08B36A),
                         foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            const Color(0xFF08B36A).withValues(alpha: 0.5),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Withdraw Money',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: _isWithdrawing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Withdraw Money',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -474,11 +668,28 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
     final bool isCredit =
         (item['type']?.toString() ?? '').toLowerCase() == 'credit';
     final int amount = _toInt(item['amount']);
-    final String amountText = isCredit ? '+$amount' : '-Rs $amount';
+    final String amountText = isCredit ? '+Rs $amount' : '-Rs $amount';
     final String status = item['status']?.toString() ?? 'success';
     final String title = item['title']?.toString() ?? 'Transaction';
     final String subtitle = item['subtitle']?.toString() ?? '';
-    final String dateText = item['dateText']?.toString() ?? '12 Oct';
+
+    // Parse occurredAt / createdAt for the date label
+    final String rawDate =
+        item['occurredAt']?.toString() ??
+        item['createdAt']?.toString() ??
+        '';
+    String dateText = '';
+    if (rawDate.isNotEmpty) {
+      final DateTime? dt = DateTime.tryParse(rawDate);
+      if (dt != null) {
+        final DateTime local = dt.toLocal();
+        const List<String> months = <String>[
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        ];
+        dateText = '${local.day} ${months[local.month - 1]} ${local.year}';
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
@@ -536,12 +747,20 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(4),
-                  color: const Color(0x2608B36A),
+                  color: status == 'failed'
+                      ? const Color(0x26E3220D)
+                      : status == 'pending'
+                          ? const Color(0x26F59E0B)
+                          : const Color(0x2608B36A),
                 ),
                 child: Text(
                   status[0].toUpperCase() + status.substring(1),
-                  style: const TextStyle(
-                    color: Color(0xFF08B36A),
+                  style: TextStyle(
+                    color: status == 'failed'
+                        ? const Color(0xFFE3220D)
+                        : status == 'pending'
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF08B36A),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
