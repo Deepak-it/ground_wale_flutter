@@ -48,6 +48,8 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
   // ignore: unused_field
   final String _sportSearch = '';
   final TextEditingController _sportSearchController = TextEditingController();
+  final Map<AcademyFeePlan, TextEditingController> _priceControllers =
+      <AcademyFeePlan, TextEditingController>{};
 
   static const List<Map<String, String>> _allSports = <Map<String, String>>[
     <String, String>{'emoji': '🎯', 'name': 'Archery'},
@@ -137,7 +139,17 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
     _coachNumberController.dispose();
     _studentsController.dispose();
     _sportSearchController.dispose();
+    for (final TextEditingController controller in _priceControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  TextEditingController _priceControllerForPlan(AcademyFeePlan plan) {
+    return _priceControllers.putIfAbsent(
+      plan,
+      () => TextEditingController(text: plan.price),
+    );
   }
 
   void _syncBasicFields() {
@@ -294,54 +306,6 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
     widget.controller.update();
   }
 
-  Future<void> _editPrice(int index) async {
-    final TextEditingController priceController = TextEditingController(
-      text: widget.controller.data.academyFeePlans[index].price,
-    );
-
-    final String? updated = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Edit Price'),
-          content: AppTextField(
-            controller: priceController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(hintText: 'Enter price'),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () =>
-                  Navigator.of(context).pop(priceController.text.trim()),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-
-    priceController.dispose();
-
-    if (updated == null || updated.isEmpty) {
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
-    final String normalized = updated.startsWith('₹')
-        ? updated.replaceFirst('₹', '')
-        : updated;
-    setState(() {
-      widget.controller.data.academyFeePlans[index].price = normalized;
-    });
-    widget.controller.update();
-  }
-
   void _deletePlan(int index) {
     final String dur = widget.controller.data.academyFeePlans[index].duration
         .toLowerCase();
@@ -359,6 +323,9 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
       );
       return;
     }
+    final AcademyFeePlan removed =
+        widget.controller.data.academyFeePlans[index];
+    _priceControllers.remove(removed)?.dispose();
     setState(() {
       widget.controller.data.academyFeePlans.removeAt(index);
     });
@@ -366,11 +333,11 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
   }
 
   void _addPlan() {
+    final AcademyFeePlan plan = AcademyFeePlan(duration: 'Monthly', price: '0');
     setState(() {
-      widget.controller.data.academyFeePlans.add(
-        AcademyFeePlan(duration: 'Monthly', price: '0'),
-      );
+      widget.controller.data.academyFeePlans.add(plan);
     });
+    _priceControllers[plan] = TextEditingController(text: plan.price);
     widget.controller.update();
   }
 
@@ -809,38 +776,40 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: InkWell(
-              onTap: () => _editPrice(index),
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0x1FFFFFFF)),
-                  color: const Color(0x0FFFFFFF),
-                ),
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '₹${plan.price}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          InkWell(
-            onTap: () => _editPrice(index),
             child: Container(
-              width: 38,
-              height: 38,
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0x3DFFFFFF)),
+                border: Border.all(color: const Color(0x1FFFFFFF)),
+                color: const Color(0x0FFFFFFF),
               ),
-              child: const Icon(Icons.edit_outlined, size: 18),
+              alignment: Alignment.centerLeft,
+              child: AppTextField(
+                key: ValueKey<String>('plan_price_input_$index'),
+                controller: _priceControllerForPlan(plan),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  prefixText: '₹',
+                  hintText: '0',
+                ),
+                onChanged: (String value) {
+                  final String normalized = value.startsWith('₹')
+                      ? value.replaceFirst('₹', '')
+                      : value;
+                  widget.controller.data.academyFeePlans[index].price =
+                      normalized;
+                  widget.controller.update();
+                },
+              ),
             ),
           ),
           const SizedBox(width: 8),

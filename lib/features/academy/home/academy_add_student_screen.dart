@@ -27,7 +27,7 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
 
   String? _photoBase64;
   bool _isSaving = false;
-  bool _fullAmountPaid = true;
+  bool _fullAmountPaid = false;
   List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
   String? _selectedAcademyId;
   List<Map<String, dynamic>> _batches = <Map<String, dynamic>>[];
@@ -59,8 +59,7 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
           .map((Map item) => Map<String, dynamic>.from(item))
           .toList();
     }
-    final double monthlyFee =
-        (batch['monthlyFee'] as num?)?.toDouble() ?? 0;
+    final double monthlyFee = (batch['monthlyFee'] as num?)?.toDouble() ?? 0;
     if (monthlyFee > 0) {
       return <Map<String, dynamic>>[
         <String, dynamic>{'duration': 'Monthly', 'price': monthlyFee},
@@ -123,7 +122,9 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
             (Map<String, dynamic> academy) =>
                 _academyId(academy) == selectedAcademyId,
           )) {
-        selectedAcademyId = academies.isEmpty ? null : _academyId(academies.first);
+        selectedAcademyId = academies.isEmpty
+            ? null
+            : _academyId(academies.first);
       }
 
       final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
@@ -214,6 +215,14 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     return double.tryParse(digits) ?? 0;
   }
 
+  double? _tryParseAmount(String value) {
+    final String digits = value.replaceAll(RegExp(r'[^0-9.]'), '').trim();
+    if (digits.isEmpty) {
+      return null;
+    }
+    return double.tryParse(digits);
+  }
+
   String _dateOnlyString(DateTime date) {
     final String month = date.month.toString().padLeft(2, '0');
     final String day = date.day.toString().padLeft(2, '0');
@@ -241,9 +250,9 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
   Future<void> _submit() async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Owner session not found')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Owner session not found')));
       return;
     }
 
@@ -256,7 +265,9 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     }
 
     final Map<String, dynamic>? selectedBatch = _batches
-        .where((Map<String, dynamic> batch) => _batchId(batch) == _selectedBatchId)
+        .where(
+          (Map<String, dynamic> batch) => _batchId(batch) == _selectedBatchId,
+        )
         .cast<Map<String, dynamic>?>()
         .firstWhere(
           (Map<String, dynamic>? _) => true,
@@ -265,10 +276,7 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
 
     final double monthlyFee = _feePlans.isNotEmpty
         ? _planPrice(
-            _feePlans[_selectedFeePlanIndex.clamp(
-              0,
-              _feePlans.length - 1,
-            )],
+            _feePlans[_selectedFeePlanIndex.clamp(0, _feePlans.length - 1)],
           )
         : 0;
     final DateTime joinDate =
@@ -293,7 +301,9 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
             'fullName': fullName,
             'phone': _phoneController.text.trim(),
             'batchId': selectedBatch == null ? null : _batchId(selectedBatch),
-            'batchName': selectedBatch?['name']?.toString() ?? _batchController.text.trim(),
+            'batchName':
+                selectedBatch?['name']?.toString() ??
+                _batchController.text.trim(),
             'joinDate': _dateOnlyString(joinDateOnly),
             'monthlyFee': monthlyFee,
             'status': 'active',
@@ -302,39 +312,64 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
           });
 
       final String studentId = student['_id']?.toString() ?? '';
-      final double paidNow = _fullAmountPaid
-          ? monthlyFee
-          : _parseAmount(_paidNowController.text);
-      final String feeStatus = monthlyFee > 0
-          ? (paidNow >= monthlyFee
-              ? 'paid'
-              : paidNow > 0
-              ? 'partial'
-              : 'pending')
-          : 'paid';
+      final String paidInput = _paidNowController.text.trim();
+      final double paidNow;
+      if (_fullAmountPaid) {
+        paidNow = monthlyFee;
+      } else {
+        // Unchecked default: if user did not type anything, assume full amount.
+        if (paidInput.isEmpty) {
+          paidNow = monthlyFee;
+        } else {
+          final double? parsed = _tryParseAmount(paidInput);
+          if (parsed == null) {
+            throw Exception('Enter a valid paid amount');
+          }
+          paidNow = parsed;
+        }
+      }
+
+      if (paidNow < 0) {
+        throw Exception('Paid amount cannot be negative');
+      }
+      if (monthlyFee > 0 && paidNow > monthlyFee) {
+        throw Exception('Paid amount cannot exceed selected fee amount');
+      }
+
+      final String feeStatus;
+      if (monthlyFee <= 0) {
+        feeStatus = 'paid';
+      } else if (paidNow <= 0) {
+        feeStatus = 'pending';
+      } else if (paidNow < monthlyFee) {
+        feeStatus = 'partial';
+      } else {
+        feeStatus = 'paid';
+      }
       final String planDuration = _feePlans.isNotEmpty
           ? (_feePlans[_selectedFeePlanIndex.clamp(
-                0,
-                _feePlans.length - 1,
-              )]['duration']
-                  ?.toString() ??
-              'Monthly')
+                      0,
+                      _feePlans.length - 1,
+                    )]['duration']
+                    ?.toString() ??
+                'Monthly')
           : 'Monthly';
 
       if (studentId.isNotEmpty && monthlyFee > 0) {
         final String monthKey =
             '${joinDateOnly.year}-${joinDateOnly.month.toString().padLeft(2, '0')}';
-        await GroundWaleApi.instance.createAcademyFee(ownerId, <String, dynamic>{
-          'academyId': _selectedAcademyId,
-          'studentId': studentId,
-          'monthKey': monthKey,
-          'amount': monthlyFee,
-          'paidAmount': paidNow.clamp(0, monthlyFee),
-          'status': feeStatus,
-          'paymentMode': paidNow > 0 ? 'Cash' : '',
-          'planDuration': planDuration,
-          'subscriptionStartDate': _dateOnlyString(joinDateOnly),
-        });
+        await GroundWaleApi.instance
+            .createAcademyFee(ownerId, <String, dynamic>{
+              'academyId': _selectedAcademyId,
+              'studentId': studentId,
+              'monthKey': monthKey,
+              'amount': monthlyFee,
+              'paidAmount': paidNow.clamp(0, monthlyFee),
+              'status': feeStatus,
+              'paymentMode': paidNow > 0 ? 'Cash' : '',
+              'planDuration': planDuration,
+              'subscriptionStartDate': _dateOnlyString(joinDateOnly),
+            });
       }
 
       if (!mounted) {
@@ -426,10 +461,7 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
                                   final Uint8List? bytes =
                                       decodeBase64ImageBytes(_photoBase64);
                                   return bytes != null
-                                      ? Image.memory(
-                                          bytes,
-                                          fit: BoxFit.cover,
-                                        )
+                                      ? Image.memory(bytes, fit: BoxFit.cover)
                                       : const Icon(
                                           Icons.person_outline_rounded,
                                           size: 48,
@@ -502,8 +534,9 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
                     _selectedFeePlanIndex = 0;
                     if (!_fullAmountPaid && _feePlans.isNotEmpty) {
                       final double price = _planPrice(_feePlans[0]);
-                      _paidNowController.text =
-                          price.toStringAsFixed(price % 1 == 0 ? 0 : 2);
+                      _paidNowController.text = price.toStringAsFixed(
+                        price % 1 == 0 ? 0 : 2,
+                      );
                     }
                   });
                 },
@@ -522,97 +555,86 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
                   ),
                   child: const Text(
                     'Select a batch to see available fee plans',
-                    style: TextStyle(
-                      color: Color(0x99FFFFFF),
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Color(0x99FFFFFF), fontSize: 14),
                   ),
                 )
               else
                 Column(
-                  children: _feePlans
-                      .asMap()
-                      .entries
-                      .map(
-                        (MapEntry<int, Map<String, dynamic>> entry) {
-                          final int index = entry.key;
-                          final Map<String, dynamic> plan = entry.value;
-                          final String duration =
-                              plan['duration']?.toString() ?? 'Monthly';
-                          final double price = _planPrice(plan);
-                          final bool selected =
-                              _selectedFeePlanIndex == index;
-                          return GestureDetector(
-                            onTap: () => setState(
-                              () {
-                                _selectedFeePlanIndex = index;
-                                if (!_fullAmountPaid) {
-                                  _paidNowController.text =
-                                      price.toStringAsFixed(
-                                        price % 1 == 0 ? 0 : 2,
-                                      );
-                                }
-                              },
+                  children: _feePlans.asMap().entries.map((
+                    MapEntry<int, Map<String, dynamic>> entry,
+                  ) {
+                    final int index = entry.key;
+                    final Map<String, dynamic> plan = entry.value;
+                    final String duration =
+                        plan['duration']?.toString() ?? 'Monthly';
+                    final double price = _planPrice(plan);
+                    final bool selected = _selectedFeePlanIndex == index;
+                    return GestureDetector(
+                      onTap: () => setState(() {
+                        _selectedFeePlanIndex = index;
+                        if (!_fullAmountPaid) {
+                          _paidNowController.text = price.toStringAsFixed(
+                            price % 1 == 0 ? 0 : 2,
+                          );
+                        }
+                      }),
+                      child: Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: selected
+                                ? const Color(0xFF00C9A7)
+                                : const Color(0x1FFFFFFF),
+                          ),
+                          color: selected
+                              ? const Color(0x1400C9A7)
+                              : const Color(0x0AFFFFFF),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            Icon(
+                              selected
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_unchecked,
+                              color: selected
+                                  ? const Color(0xFF00C9A7)
+                                  : Colors.white54,
+                              size: 20,
                             ),
-                            child: Container(
-                              width: double.infinity,
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                duration,
+                                style: TextStyle(
                                   color: selected
                                       ? const Color(0xFF00C9A7)
-                                      : const Color(0x1FFFFFFF),
+                                      : Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                color: selected
-                                    ? const Color(0x1400C9A7)
-                                    : const Color(0x0AFFFFFF),
-                              ),
-                              child: Row(
-                                children: <Widget>[
-                                  Icon(
-                                    selected
-                                        ? Icons.radio_button_checked
-                                        : Icons.radio_button_unchecked,
-                                    color: selected
-                                        ? const Color(0xFF00C9A7)
-                                        : Colors.white54,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      duration,
-                                      style: TextStyle(
-                                        color: selected
-                                            ? const Color(0xFF00C9A7)
-                                            : Colors.white,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    'Rs ${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)}',
-                                    style: TextStyle(
-                                      color: selected
-                                          ? const Color(0xFF00C9A7)
-                                          : const Color(0xFFE6F7F4),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
-                          );
-                        },
-                      )
-                      .toList(),
+                            Text(
+                              'Rs ${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)}',
+                              style: TextStyle(
+                                color: selected
+                                    ? const Color(0xFF00C9A7)
+                                    : const Color(0xFFE6F7F4),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               const SizedBox(height: 16),
               // ── Payment section ────────────────────────────────────
@@ -650,8 +672,9 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
                           _feePlans.length - 1,
                         )],
                       );
-                      _paidNowController.text =
-                          price.toStringAsFixed(price % 1 == 0 ? 0 : 2);
+                      _paidNowController.text = price.toStringAsFixed(
+                        price % 1 == 0 ? 0 : 2,
+                      );
                     }
                   }
                 }),
@@ -841,9 +864,8 @@ class _BatchDropdownField extends StatelessWidget {
         .where((Map<String, String> item) => item['id']!.isNotEmpty)
         .toList();
 
-    final String? normalizedValue = options.any(
-      (Map<String, String> item) => item['id'] == selectedBatchId,
-    )
+    final String? normalizedValue =
+        options.any((Map<String, String> item) => item['id'] == selectedBatchId)
         ? selectedBatchId
         : null;
 
@@ -881,7 +903,10 @@ class _BatchDropdownField extends StatelessWidget {
         isDense: true,
         filled: true,
         fillColor: const Color(0x0FFFFFFF),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0x1FFFFFFF)),
@@ -894,7 +919,10 @@ class _BatchDropdownField extends StatelessWidget {
       items: options.map((Map<String, String> item) {
         return DropdownMenuItem<String>(
           value: item['id'],
-          child: Text(item['name']!, style: const TextStyle(color: Colors.white)),
+          child: Text(
+            item['name']!,
+            style: const TextStyle(color: Colors.white),
+          ),
         );
       }).toList(),
       onChanged: onChanged,
@@ -929,9 +957,10 @@ class _AcademyDropdownField extends StatelessWidget {
         .where((Map<String, String> item) => item['id']!.isNotEmpty)
         .toList();
 
-    final String? normalizedValue = options.any(
-      (Map<String, String> item) => item['id'] == selectedAcademyId,
-    )
+    final String? normalizedValue =
+        options.any(
+          (Map<String, String> item) => item['id'] == selectedAcademyId,
+        )
         ? selectedAcademyId
         : null;
 
@@ -969,7 +998,10 @@ class _AcademyDropdownField extends StatelessWidget {
         isDense: true,
         filled: true,
         fillColor: const Color(0x0FFFFFFF),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0x1FFFFFFF)),
@@ -982,7 +1014,10 @@ class _AcademyDropdownField extends StatelessWidget {
       items: options.map((Map<String, String> item) {
         return DropdownMenuItem<String>(
           value: item['id'],
-          child: Text(item['name']!, style: const TextStyle(color: Colors.white)),
+          child: Text(
+            item['name']!,
+            style: const TextStyle(color: Colors.white),
+          ),
         );
       }).toList(),
       onChanged: onChanged,
@@ -1044,8 +1079,10 @@ class _DarkPickerField extends StatelessWidget {
       return field;
     }
 
-    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(8), child: field);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: field,
+    );
   }
 }
-
-

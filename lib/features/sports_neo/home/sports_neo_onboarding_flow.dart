@@ -374,11 +374,15 @@ class _SportsNeoWelcomeScreenState extends State<SportsNeoWelcomeScreen> {
                     }),
                   ),
                   SizedBox(
-                    width: 130,
+                    width: _currentPage == _sportsNeoSlides.length - 1
+                        ? 148
+                        : 130,
                     height: 44,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2563EB),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(0, 44),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -389,6 +393,9 @@ class _SportsNeoWelcomeScreenState extends State<SportsNeoWelcomeScreen> {
                         _currentPage == _sportsNeoSlides.length - 1
                             ? 'Get Started'
                             : 'Next',
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.fade,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
