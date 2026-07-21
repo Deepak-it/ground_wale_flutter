@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../../core/api/api_session.dart';
+import '../../../../core/api/ground_wale_api.dart';
 import '../../../../core/utils/location_service.dart';
 import '../../../../core/widgets/google_city_picker_sheet.dart';
 import '../../../../core/widgets/labeled_text_field.dart';
@@ -17,6 +19,7 @@ class AcademyDetailsScreen extends StatefulWidget {
 }
 
 class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
+  final GroundWaleApi _api = GroundWaleApi.instance;
   late final TextEditingController _nameController;
   late final TextEditingController _stateController;
   late final TextEditingController _cityController;
@@ -39,6 +42,74 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
     _addressController = TextEditingController(text: data.address);
     _pinCodeController = TextEditingController(text: data.pinCode);
     _landmarkController = TextEditingController(text: data.landmark);
+
+    _seedInitialLocation();
+  }
+
+  void _seedInitialLocation() {
+    final bool hasAcademyContext =
+        (ApiSession.instance.selectedAcademyId?.trim().isNotEmpty ?? false);
+
+    if (hasAcademyContext) {
+      final String sessionState = ApiSession.instance.state?.trim() ?? '';
+      final String sessionCity = ApiSession.instance.city?.trim() ?? '';
+      final bool isDefaultState = _stateController.text.trim() == 'Punjab';
+      final bool isDefaultCity = _cityController.text.trim() == 'Mohali';
+
+      if (sessionState.isNotEmpty &&
+          (_stateController.text.trim().isEmpty || isDefaultState)) {
+        _stateController.text = sessionState;
+      }
+      if (sessionCity.isNotEmpty &&
+          (_cityController.text.trim().isEmpty || isDefaultCity)) {
+        _cityController.text = sessionCity;
+      }
+      _sync();
+      _prefillPinFromOwnerProfile();
+      return;
+    }
+
+    final bool seededDefaults =
+        _stateController.text.trim() == 'Punjab' &&
+        _cityController.text.trim() == 'Mohali' &&
+        _pinCodeController.text.trim().isEmpty;
+    if (seededDefaults) {
+      _stateController.clear();
+      _cityController.clear();
+      _pinCodeController.clear();
+      _sync();
+    }
+  }
+
+  Future<void> _prefillPinFromOwnerProfile() async {
+    final String? ownerId = ApiSession.instance.ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return;
+    }
+    try {
+      final Map<String, dynamic> profile = await _api.getOwnerProfile(ownerId);
+      if (!mounted) {
+        return;
+      }
+
+      final String profileState = profile['state']?.toString().trim() ?? '';
+      final String profileCity = profile['city']?.toString().trim() ?? '';
+      final String profilePin =
+          (profile['pinCode'] ?? profile['pincode'])?.toString().trim() ?? '';
+
+      if (profileState.isNotEmpty && _stateController.text.trim().isEmpty) {
+        _stateController.text = profileState;
+      }
+      if (profileCity.isNotEmpty && _cityController.text.trim().isEmpty) {
+        _cityController.text = profileCity;
+      }
+      if (profilePin.isNotEmpty && _pinCodeController.text.trim().isEmpty) {
+        _pinCodeController.text = profilePin;
+      }
+      _sync();
+    } catch (_) {
+      // Best-effort prefill only.
+    }
   }
 
   @override
@@ -56,12 +127,16 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
   Future<void> _fetchLocation() async {
     setState(() => _isFetchingLocation = true);
     try {
-      final LocationResult result = await LocationService.fetchCurrentLocation();
+      final LocationResult result =
+          await LocationService.fetchCurrentLocation();
       if (!mounted) return;
       if (result.geocodingSucceeded) {
         setState(() {
           _stateController.text = result.state;
           _cityController.text = result.city;
+          if (result.pinCode.isNotEmpty) {
+            _pinCodeController.text = result.pinCode;
+          }
           _locationFetched = true;
         });
         _sync();
@@ -70,7 +145,9 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('GPS location found. Please enter city/state manually.'),
+              content: Text(
+                'GPS location found. Please enter city/state manually.',
+              ),
             ),
           );
         }
@@ -323,10 +400,14 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
                     onPressed: () {
                       _sync();
                       final data = widget.controller.data;
-                      if (data.academyName.isEmpty || data.city.isEmpty || data.address.isEmpty) {
+                      if (data.academyName.isEmpty ||
+                          data.city.isEmpty ||
+                          data.address.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Academy Name, City and Address are required'),
+                            content: Text(
+                              'Academy Name, City and Address are required',
+                            ),
                           ),
                         );
                         return;
