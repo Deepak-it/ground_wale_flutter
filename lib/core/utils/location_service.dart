@@ -11,6 +11,7 @@ class LocationResult {
   const LocationResult({
     required this.city,
     required this.state,
+    this.pinCode = '',
     required this.latitude,
     required this.longitude,
     this.geocodingSucceeded = true,
@@ -18,6 +19,7 @@ class LocationResult {
 
   final String city;
   final String state;
+  final String pinCode;
   final double latitude;
   final double longitude;
 
@@ -89,19 +91,21 @@ class LocationService {
     // 3. Get current position.
     // LocationAccuracy.low uses cell/WiFi â€” fast and good enough for city-level.
     final Position position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.low,
-      ),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
     );
 
     // 4a. Try system geocoder first.
-    final LocationResult? systemResult =
-        await _trySystemGeocoder(position.latitude, position.longitude);
+    final LocationResult? systemResult = await _trySystemGeocoder(
+      position.latitude,
+      position.longitude,
+    );
     if (systemResult != null) return systemResult;
 
     // 4b. Fall back to OpenStreetMap Nominatim.
-    final LocationResult? nominatimResult =
-        await _tryNominatim(position.latitude, position.longitude);
+    final LocationResult? nominatimResult = await _tryNominatim(
+      position.latitude,
+      position.longitude,
+    );
     if (nominatimResult != null) return nominatimResult;
 
     // 4c. Both failed â€” return coordinates only so caller allows manual entry.
@@ -121,8 +125,7 @@ class LocationService {
     double lng,
   ) async {
     try {
-      final List<Placemark> places =
-          await placemarkFromCoordinates(lat, lng);
+      final List<Placemark> places = await placemarkFromCoordinates(lat, lng);
       if (places.isEmpty) return null;
 
       final Placemark p = places.first;
@@ -142,12 +145,14 @@ class LocationService {
         p.subAdministrativeArea,
         p.country,
       ]);
+      final String pinCode = (p.postalCode ?? '').trim();
 
-      if (city.isEmpty && state.isEmpty) return null;
+      if (city.isEmpty && state.isEmpty && pinCode.isEmpty) return null;
 
       return LocationResult(
         city: city,
         state: state,
+        pinCode: pinCode,
         latitude: lat,
         longitude: lng,
       );
@@ -158,20 +163,19 @@ class LocationService {
 
   // â”€â”€ Nominatim fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  static Future<LocationResult?> _tryNominatim(
-    double lat,
-    double lng,
-  ) async {
+  static Future<LocationResult?> _tryNominatim(double lat, double lng) async {
     try {
-      final Dio dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-        headers: <String, String>{
-          // Nominatim requires a valid User-Agent.
-          'User-Agent': 'SportsNeoApp/1.0',
-          'Accept-Language': 'en',
-        },
-      ));
+      final Dio dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+          headers: <String, String>{
+            // Nominatim requires a valid User-Agent.
+            'User-Agent': 'SportsNeoApp/1.0',
+            'Accept-Language': 'en',
+          },
+        ),
+      );
 
       final Response<dynamic> response = await dio.get<dynamic>(
         _nominatimUrl,
@@ -185,12 +189,14 @@ class LocationService {
       );
 
       if (response.data == null) return null;
-      final Map<String, dynamic> data =
-          Map<String, dynamic>.from(response.data as Map);
+      final Map<String, dynamic> data = Map<String, dynamic>.from(
+        response.data as Map,
+      );
       final dynamic rawAddress = data['address'];
       if (rawAddress == null) return null;
-      final Map<String, dynamic> address =
-          Map<String, dynamic>.from(rawAddress as Map);
+      final Map<String, dynamic> address = Map<String, dynamic>.from(
+        rawAddress as Map,
+      );
 
       // Nominatim address keys for Indian cities (in priority order):
       //   city / town / village / municipality â†’ city name
@@ -208,12 +214,14 @@ class LocationService {
         address['state_district']?.toString(),
         address['country']?.toString(),
       ]);
+      final String pinCode = address['postcode']?.toString().trim() ?? '';
 
-      if (city.isEmpty && state.isEmpty) return null;
+      if (city.isEmpty && state.isEmpty && pinCode.isEmpty) return null;
 
       return LocationResult(
         city: city,
         state: state,
+        pinCode: pinCode,
         latitude: lat,
         longitude: lng,
       );
@@ -232,7 +240,6 @@ class LocationService {
     return '';
   }
 }
-
 
 /// Result of a reverse-geocoded device location.
 ///

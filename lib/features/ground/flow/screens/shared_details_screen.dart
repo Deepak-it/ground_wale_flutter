@@ -103,10 +103,14 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
   Future<void> _fetchLocation() async {
     setState(() => _isFetchingLocation = true);
     try {
-      final LocationResult result = await LocationService.fetchCurrentLocation();
+      final LocationResult result =
+          await LocationService.fetchCurrentLocation();
       setState(() {
         _cityController.text = result.city;
         _stateController.text = result.state;
+        if (result.pinCode.isNotEmpty) {
+          _pinCodeController.text = result.pinCode;
+        }
         widget.controller.data.mapLocation =
             '${result.latitude},${result.longitude}';
         // Lock fields only when geocoding actually found city/state.
@@ -141,9 +145,9 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Location error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Location error: $e')));
     } finally {
       if (mounted) setState(() => _isFetchingLocation = false);
     }
@@ -168,8 +172,9 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
 
   // ── Sports sheet ─────────────────────────────────────────
   Future<void> _openSportsSheet() async {
-    final Set<String> tempSelected =
-        Set<String>.from(widget.controller.data.selectedSports);
+    final Set<String> tempSelected = Set<String>.from(
+      widget.controller.data.selectedSports,
+    );
     final TextEditingController searchCtrl = TextEditingController();
     String query = '';
 
@@ -184,10 +189,9 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                 ? _kGroundSports
                 : _kGroundSports
                       .where(
-                        (Map<String, String> s) =>
-                            s['name']!.toLowerCase().contains(
-                              query.toLowerCase(),
-                            ),
+                        (Map<String, String> s) => s['name']!
+                            .toLowerCase()
+                            .contains(query.toLowerCase()),
                       )
                       .toList();
 
@@ -199,8 +203,9 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                 return Container(
                   decoration: const BoxDecoration(
                     color: Colors.white,
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                   child: Column(
@@ -220,36 +225,38 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                             onTap: () async {
                               final TextEditingController ctrl =
                                   TextEditingController();
-                              final String? custom =
-                                  await showDialog<String>(
-                                    context: ctx,
-                                    builder: (BuildContext dlg) => AlertDialog(
-                                      title: const Text('Add Sport'),
-                                      content: TextField(
-                                        controller: ctrl,
-                                        autofocus: true,
-                                        decoration: const InputDecoration(
-                                          hintText: 'e.g. Martial Arts',
-                                        ),
-                                      ),
-                                      actions: <Widget>[
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.of(dlg).pop(),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => Navigator.of(
-                                            dlg,
-                                          ).pop(ctrl.text.trim()),
-                                          child: const Text('Add'),
-                                        ),
-                                      ],
+                              final String? custom = await showDialog<String>(
+                                context: ctx,
+                                builder: (BuildContext dlg) => AlertDialog(
+                                  title: const Text('Add Sport'),
+                                  content: TextField(
+                                    controller: ctrl,
+                                    autofocus: true,
+                                    decoration: const InputDecoration(
+                                      hintText: 'e.g. Martial Arts',
                                     ),
-                                  );
+                                  ),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      onPressed: () => Navigator.of(dlg).pop(),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.of(
+                                        dlg,
+                                      ).pop(ctrl.text.trim()),
+                                      child: const Text('Add'),
+                                    ),
+                                  ],
+                                ),
+                              );
                               ctrl.dispose();
                               if (custom != null && custom.isNotEmpty) {
-                                sheetSet(() => tempSelected.add(custom));
+                                sheetSet(() {
+                                  tempSelected
+                                    ..clear()
+                                    ..add(custom);
+                                });
                               }
                             },
                             child: Container(
@@ -276,13 +283,10 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                       const SizedBox(height: 12),
                       Container(
                         height: 48,
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color(0x1F242424),
-                          ),
+                          border: Border.all(color: const Color(0x1F242424)),
                         ),
                         child: Row(
                           children: <Widget>[
@@ -333,11 +337,9 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                             final bool sel = tempSelected.contains(name);
                             return GestureDetector(
                               onTap: () => sheetSet(() {
-                                if (sel) {
-                                  tempSelected.remove(name);
-                                } else {
-                                  tempSelected.add(name);
-                                }
+                                tempSelected
+                                  ..clear()
+                                  ..add(name);
                               }),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -397,9 +399,7 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: const BorderSide(
-                                color: Color(0xFF2563EB),
-                              ),
+                              side: const BorderSide(color: Color(0xFF2563EB)),
                             ),
                           ),
                           child: const Text(
@@ -516,12 +516,17 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                             child: Text(
                               widget.controller.data.selectedSports.isEmpty
                                   ? 'Select sports'
-                                  : widget.controller.data.selectedSports
-                                        .join(', '),
+                                  : widget.controller.data.selectedSports.join(
+                                      ', ',
+                                    ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: widget.controller.data.selectedSports
+                                color:
+                                    widget
+                                        .controller
+                                        .data
+                                        .selectedSports
                                         .isEmpty
                                     ? Colors.white54
                                     : Colors.white,
@@ -574,9 +579,7 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           color: const Color(0xFF1C333B),
-                          border: Border.all(
-                            color: const Color(0xFF2563EB),
-                          ),
+                          border: Border.all(color: const Color(0xFF2563EB)),
                         ),
                         child: _isFetchingLocation
                             ? const SizedBox(

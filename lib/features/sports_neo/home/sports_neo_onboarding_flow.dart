@@ -1290,9 +1290,9 @@ class _SportsNeoCompleteProfileScreenState
 
   Future<void> _pickDob() async {
     final DateTime now = DateTime.now();
-    // Youngest allowed: 5 years old. Oldest: 100 years.
+    // Youngest allowed: 3 years old. Oldest: 100 years.
     final DateTime firstDate = DateTime(now.year - 100, now.month, now.day);
-    final DateTime lastDate = DateTime(now.year - 5, now.month, now.day);
+    final DateTime lastDate = DateTime(now.year - 3, now.month, now.day);
     final DateTime initialDate =
         _selectedDob != null && _selectedDob!.isBefore(lastDate)
         ? _selectedDob!

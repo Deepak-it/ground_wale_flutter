@@ -49,58 +49,57 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
   final String _sportSearch = '';
   final TextEditingController _sportSearchController = TextEditingController();
 
-  static const List<Map<String, String>> _allSports =
-      <Map<String, String>>[
-        <String, String>{'emoji': '🎯', 'name': 'Archery'},
-        <String, String>{'emoji': '💪', 'name': 'Arm Wrestling'},
-        <String, String>{'emoji': '🏸', 'name': 'Badminton'},
-        <String, String>{'emoji': '⚾', 'name': 'Baseball'},
-        <String, String>{'emoji': '🏀', 'name': 'Basketball'},
-        <String, String>{'emoji': '🎱', 'name': 'Billiards'},
-        <String, String>{'emoji': '🏋️', 'name': 'Bodybuilding'},
-        <String, String>{'emoji': '🏏', 'name': 'Box Cricket'},
-        <String, String>{'emoji': '🥊', 'name': 'Boxing'},
-        <String, String>{'emoji': '♟️', 'name': 'Chess'},
-        <String, String>{'emoji': '🏏', 'name': 'Cricket'},
-        <String, String>{'emoji': '🚴', 'name': 'Cycling'},
-        <String, String>{'emoji': '🤺', 'name': 'Fencing'},
-        <String, String>{'emoji': '⚽', 'name': 'Football'},
-        <String, String>{'emoji': '⚽', 'name': 'Futsal'},
-        <String, String>{'emoji': '⛳', 'name': 'Golf'},
-        <String, String>{'emoji': '🤸', 'name': 'Gymnastics'},
-        <String, String>{'emoji': '🤾', 'name': 'Handball'},
-        <String, String>{'emoji': '🏑', 'name': 'Hockey'},
-        <String, String>{'emoji': '🏒', 'name': 'Ice Hockey'},
-        <String, String>{'emoji': '🥋', 'name': 'Judo'},
-        <String, String>{'emoji': '🤼', 'name': 'Kabaddi'},
-        <String, String>{'emoji': '🥋', 'name': 'Karate'},
-        <String, String>{'emoji': '🏃', 'name': 'Kho-Kho'},
-        <String, String>{'emoji': '🎾', 'name': 'Lawn Tennis'},
-        <String, String>{'emoji': '🤸', 'name': 'Mallakhamb'},
-        <String, String>{'emoji': '🏎️', 'name': 'Motor Sports'},
-        <String, String>{'emoji': '🏀', 'name': 'Netball'},
-        <String, String>{'emoji': '🐎', 'name': 'Polo'},
-        <String, String>{'emoji': '🏋️‍♂️', 'name': 'Powerlifting'},
-        <String, String>{'emoji': '🛼', 'name': 'Roller Skating'},
-        <String, String>{'emoji': '🚣', 'name': 'Rowing'},
-        <String, String>{'emoji': '🏉', 'name': 'Rugby'},
-        <String, String>{'emoji': '🎯', 'name': 'Shooting'},
-        <String, String>{'emoji': '🛹', 'name': 'Skateboarding'},
-        <String, String>{'emoji': '⚾', 'name': 'Softball'},
-        <String, String>{'emoji': '🎾', 'name': 'Squash'},
-        <String, String>{'emoji': '🏊', 'name': 'Swimming'},
-        <String, String>{'emoji': '🏓', 'name': 'Table Tennis'},
-        <String, String>{'emoji': '🥋', 'name': 'Taekwondo'},
-        <String, String>{'emoji': '🎾', 'name': 'Tennis'},
-        <String, String>{'emoji': '🏐', 'name': 'Throwball'},
-        <String, String>{'emoji': '🏊🚴🏃', 'name': 'Triathlon'},
-        <String, String>{'emoji': '🏐', 'name': 'Volleyball'},
-        <String, String>{'emoji': '🤽', 'name': 'Water Polo'},
-        <String, String>{'emoji': '🏋️', 'name': 'Weightlifting'},
-        <String, String>{'emoji': '🤼', 'name': 'Wrestling'},
-        <String, String>{'emoji': '🥋', 'name': 'Wushu'},
-        <String, String>{'emoji': '⛵', 'name': 'Yachting'},
-      ];
+  static const List<Map<String, String>> _allSports = <Map<String, String>>[
+    <String, String>{'emoji': '🎯', 'name': 'Archery'},
+    <String, String>{'emoji': '💪', 'name': 'Arm Wrestling'},
+    <String, String>{'emoji': '🏸', 'name': 'Badminton'},
+    <String, String>{'emoji': '⚾', 'name': 'Baseball'},
+    <String, String>{'emoji': '🏀', 'name': 'Basketball'},
+    <String, String>{'emoji': '🎱', 'name': 'Billiards'},
+    <String, String>{'emoji': '🏋️', 'name': 'Bodybuilding'},
+    <String, String>{'emoji': '🏏', 'name': 'Box Cricket'},
+    <String, String>{'emoji': '🥊', 'name': 'Boxing'},
+    <String, String>{'emoji': '♟️', 'name': 'Chess'},
+    <String, String>{'emoji': '🏏', 'name': 'Cricket'},
+    <String, String>{'emoji': '🚴', 'name': 'Cycling'},
+    <String, String>{'emoji': '🤺', 'name': 'Fencing'},
+    <String, String>{'emoji': '⚽', 'name': 'Football'},
+    <String, String>{'emoji': '⚽', 'name': 'Futsal'},
+    <String, String>{'emoji': '⛳', 'name': 'Golf'},
+    <String, String>{'emoji': '🤸', 'name': 'Gymnastics'},
+    <String, String>{'emoji': '🤾', 'name': 'Handball'},
+    <String, String>{'emoji': '🏑', 'name': 'Hockey'},
+    <String, String>{'emoji': '🏒', 'name': 'Ice Hockey'},
+    <String, String>{'emoji': '🥋', 'name': 'Judo'},
+    <String, String>{'emoji': '🤼', 'name': 'Kabaddi'},
+    <String, String>{'emoji': '🥋', 'name': 'Karate'},
+    <String, String>{'emoji': '🏃', 'name': 'Kho-Kho'},
+    <String, String>{'emoji': '🎾', 'name': 'Lawn Tennis'},
+    <String, String>{'emoji': '🤸', 'name': 'Mallakhamb'},
+    <String, String>{'emoji': '🏎️', 'name': 'Motor Sports'},
+    <String, String>{'emoji': '🏀', 'name': 'Netball'},
+    <String, String>{'emoji': '🐎', 'name': 'Polo'},
+    <String, String>{'emoji': '🏋️‍♂️', 'name': 'Powerlifting'},
+    <String, String>{'emoji': '🛼', 'name': 'Roller Skating'},
+    <String, String>{'emoji': '🚣', 'name': 'Rowing'},
+    <String, String>{'emoji': '🏉', 'name': 'Rugby'},
+    <String, String>{'emoji': '🎯', 'name': 'Shooting'},
+    <String, String>{'emoji': '🛹', 'name': 'Skateboarding'},
+    <String, String>{'emoji': '⚾', 'name': 'Softball'},
+    <String, String>{'emoji': '🎾', 'name': 'Squash'},
+    <String, String>{'emoji': '🏊', 'name': 'Swimming'},
+    <String, String>{'emoji': '🏓', 'name': 'Table Tennis'},
+    <String, String>{'emoji': '🥋', 'name': 'Taekwondo'},
+    <String, String>{'emoji': '🎾', 'name': 'Tennis'},
+    <String, String>{'emoji': '🏐', 'name': 'Throwball'},
+    <String, String>{'emoji': '🏊🚴🏃', 'name': 'Triathlon'},
+    <String, String>{'emoji': '🏐', 'name': 'Volleyball'},
+    <String, String>{'emoji': '🤽', 'name': 'Water Polo'},
+    <String, String>{'emoji': '🏋️', 'name': 'Weightlifting'},
+    <String, String>{'emoji': '🤼', 'name': 'Wrestling'},
+    <String, String>{'emoji': '🥋', 'name': 'Wushu'},
+    <String, String>{'emoji': '⛵', 'name': 'Yachting'},
+  ];
 
   @override
   void initState() {
@@ -116,6 +115,17 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
       text: widget.controller.data.academyPerBatchStudents,
     );
     _coachExperience = widget.controller.data.academyCoachExperience;
+
+    final List<String> initialSports = widget.controller.data.selectedSports
+        .where((String sport) => sport.trim().isNotEmpty)
+        .toList(growable: false);
+    _selectedSports
+      ..clear()
+      ..add(initialSports.isNotEmpty ? initialSports.first : 'Cricket');
+    _selectedSport = _selectedSports.first;
+    widget.controller.data.selectedSports
+      ..clear()
+      ..add(_selectedSport);
   }
 
   late int _coachExperience;
@@ -333,8 +343,8 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
   }
 
   void _deletePlan(int index) {
-    final String dur =
-        widget.controller.data.academyFeePlans[index].duration.toLowerCase();
+    final String dur = widget.controller.data.academyFeePlans[index].duration
+        .toLowerCase();
     if (dur == 'monthly') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -390,279 +400,249 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
               initialChildSize: 0.88,
               minChildSize: 0.5,
               maxChildSize: 0.95,
-              builder:
-                  (BuildContext _, ScrollController scrollController) {
-                    return Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(12),
-                        ),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-                      child: Column(
+              builder: (BuildContext _, ScrollController scrollController) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                  child: Column(
+                    children: <Widget>[
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: <Widget>[
-                          // Header
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: <Widget>[
-                              const Text(
-                                'All Sports Events',
-                                style: TextStyle(
-                                  color: Color(0xFF242424),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () async {
-                                  final TextEditingController ctrl =
-                                      TextEditingController();
-                                  final String? custom =
-                                      await showDialog<String>(
-                                        context: ctx,
-                                        builder: (BuildContext dlgCtx) =>
-                                            AlertDialog(
-                                              title: const Text('Add Sport'),
-                                              content: TextField(
-                                                controller: ctrl,
-                                                autofocus: true,
-                                                decoration:
-                                                    const InputDecoration(
-                                                      hintText:
-                                                          'e.g. Martial Arts',
-                                                    ),
-                                              ),
-                                              actions: <Widget>[
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.of(
-                                                        dlgCtx,
-                                                      ).pop(),
-                                                  child: const Text(
-                                                    'Cancel',
-                                                  ),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.of(
-                                                        dlgCtx,
-                                                      ).pop(
-                                                        ctrl.text.trim(),
-                                                      ),
-                                                  child: const Text('Add'),
-                                                ),
-                                              ],
-                                            ),
-                                      );
-                                  ctrl.dispose();
-                                  if (custom != null &&
-                                      custom.isNotEmpty) {
-                                    sheetSetState(
-                                      () => tempSelected.add(custom),
-                                    );
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(14),
-                                    color: const Color(0xFF242424),
-                                    boxShadow: const <BoxShadow>[
-                                      BoxShadow(
-                                        color: Color(0x14000000),
-                                        blurRadius: 16,
-                                        offset: Offset(0, 6),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Text(
-                                    'Add Sport',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          const Text(
+                            'All Sports Events',
+                            style: TextStyle(
+                              color: Color(0xFF242424),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          const SizedBox(height: 12),
-                          // Search bar
-                          Container(
-                            height: 48,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: const Color(0x1F242424),
-                              ),
-                              color: const Color(0x1FFFFFFF),
-                              boxShadow: const <BoxShadow>[
-                                BoxShadow(
-                                  color: Color(0x14000000),
-                                  blurRadius: 16,
-                                  offset: Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                const Icon(
-                                  Icons.search,
-                                  color: Color(0xFF9CA3AF),
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextField(
-                                    controller: searchCtrl,
-                                    style: const TextStyle(
-                                      color: Color(0xFF242424),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                          GestureDetector(
+                            onTap: () async {
+                              final TextEditingController ctrl =
+                                  TextEditingController();
+                              final String? custom = await showDialog<String>(
+                                context: ctx,
+                                builder: (BuildContext dlgCtx) => AlertDialog(
+                                  title: const Text('Add Sport'),
+                                  content: TextField(
+                                    controller: ctrl,
+                                    autofocus: true,
                                     decoration: const InputDecoration(
-                                      hintText: 'Search sports',
-                                      hintStyle: TextStyle(
-                                        color: Color(0xFF9CA3AF),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      border: InputBorder.none,
-                                      isDense: true,
+                                      hintText: 'e.g. Martial Arts',
                                     ),
-                                    onChanged: (String value) {
-                                      sheetSetState(() => query = value);
-                                    },
                                   ),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(dlgCtx).pop(),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.of(
+                                        dlgCtx,
+                                      ).pop(ctrl.text.trim()),
+                                      child: const Text('Add'),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // 4-column grid
-                          Expanded(
-                            child: GridView.builder(
-                              controller: scrollController,
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 4,
-                                    mainAxisSpacing: 20,
-                                    crossAxisSpacing: 16,
-                                    childAspectRatio: 0.78,
+                              );
+                              ctrl.dispose();
+                              if (custom != null && custom.isNotEmpty) {
+                                sheetSetState(() {
+                                  tempSelected
+                                    ..clear()
+                                    ..add(custom);
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                color: const Color(0xFF242424),
+                                boxShadow: const <BoxShadow>[
+                                  BoxShadow(
+                                    color: Color(0x14000000),
+                                    blurRadius: 16,
+                                    offset: Offset(0, 6),
                                   ),
-                              itemCount: visible.length,
-                              itemBuilder: (
-                                BuildContext _,
-                                int index,
-                              ) {
-                                final String name = visible[index]['name']!;
-                                final String emoji =
-                                    visible[index]['emoji']!;
-                                final bool sel = tempSelected.contains(
-                                  name,
-                                );
-                                return GestureDetector(
-                                  onTap: () {
-                                    sheetSetState(() {
-                                      if (sel) {
-                                        tempSelected.remove(name);
-                                      } else {
-                                        tempSelected.add(name);
-                                      }
-                                    });
-                                  },
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: <Widget>[
-                                      Container(
-                                        width: 56,
-                                        height: 56,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: sel
-                                              ? const Color(0xFF1C333B)
-                                              : const Color(0x1F0D1B2A),
-                                          boxShadow: sel
-                                              ? const <BoxShadow>[
-                                                  BoxShadow(
-                                                    color: Color(
-                                                      0x663B82F6,
-                                                    ),
-                                                    blurRadius: 12,
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                        child: Text(
-                                          emoji,
-                                          style: const TextStyle(
-                                            fontSize: 24,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        name,
-                                        textAlign: TextAlign.center,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: const Color(0xFF242424),
-                                          fontSize: 12,
-                                          fontWeight: sel
-                                              ? FontWeight.w600
-                                              : FontWeight.w500,
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Done button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: ElevatedButton(
-                              onPressed: () => Navigator.of(ctx).pop(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1C333B),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: const BorderSide(
-                                    color: Color(0xFF2563EB),
-                                  ),
-                                ),
+                                ],
                               ),
                               child: const Text(
-                                'Done',
+                                'Add Sport',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
                         ],
                       ),
-                    );
-                  },
+                      const SizedBox(height: 12),
+                      // Search bar
+                      Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0x1F242424)),
+                          color: const Color(0x1FFFFFFF),
+                          boxShadow: const <BoxShadow>[
+                            BoxShadow(
+                              color: Color(0x14000000),
+                              blurRadius: 16,
+                              offset: Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.search,
+                              color: Color(0xFF9CA3AF),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: searchCtrl,
+                                style: const TextStyle(
+                                  color: Color(0xFF242424),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: 'Search sports',
+                                  hintStyle: TextStyle(
+                                    color: Color(0xFF9CA3AF),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                ),
+                                onChanged: (String value) {
+                                  sheetSetState(() => query = value);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // 4-column grid
+                      Expanded(
+                        child: GridView.builder(
+                          controller: scrollController,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 4,
+                                mainAxisSpacing: 20,
+                                crossAxisSpacing: 16,
+                                childAspectRatio: 0.78,
+                              ),
+                          itemCount: visible.length,
+                          itemBuilder: (BuildContext _, int index) {
+                            final String name = visible[index]['name']!;
+                            final String emoji = visible[index]['emoji']!;
+                            final bool sel = tempSelected.contains(name);
+                            return GestureDetector(
+                              onTap: () {
+                                sheetSetState(() {
+                                  tempSelected
+                                    ..clear()
+                                    ..add(name);
+                                });
+                              },
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Container(
+                                    width: 56,
+                                    height: 56,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: sel
+                                          ? const Color(0xFF1C333B)
+                                          : const Color(0x1F0D1B2A),
+                                      boxShadow: sel
+                                          ? const <BoxShadow>[
+                                              BoxShadow(
+                                                color: Color(0x663B82F6),
+                                                blurRadius: 12,
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      emoji,
+                                      style: const TextStyle(fontSize: 24),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    name,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: const Color(0xFF242424),
+                                      fontSize: 12,
+                                      fontWeight: sel
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Done button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1C333B),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: Color(0xFF2563EB)),
+                            ),
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                );
+              },
             );
           },
         );
@@ -674,10 +654,12 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
       _selectedSports
         ..clear()
         ..addAll(tempSelected);
-      _selectedSport = _selectedSports.isNotEmpty
-          ? _selectedSports.first
-          : '';
+      _selectedSport = _selectedSports.isNotEmpty ? _selectedSports.first : '';
+      widget.controller.data.selectedSports
+        ..clear()
+        ..addAll(_selectedSports.take(1));
     });
+    widget.controller.update();
   }
 
   @override
@@ -983,10 +965,7 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
                 const SizedBox(height: 4),
                 const Text(
                   'In years',
-                  style: TextStyle(
-                    color: Color(0x66FFFFFF),
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Color(0x66FFFFFF), fontSize: 12),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -1189,4 +1168,3 @@ class _StepperBtn extends StatelessWidget {
     );
   }
 }
-
