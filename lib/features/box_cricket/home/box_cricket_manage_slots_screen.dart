@@ -612,7 +612,6 @@ class _BoxCricketManageSlotsScreenState
                               try {
                                 await GroundWaleApi.instance
                                     .createSlot(groundId, <String, dynamic>{
-                                      'date': _dateKey(rangeStartDate),
                                       'dateFrom': _dateKey(rangeStartDate),
                                       'dateTo': _dateKey(rangeEndDate),
                                       'startTime': startCtrl.text.trim(),
