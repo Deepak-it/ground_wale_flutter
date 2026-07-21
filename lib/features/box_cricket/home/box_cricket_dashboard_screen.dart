@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -44,22 +45,17 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   String? _selectedGroundId;
   // ignore: unused_field
   String? _calendarGroundId;
-  Map<String, Map<String, int>> _slotStatsByDate =
-      <String, Map<String, int>>{};
-  List<Map<String, dynamic>> _selectedGroundBookings =
+  Map<String, Map<String, int>> _slotStatsByDate = <String, Map<String, int>>{};
+  List<Map<String, dynamic>> _selectedGroundBookings = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _selectedGroundAllBookings =
       <Map<String, dynamic>>[];
-    List<Map<String, dynamic>> _selectedGroundAllBookings =
-      <Map<String, dynamic>>[];
-    int _visibleMonthEarnings = 0;
+  int _visibleMonthEarnings = 0;
   Map<String, int> _selectedGroundSlotSummary = <String, int>{
     'available': 0,
     'booked': 0,
     'blocked': 0,
   };
-  DateTime _visibleMonth = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-  );
+  DateTime _visibleMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime _selectedDate = DateTime(
     DateTime.now().year,
     DateTime.now().month,
@@ -125,11 +121,15 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
 
     String? selected = _selectedGroundId;
     if (selected == null ||
-        !grounds.any((Map<String, dynamic> ground) => _groundId(ground) == selected)) {
+        !grounds.any(
+          (Map<String, dynamic> ground) => _groundId(ground) == selected,
+        )) {
       selected = sessionGroundId;
     }
     if (selected == null ||
-        !grounds.any((Map<String, dynamic> ground) => _groundId(ground) == selected)) {
+        !grounds.any(
+          (Map<String, dynamic> ground) => _groundId(ground) == selected,
+        )) {
       selected = grounds.isEmpty ? null : _groundId(grounds.first);
     }
 
@@ -174,11 +174,12 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
 
     try {
       final DateTime today = DateTime.now();
-      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
-        GroundWaleApi.instance.listBookings(groundId, status: 'upcoming'),
-        GroundWaleApi.instance.listBookings(groundId),
-        GroundWaleApi.instance.listSlots(groundId, date: _apiDate(today)),
-      ]);
+      final List<dynamic> results =
+          await Future.wait<dynamic>(<Future<dynamic>>[
+            GroundWaleApi.instance.listBookings(groundId, status: 'upcoming'),
+            GroundWaleApi.instance.listBookings(groundId),
+            GroundWaleApi.instance.listSlots(groundId, date: _apiDate(today)),
+          ]);
 
       final List<Map<String, dynamic>> bookings =
           results[0] as List<Map<String, dynamic>>;
@@ -191,7 +192,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       int booked = 0;
       int blocked = 0;
       for (final Map<String, dynamic> slot in todaySlots) {
-        final String status = (slot['status']?.toString() ?? 'available').toLowerCase();
+        final String status = (slot['status']?.toString() ?? 'available')
+            .toLowerCase();
         if (status == 'booked') {
           booked += 1;
         } else if (status == 'blocked') {
@@ -365,7 +367,9 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     }
 
     final String value = raw.trim();
-    final RegExpMatch? ymd = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(value);
+    final RegExpMatch? ymd = RegExp(
+      r'^(\d{4})-(\d{2})-(\d{2})',
+    ).firstMatch(value);
     if (ymd != null) {
       final int year = int.parse(ymd.group(1)!);
       final int month = int.parse(ymd.group(2)!);
@@ -399,10 +403,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     return null;
   }
 
-  int _monthEarningsFor(
-    DateTime month,
-    List<Map<String, dynamic>> bookings,
-  ) {
+  int _monthEarningsFor(DateTime month, List<Map<String, dynamic>> bookings) {
     int total = 0;
     for (final Map<String, dynamic> booking in bookings) {
       final DateTime? date = _extractBookingDate(booking);
@@ -412,8 +413,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       if (date.year != month.year || date.month != month.month) {
         continue;
       }
-      final String bookingStatus =
-          (booking['bookingStatus']?.toString() ?? '').toLowerCase();
+      final String bookingStatus = (booking['bookingStatus']?.toString() ?? '')
+          .toLowerCase();
       if (bookingStatus == 'cancelled') {
         continue;
       }
@@ -461,8 +462,16 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       return;
     }
 
-    final DateTime monthStart = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
-    final DateTime monthEnd = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0);
+    final DateTime monthStart = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+      1,
+    );
+    final DateTime monthEnd = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    );
 
     if (mounted) {
       setState(() {
@@ -483,7 +492,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
 
       void applyToDay(String key, String status, Map<String, dynamic> slot) {
         final Map<String, int> bucket =
-            stats[key] ?? <String, int>{
+            stats[key] ??
+            <String, int>{
               'total': 0,
               'booked': 0,
               'blocked': 0,
@@ -495,8 +505,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           bucket['booked'] = (bucket['booked'] ?? 0) + 1;
         } else if (status == 'blocked') {
           bucket['blocked'] = (bucket['blocked'] ?? 0) + 1;
-          final String blockedReason =
-              (slot['blockedReason']?.toString() ?? '').toLowerCase();
+          final String blockedReason = (slot['blockedReason']?.toString() ?? '')
+              .toLowerCase();
           final String notes = (slot['notes']?.toString() ?? '').toLowerCase();
           if (blockedReason.contains('maintenance') ||
               notes.contains('maintenance')) {
@@ -509,34 +519,32 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       }
 
       for (final Map<String, dynamic> slot in slots) {
-        final String status =
-          (slot['status']?.toString() ?? 'available').toLowerCase();
+        final String status = (slot['status']?.toString() ?? 'available')
+            .toLowerCase();
         final List<String> bookedDateKeysFromApi =
             ((slot['bookedDateKeys'] as List<dynamic>?) ?? <dynamic>[])
                 .map((dynamic item) => item.toString())
                 .where((String item) => item.trim().isNotEmpty)
                 .toList();
-        final List<String> bookedDayKeys =
-            bookedDateKeysFromApi.isNotEmpty
-                ? bookedDateKeysFromApi
-                : ((slot['bookedDates'] as List<dynamic>?) ?? <dynamic>[])
-                    .map((dynamic item) => _parseCalendarDate(item))
-                    .whereType<DateTime>()
-                    .map(_dayKey)
-                    .toList();
+        final List<String> bookedDayKeys = bookedDateKeysFromApi.isNotEmpty
+            ? bookedDateKeysFromApi
+            : ((slot['bookedDates'] as List<dynamic>?) ?? <dynamic>[])
+                  .map((dynamic item) => _parseCalendarDate(item))
+                  .whereType<DateTime>()
+                  .map(_dayKey)
+                  .toList();
         final List<String> blockedDateKeysFromApi =
-          ((slot['blockedDateKeys'] as List<dynamic>?) ?? <dynamic>[])
-            .map((dynamic item) => item.toString())
-            .where((String item) => item.trim().isNotEmpty)
-            .toList();
-        final List<String> blockedDayKeys =
-          blockedDateKeysFromApi.isNotEmpty
+            ((slot['blockedDateKeys'] as List<dynamic>?) ?? <dynamic>[])
+                .map((dynamic item) => item.toString())
+                .where((String item) => item.trim().isNotEmpty)
+                .toList();
+        final List<String> blockedDayKeys = blockedDateKeysFromApi.isNotEmpty
             ? blockedDateKeysFromApi
             : ((slot['blockedDates'] as List<dynamic>?) ?? <dynamic>[])
-              .map((dynamic item) => _parseCalendarDate(item))
-              .whereType<DateTime>()
-              .map(_dayKey)
-              .toList();
+                  .map((dynamic item) => _parseCalendarDate(item))
+                  .whereType<DateTime>()
+                  .map(_dayKey)
+                  .toList();
 
         // Legacy single-date slot
         final DateTime? legacyDate = _parseCalendarDate(slot['date']);
@@ -554,17 +562,19 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                   .map((dynamic item) => item.toString().trim())
                   .where((String item) => item.isNotEmpty)
                   .toList();
-          DateTime cursor = dateFrom.isBefore(monthStart) ? monthStart : dateFrom;
+          DateTime cursor = dateFrom.isBefore(monthStart)
+              ? monthStart
+              : dateFrom;
           final DateTime end = dateTo.isAfter(monthEnd) ? monthEnd : dateTo;
           while (!cursor.isAfter(end)) {
             final String dayKey = _dayKey(cursor);
             // Skip soft-deleted days entirely — they have no slot.
             if (!deletedDayKeys.contains(dayKey)) {
               final bool blockedForDay =
-                status == 'blocked' || blockedDayKeys.contains(dayKey);
+                  status == 'blocked' || blockedDayKeys.contains(dayKey);
               final String dayStatus = blockedForDay
-                ? 'blocked'
-                : (bookedDayKeys.contains(dayKey) ? 'booked' : 'available');
+                  ? 'blocked'
+                  : (bookedDayKeys.contains(dayKey) ? 'booked' : 'available');
               applyToDay(dayKey, dayStatus, slot);
             }
             cursor = cursor.add(const Duration(days: 1));
@@ -739,13 +749,19 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
         _slotStatsByDate[_dayKey(_selectedDate)] ?? <String, int>{};
     final int availableSlots = _selectedGroundId == null
         ? _toInt(_dashboard['slotStatus']?['available'])
-        : (selectedDayStats['available'] ?? _selectedGroundSlotSummary['available'] ?? 0);
+        : (selectedDayStats['available'] ??
+              _selectedGroundSlotSummary['available'] ??
+              0);
     final int bookedSlots = _selectedGroundId == null
         ? _toInt(_dashboard['slotStatus']?['booked'])
-        : (selectedDayStats['booked'] ?? _selectedGroundSlotSummary['booked'] ?? 0);
+        : (selectedDayStats['booked'] ??
+              _selectedGroundSlotSummary['booked'] ??
+              0);
     final int blockedSlots = _selectedGroundId == null
         ? _toInt(_dashboard['slotStatus']?['blocked'])
-        : (selectedDayStats['blocked'] ?? _selectedGroundSlotSummary['blocked'] ?? 0);
+        : (selectedDayStats['blocked'] ??
+              _selectedGroundSlotSummary['blocked'] ??
+              0);
     final int totalSlots = availableSlots + bookedSlots + blockedSlots;
 
     final List<Map<String, dynamic>> bookings = _selectedGroundId == null
@@ -768,8 +784,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     final String repeatTeams = teamActivity['repeatTeams']?.toString() ?? '-';
 
     final List<Map<String, dynamic>> grounds = _groundOptions.isEmpty
-      ? _grounds()
-      : _groundOptions;
+        ? _grounds()
+        : _groundOptions;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1B1F1B),
@@ -807,9 +823,12 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                           }
                           final Map<String, dynamic> ground = grounds[index];
                           final String id = _groundId(ground);
-                          final bool selected = id.isNotEmpty && id == _selectedGroundId;
+                          final bool selected =
+                              id.isNotEmpty && id == _selectedGroundId;
                           return GestureDetector(
-                            onTap: id.isEmpty ? null : () => _onGroundSelectionChanged(id),
+                            onTap: id.isEmpty
+                                ? null
+                                : () => _onGroundSelectionChanged(id),
                             child: _groundCard(ground, selected: selected),
                           );
                         },
@@ -912,7 +931,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                         ),
                       ),
                     ),
-                                        const SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: _overlayCardDecoration(),
@@ -974,7 +993,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                     ),
                     const SizedBox(height: 12),
                     _calendarCard(),
-
 
                     const SizedBox(height: 12),
                     Container(
@@ -1083,7 +1101,9 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                         ),
                       )
                     else
-                      ...selectedDateBookings.map((Map<String, dynamic> booking) {
+                      ...selectedDateBookings.map((
+                        Map<String, dynamic> booking,
+                      ) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _bookingCard(booking),
@@ -1258,7 +1278,15 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   Widget _calendarCard() {
     final DateTime today = _dateOnly(DateTime.now());
     final List<DateTime> days = _calendarGridDays(_visibleMonth);
-    const List<String> week = <String>['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    const List<String> week = <String>[
+      'Mo',
+      'Tu',
+      'We',
+      'Th',
+      'Fr',
+      'Sa',
+      'Su',
+    ];
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1331,49 +1359,49 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
               final bool isToday = _isSameDay(day, today);
               final bool isSelected = _isSameDay(day, _selectedDate);
               final bool isPast = day.isBefore(today);
-                final Map<String, int> stats =
+              final Map<String, int> stats =
                   _slotStatsByDate[_dayKey(day)] ??
-                    <String, int>{
-                      'total': 0,
-                      'booked': 0,
-                      'blocked': 0,
-                      'available': 0,
-                      'maintenance': 0,
-                    };
-                final int total = stats['total'] ?? 0;
-                final int booked = stats['booked'] ?? 0;
-                final int blocked = stats['blocked'] ?? 0;
-                final int available = stats['available'] ?? 0;
-                final int maintenance = stats['maintenance'] ?? 0;
+                  <String, int>{
+                    'total': 0,
+                    'booked': 0,
+                    'blocked': 0,
+                    'available': 0,
+                    'maintenance': 0,
+                  };
+              final int total = stats['total'] ?? 0;
+              final int booked = stats['booked'] ?? 0;
+              final int blocked = stats['blocked'] ?? 0;
+              final int available = stats['available'] ?? 0;
+              final int maintenance = stats['maintenance'] ?? 0;
 
               Color bg;
               Color border;
               Color text;
               String? sub;
-                Color subColor = const Color(0xFF10B981);
+              Color subColor = const Color(0xFF10B981);
 
               if (!inMonth) {
                 bg = const Color(0x089CA3AF);
                 border = const Color(0x1A9CA3AF);
                 text = const Color(0x669CA3AF);
               } else if (isSelected) {
-                  bg = const Color(0x1410B981);
-                  border = const Color(0xFFDDF730);
+                bg = const Color(0x1410B981);
+                border = const Color(0xFFDDF730);
                 text = Colors.white;
-                  if (maintenance >= total && total > 0) {
-                    sub = 'Maintenance';
-                    subColor = const Color(0xFFF59E0B);
-                  } else if (blocked >= total && total > 0) {
-                    sub = 'Blocked';
-                    subColor = const Color(0xFFEF4444);
-                  } else if (booked > 0) {
-                    sub = '$booked/$total';
-                    subColor = const Color(0xFF0B84FF);
-                  } else if (available > 0) {
-                    sub = 'Open';
-                    subColor = const Color(0xFF10B981);
-                  } else {
-                    sub = 'No Slots';
+                if (maintenance >= total && total > 0) {
+                  sub = 'Maintenance';
+                  subColor = const Color(0xFFF59E0B);
+                } else if (blocked >= total && total > 0) {
+                  sub = 'Blocked';
+                  subColor = const Color(0xFFEF4444);
+                } else if (booked > 0) {
+                  sub = '$booked/$total';
+                  subColor = const Color(0xFF0B84FF);
+                } else if (available > 0) {
+                  sub = 'Open';
+                  subColor = const Color(0xFF10B981);
+                } else {
+                  sub = 'No Slots';
                   subColor = const Color(0xFF9CA3AF);
                 }
               } else if (isPast) {
@@ -1382,30 +1410,30 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                 text = const Color(0xFF9CA3AF);
                 sub = 'Past';
                 subColor = const Color(0xFF9CA3AF);
-                } else if (total > 0 && maintenance >= total) {
-                  bg = const Color(0x14F59E0B);
-                  border = const Color(0x33F59E0B);
-                  text = Colors.white;
-                  sub = 'Maint.';
-                  subColor = const Color(0xFFF59E0B);
-                } else if (total > 0 && blocked >= total) {
+              } else if (total > 0 && maintenance >= total) {
+                bg = const Color(0x14F59E0B);
+                border = const Color(0x33F59E0B);
+                text = Colors.white;
+                sub = 'Maint.';
+                subColor = const Color(0xFFF59E0B);
+              } else if (total > 0 && blocked >= total) {
                 bg = const Color(0x14EF4444);
                 border = const Color(0x33EF4444);
                 text = Colors.white;
-                  sub = 'Blocked';
+                sub = 'Blocked';
                 subColor = const Color(0xFFEF4444);
-                } else if (total > 0 && booked > 0) {
-                  bg = const Color(0x140B84FF);
-                  border = const Color(0x330B84FF);
-                  text = Colors.white;
-                  sub = '$booked/$total';
-                  subColor = const Color(0xFF0B84FF);
-                } else if (total > 0 && available > 0) {
+              } else if (total > 0 && booked > 0) {
+                bg = const Color(0x140B84FF);
+                border = const Color(0x330B84FF);
+                text = Colors.white;
+                sub = '$booked/$total';
+                subColor = const Color(0xFF0B84FF);
+              } else if (total > 0 && available > 0) {
                 bg = const Color(0x1410B981);
                 border = const Color(0x3310B981);
                 text = Colors.white;
-                  sub = 'Open';
-                  subColor = const Color(0xFF10B981);
+                sub = 'Open';
+                subColor = const Color(0xFF10B981);
               } else {
                 bg = const Color(0x0AFFFFFF);
                 border = const Color(0x1FFFFFFF);
@@ -1420,7 +1448,10 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: border, width: isSelected ? 1.6 : 1),
+                    border: Border.all(
+                      color: border,
+                      width: isSelected ? 1.6 : 1,
+                    ),
                     color: bg,
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1514,9 +1545,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     final String location =
         ground['location']?.toString() ?? 'Location not available';
     final String rating = ground['rating']?.toString() ?? '4.6';
-    final String imgA = ground['image']?.toString() ?? '';
-    final String imgB = ground['imageUrl']?.toString() ?? '';
-    final String imageValue = imgA.isNotEmpty ? imgA : imgB;
+    final List<String> imageValues = _groundImageValues(ground);
     final String groundId =
         ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
     final List<dynamic> rawFacilities =
@@ -1547,8 +1576,13 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
               color: const Color(0x29242424),
               child: Stack(
                 children: <Widget>[
-                  if (imageValue.isNotEmpty)
-                    Positioned.fill(child: _groundImageWidget(imageValue)),
+                  if (imageValues.isNotEmpty)
+                    Positioned.fill(
+                      child: _GroundImageCarousel(
+                        imageValues: imageValues,
+                        imageBuilder: _groundImageWidget,
+                      ),
+                    ),
                   Positioned(
                     left: 10,
                     top: 10,
@@ -1703,19 +1737,13 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                         ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: const Color(0x33DDF730),
-                          ),
+                          border: Border.all(color: const Color(0x33DDF730)),
                           color: const Color(0x0ADDF730),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
-                            Icon(
-                              Icons.add,
-                              size: 12,
-                              color: Color(0xFFDDF730),
-                            ),
+                            Icon(Icons.add, size: 12, color: Color(0xFFDDF730)),
                             SizedBox(width: 4),
                             Text(
                               'Add',
@@ -1784,6 +1812,36 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     );
   }
 
+  List<String> _groundImageValues(Map<String, dynamic> ground) {
+    final List<String> values = <String>[];
+
+    void addIfValid(dynamic raw) {
+      final String value = raw?.toString().trim() ?? '';
+      if (value.isNotEmpty && !values.contains(value)) {
+        values.add(value);
+      }
+    }
+
+    addIfValid(ground['image']);
+    addIfValid(ground['imageUrl']);
+
+    final dynamic imageUrls = ground['imageUrls'];
+    if (imageUrls is List) {
+      for (final dynamic item in imageUrls) {
+        addIfValid(item);
+      }
+    }
+
+    final dynamic groundImages = ground['groundImages'];
+    if (groundImages is List) {
+      for (final dynamic item in groundImages) {
+        addIfValid(item);
+      }
+    }
+
+    return values;
+  }
+
   Future<void> _addFacilityToGround(
     String groundId,
     List<String> existingFacilities,
@@ -1791,10 +1849,22 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     if (groundId.isEmpty) return;
 
     const List<String> suggestions = <String>[
-      'Parking', 'Cafeteria / Food', 'First Aid', 'Rest Room',
-      'Changing Room', 'Dugout', 'Lighting', 'Wi-Fi',
-      'Locker Room', 'CCTV', 'Water', 'Shower', 'Washroom',
-      'Seating Area', 'AC Hall', 'Equipment Room',
+      'Parking',
+      'Cafeteria / Food',
+      'First Aid',
+      'Rest Room',
+      'Changing Room',
+      'Dugout',
+      'Lighting',
+      'Wi-Fi',
+      'Locker Room',
+      'CCTV',
+      'Water',
+      'Shower',
+      'Washroom',
+      'Seating Area',
+      'AC Hall',
+      'Equipment Room',
     ];
 
     final Set<String> selected = Set<String>.from(existingFacilities);
@@ -1814,8 +1884,9 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                 return Container(
                   decoration: const BoxDecoration(
                     color: Color(0xFF1B1F1B),
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Column(
@@ -1906,10 +1977,9 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await GroundWaleApi.instance.updateGround(
-        groundId,
-        <String, dynamic>{'facilities': selected.toList()},
-      );
+      await GroundWaleApi.instance.updateGround(groundId, <String, dynamic>{
+        'facilities': selected.toList(),
+      });
       await _load();
     } catch (error) {
       if (!mounted) return;
@@ -2033,7 +2103,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     Future<void> openCreateGroundFlow() async {
       final GroundFlowController flowController = GroundFlowController();
       flowController.data.ownerName = ApiSession.instance.ownerName ?? '';
-      flowController.data.contactNumber = ApiSession.instance.contactNumber ?? '';
+      flowController.data.contactNumber =
+          ApiSession.instance.contactNumber ?? '';
       flowController.data.otpVerified = true;
       flowController.skipOwnershipVerification = true;
 
@@ -2056,46 +2127,46 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     return GestureDetector(
       onTap: openCreateGroundFlow,
       child: Container(
-      width: 263,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1F242424)),
-        color: const Color(0x0AFFFFFF),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Container(
-            width: 108,
-            height: 108,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              color: const Color(0xFFDDF730),
+        width: 263,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x1F242424)),
+          color: const Color(0x0AFFFFFF),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Container(
+              width: 108,
+              height: 108,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                color: const Color(0xFFDDF730),
+              ),
+              child: const Icon(Icons.add, size: 54, color: Colors.black),
             ),
-            child: const Icon(Icons.add, size: 54, color: Colors.black),
-          ),
-          const SizedBox(height: 28),
-          SizedBox(
-            width: 229,
-            child: ElevatedButton(
-              onPressed: openCreateGroundFlow,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDDF730),
-                foregroundColor: const Color(0xFF242424),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: 229,
+              child: ElevatedButton(
+                onPressed: openCreateGroundFlow,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDDF730),
+                  foregroundColor: const Color(0xFF242424),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Add more facilities',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-              child: const Text(
-                'Add more facilities',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
             ),
-          ),
-        ],
-      ),
-    ),   // Container
-    );   // GestureDetector
+          ],
+        ),
+      ), // Container
+    ); // GestureDetector
   }
 
   Widget _bookingCard(Map<String, dynamic> booking) {
@@ -2263,6 +2334,121 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GroundImageCarousel extends StatefulWidget {
+  const _GroundImageCarousel({
+    required this.imageValues,
+    required this.imageBuilder,
+  });
+
+  final List<String> imageValues;
+  final Widget Function(String imageValue) imageBuilder;
+
+  @override
+  State<_GroundImageCarousel> createState() => _GroundImageCarouselState();
+}
+
+class _GroundImageCarouselState extends State<_GroundImageCarousel> {
+  late final PageController _pageController;
+  Timer? _autoSlideTimer;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoSlideIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GroundImageCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageValues.length != widget.imageValues.length) {
+      _currentIndex = 0;
+      _pageController.jumpToPage(0);
+      _restartAutoSlide();
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoSlideIfNeeded() {
+    _autoSlideTimer?.cancel();
+    if (widget.imageValues.length <= 1) {
+      return;
+    }
+
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_pageController.hasClients) {
+        return;
+      }
+      final int nextIndex = (_currentIndex + 1) % widget.imageValues.length;
+      _pageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _restartAutoSlide() {
+    _autoSlideTimer?.cancel();
+    _startAutoSlideIfNeeded();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> images = widget.imageValues;
+    if (images.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Stack(
+      children: <Widget>[
+        PageView.builder(
+          controller: _pageController,
+          itemCount: images.length,
+          onPageChanged: (int index) {
+            setState(() {
+              _currentIndex = index;
+            });
+            _restartAutoSlide();
+          },
+          itemBuilder: (_, int index) => widget.imageBuilder(images[index]),
+        ),
+        if (images.length > 1)
+          Positioned(
+            bottom: 8,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List<Widget>.generate(images.length, (int index) {
+                final bool isActive = index == _currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: isActive ? 14 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFFDDF730)
+                        : const Color(0xCCFFFFFF),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
     );
   }
 }
