@@ -7,10 +7,22 @@ class SportsNeoBookingSummaryScreen extends StatefulWidget {
     super.key,
     required this.groundName,
     required this.location,
+    this.groundId = '',
+    this.slotId = '',
+    this.date = '',
+    this.startTime = '',
+    this.endTime = '',
+    this.amount = 0,
   });
 
   final String groundName;
   final String location;
+  final String groundId;
+  final String slotId;
+  final String date;
+  final String startTime;
+  final String endTime;
+  final int amount;
 
   @override
   State<SportsNeoBookingSummaryScreen> createState() =>
@@ -22,9 +34,25 @@ class _SportsNeoBookingSummaryScreenState
   int _balls = 1;
   int _umpires = 0;
 
+  String _formatDate(String isoDate) {
+    try {
+      final DateTime d = DateTime.parse(isoDate);
+      const List<String> months = <String>[
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      const List<String> weekdays = <String>[
+        'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+      ];
+      return '${weekdays[d.weekday - 1]}, ${months[d.month - 1]} ${d.day}';
+    } catch (_) {
+      return isoDate;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final int groundFee = 5000;
+    final int groundFee = widget.amount > 0 ? widget.amount : 0;
     final int ballCost = _balls * 150;
     final int total = groundFee + ballCost;
 
@@ -75,12 +103,12 @@ class _SportsNeoBookingSummaryScreenState
                       title: 'Selected Slots',
                       child: Column(
                         children: <Widget>[
-                          _slotRow('Wed, Apr 8', '6:00 AM - 8:00 AM', '₹2500'),
-                          const SizedBox(height: 10),
                           _slotRow(
-                            'Wed, Apr 8',
-                            '10:00 AM - 12:00 AM',
-                            '₹2500',
+                            _formatDate(widget.date),
+                            widget.startTime.isNotEmpty && widget.endTime.isNotEmpty
+                                ? '${widget.startTime} - ${widget.endTime}'
+                                : '—',
+                            widget.amount > 0 ? '₹${widget.amount}' : '—',
                           ),
                         ],
                       ),
@@ -129,7 +157,7 @@ class _SportsNeoBookingSummaryScreenState
                       title: 'Payment Summary',
                       child: Column(
                         children: <Widget>[
-                          _payRow('Ground Fee', '₹$groundFee'),
+                          _payRow('Ground Fee', groundFee > 0 ? '₹$groundFee' : '—'),
                           _payRow('Red ball ($_balls)', '₹$ballCost'),
                           _payRow('Discount', '-₹0'),
                           const SizedBox(height: 8),
@@ -211,7 +239,14 @@ class _SportsNeoBookingSummaryScreenState
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => SportsNeoPaymentScreen(amount: total),
+                        builder: (_) => SportsNeoPaymentScreen(
+                        amount: total,
+                        groundName: widget.groundName,
+                        location: widget.location,
+                        date: widget.date,
+                        startTime: widget.startTime,
+                        endTime: widget.endTime,
+                      ),
                       ),
                     );
                   },

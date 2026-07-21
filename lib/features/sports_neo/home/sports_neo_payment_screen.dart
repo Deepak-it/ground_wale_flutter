@@ -3,9 +3,22 @@ import 'package:flutter/material.dart';
 import 'sports_neo_match_details_screen.dart';
 
 class SportsNeoPaymentScreen extends StatefulWidget {
-  const SportsNeoPaymentScreen({super.key, required this.amount});
+  const SportsNeoPaymentScreen({
+    super.key,
+    required this.amount,
+    this.groundName = '',
+    this.location = '',
+    this.date = '',
+    this.startTime = '',
+    this.endTime = '',
+  });
 
   final int amount;
+  final String groundName;
+  final String location;
+  final String date;
+  final String startTime;
+  final String endTime;
 
   @override
   State<SportsNeoPaymentScreen> createState() => _SportsNeoPaymentScreenState();
@@ -99,7 +112,14 @@ class _SportsNeoPaymentScreenState extends State<SportsNeoPaymentScreen> {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => SportsNeoMatchDetailsScreen(amount: widget.amount),
+        builder: (_) => SportsNeoMatchDetailsScreen(
+          amount: widget.amount,
+          groundName: widget.groundName,
+          location: widget.location,
+          date: widget.date,
+          startTime: widget.startTime,
+          endTime: widget.endTime,
+        ),
       ),
     );
   }

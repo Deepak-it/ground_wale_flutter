@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
+import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/base64_image.dart';
 import 'sports_neo_booking_summary_screen.dart';
 
-class SportsNeoGroundDetailScreen extends StatelessWidget {
+class SportsNeoGroundDetailScreen extends StatefulWidget {
   const SportsNeoGroundDetailScreen({
     super.key,
     required this.name,
@@ -12,6 +13,7 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
     required this.rating,
     required this.facilities,
     required this.price,
+    this.groundId = '',
   });
 
   final String name;
@@ -20,12 +22,236 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
   final double rating;
   final List<String> facilities;
   final String price;
+  final String groundId;
+
+  @override
+  State<SportsNeoGroundDetailScreen> createState() =>
+      _SportsNeoGroundDetailScreenState();
+}
+
+class _SportsNeoGroundDetailScreenState
+    extends State<SportsNeoGroundDetailScreen> {
+  late DateTime _selectedDate;
+  bool _isLoadingSlots = false;
+  List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
+  String? _selectedSlotId;
+
+  @override
+  void initState() {
+    super.initState();
+    final DateTime now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
+    _loadSlots();
+  }
+
+  String _apiDate(DateTime date) {
+    final String m = date.month.toString().padLeft(2, '0');
+    final String d = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$m-$d';
+  }
+
+  Future<void> _loadSlots() async {
+    if (widget.groundId.isEmpty) {
+      return;
+    }
+    setState(() => _isLoadingSlots = true);
+    try {
+      final List<Map<String, dynamic>> slots =
+          await GroundWaleApi.instance.listSlots(
+        widget.groundId,
+        date: _apiDate(_selectedDate),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _slots = slots;
+        _selectedSlotId = null;
+        _isLoadingSlots = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isLoadingSlots = false);
+    }
+  }
+
+  int _slotPrice(Map<String, dynamic> slot) {
+    final dynamic p = slot['price'];
+    if (p is int) {
+      return p;
+    }
+    if (p is double) {
+      return p.round();
+    }
+    if (p is String) {
+      return int.tryParse(p) ?? 0;
+    }
+    return 0;
+  }
+
+  String _slotId(Map<String, dynamic> slot) {
+    return slot['_id']?.toString() ?? slot['id']?.toString() ?? '';
+  }
+
+  int _hourFromTime(String time) {
+    final RegExpMatch? match = RegExp(r'^(\d{1,2})').firstMatch(time);
+    if (match == null) {
+      return 0;
+    }
+    int h = int.tryParse(match.group(1) ?? '') ?? 0;
+    final String upper = time.toUpperCase();
+    if (upper.contains('PM') && h < 12) {
+      h += 12;
+    }
+    if (upper.contains('AM') && h == 12) {
+      h = 0;
+    }
+    return h;
+  }
+
+  List<Map<String, dynamic>> _slotsForSection(int startHour, int endHour) {
+    return _slots.where((Map<String, dynamic> s) {
+      final int h = _hourFromTime(s['startTime']?.toString() ?? '');
+      return h >= startHour && h < endHour;
+    }).toList();
+  }
+
+  _SlotItem _toSlotItem(Map<String, dynamic> slot) {
+    final String status =
+        (slot['status']?.toString() ?? 'available').toLowerCase();
+    final String statusLabel = status == 'booked'
+        ? 'Booked'
+        : status == 'blocked'
+            ? 'Blocked'
+            : 'Available';
+
+    Color colorA, colorB;
+    if (status == 'booked') {
+      colorA = const Color(0xFFE5C28F);
+      colorB = const Color(0xFFDE8E19);
+    } else if (status == 'blocked') {
+      colorA = const Color(0xFF629CDD);
+      colorB = const Color(0xFF1F5C9F);
+    } else {
+      colorA = const Color(0xFF77A2C4);
+      colorB = const Color(0xFF7FC2F9);
+    }
+
+    final int price = _slotPrice(slot);
+    return _SlotItem(
+      time:
+          '${slot['startTime'] ?? ''} - ${slot['endTime'] ?? ''}'.trim(),
+      weather: price > 0 ? 'Rs $price' : '',
+      temp: '',
+      status: statusLabel,
+      colorA: colorA,
+      colorB: colorB,
+    );
+  }
+
+  Map<String, dynamic>? get _selectedSlot {
+    if (_selectedSlotId == null) {
+      return null;
+    }
+    for (final Map<String, dynamic> s in _slots) {
+      if (_slotId(s) == _selectedSlotId) {
+        return s;
+      }
+    }
+    return null;
+  }
+
+  Widget _buildSlotSections() {
+    if (widget.groundId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    if (_isLoadingSlots) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+        ),
+      );
+    }
+    if (_slots.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0x0AFFFFFF),
+          border: Border.all(color: const Color(0x1FFFFFFF)),
+        ),
+        child: const Text(
+          'No slots available for this date.',
+          style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 14),
+        ),
+      );
+    }
+
+    final List<Widget> sections = <Widget>[];
+    final Map<String, List<Map<String, dynamic>>> sectionMap =
+        <String, List<Map<String, dynamic>>>{
+      'Morning': _slotsForSection(5, 12),
+      'Afternoon': _slotsForSection(12, 17),
+      'Evening': _slotsForSection(17, 24),
+    };
+
+    for (final MapEntry<String, List<Map<String, dynamic>>> entry
+        in sectionMap.entries) {
+      if (entry.value.isEmpty) {
+        continue;
+      }
+      if (sections.isNotEmpty) {
+        sections.add(const SizedBox(height: 16));
+      }
+      sections.add(
+        _SlotSection(
+          title: entry.key,
+          slots: entry.value
+              .map((Map<String, dynamic> slot) => _toSlotItem(slot))
+              .toList(),
+          selectedId: _selectedSlotId,
+          slotIds:
+              entry.value.map((Map<String, dynamic> s) => _slotId(s)).toList(),
+          onSlotTap: (String id, String status) {
+            if (status == 'Available') {
+              setState(
+                () => _selectedSlotId = _selectedSlotId == id ? null : id,
+              );
+            }
+          },
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sections,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<String> shownFacilities = facilities.isEmpty
+    final List<String> shownFacilities = widget.facilities.isEmpty
         ? const <String>['Parking', 'Washroom', 'Water', 'Lighting']
-        : facilities;
+        : widget.facilities;
+
+    final DateTime today = DateTime.now();
+    final List<DateTime> dateDays = List<DateTime>.generate(
+      7,
+      (int i) {
+        final DateTime d = today.add(Duration(days: i));
+        return DateTime(d.year, d.month, d.day);
+      },
+    );
+    const List<String> _weekLabels = <String>[
+      'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+    ];
+
+    final Map<String, dynamic>? selSlot = _selectedSlot;
+    final int selPrice = selSlot != null ? _slotPrice(selSlot) : 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
@@ -37,31 +263,28 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
             color: Color(0xFF0A0F1E),
             border: Border(top: BorderSide(color: Color(0x1F000000))),
             boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Color(0x0F000000),
-                blurRadius: 24,
-              ),
+              BoxShadow(color: Color(0x0F000000), blurRadius: 24),
             ],
           ),
           child: Row(
             children: <Widget>[
-              const Expanded(
+              Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      '1 slot(s) selected',
-                      style: TextStyle(
+                      selSlot != null ? '1 slot(s) selected' : 'No slot selected',
+                      style: const TextStyle(
                         color: Color(0x99FFFFFF),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text(
-                      '₹2500',
-                      style: TextStyle(
+                      selPrice > 0 ? 'â‚¹$selPrice' : widget.price,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -86,18 +309,28 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => SportsNeoBookingSummaryScreen(
-                          groundName: name,
-                          location: location,
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: selSlot == null
+                      ? null
+                      : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => SportsNeoBookingSummaryScreen(
+                                groundName: widget.name,
+                                location: widget.location,
+                                slotId: _slotId(selSlot),
+                                date: _apiDate(_selectedDate),
+                                startTime:
+                                    selSlot['startTime']?.toString() ?? '',
+                                endTime: selSlot['endTime']?.toString() ?? '',
+                                amount: selPrice,
+                                groundId: widget.groundId,
+                              ),
+                            ),
+                          );
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
+                    disabledBackgroundColor: const Color(0x662563EB),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -128,7 +361,7 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
             child: SizedBox(
               height: 240,
               child: buildBase64OrNetworkImage(
-                value: image,
+                value: widget.image,
                 fit: BoxFit.cover,
                 fallback: Container(
                   color: const Color(0xFF1E293B),
@@ -169,7 +402,9 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                               children: <Widget>[
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16, 20, 16, 16,
+                                  ),
                                   decoration: const BoxDecoration(
                                     color: Color(0xFF0A0F1E),
                                     borderRadius: BorderRadius.vertical(
@@ -177,10 +412,12 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                                     ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: <Widget>[
                                       Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: <Widget>[
                                           Expanded(
                                             child: Column(
@@ -188,7 +425,7 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                                                   CrossAxisAlignment.start,
                                               children: <Widget>[
                                                 Text(
-                                                  name,
+                                                  widget.name,
                                                   style: const TextStyle(
                                                     color: Colors.white,
                                                     fontSize: 18,
@@ -199,29 +436,24 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                                                 Row(
                                                   children: <Widget>[
                                                     const Icon(
-                                                      Icons.location_on_outlined,
+                                                      Icons
+                                                          .location_on_outlined,
                                                       color: Color(0x99FFFFFF),
                                                       size: 18,
                                                     ),
                                                     const SizedBox(width: 4),
                                                     Expanded(
                                                       child: Text(
-                                                        location,
+                                                        widget.location,
                                                         style: const TextStyle(
-                                                          color: Color(0x99FFFFFF),
+                                                          color:
+                                                              Color(0x99FFFFFF),
                                                           fontSize: 13,
-                                                          fontWeight: FontWeight.w500,
+                                                          fontWeight:
+                                                              FontWeight.w500,
                                                         ),
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    const Text(
-                                                      '2.0M',
-                                                      style: TextStyle(
-                                                        color: Color(0x99FFFFFF),
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.w500,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                       ),
                                                     ),
                                                   ],
@@ -236,7 +468,8 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                                             ),
                                             decoration: BoxDecoration(
                                               color: const Color(0x3DFFFFFF),
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                             ),
                                             child: Row(
                                               children: <Widget>[
@@ -247,8 +480,9 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                                                 ),
                                                 const SizedBox(width: 4),
                                                 Text(
-                                                  rating > 0
-                                                      ? rating.toStringAsFixed(1)
+                                                  widget.rating > 0
+                                                      ? widget.rating
+                                                          .toStringAsFixed(1)
                                                       : '4.6',
                                                   style: const TextStyle(
                                                     color: Colors.white,
@@ -265,14 +499,17 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                                       Wrap(
                                         spacing: 4,
                                         runSpacing: 4,
-                                        children: shownFacilities.take(4).map((String f) {
+                                        children: shownFacilities
+                                            .take(4)
+                                            .map((String f) {
                                           return Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                               color: const Color(0x14FFFFFF),
                                             ),
                                             child: Text(
@@ -286,197 +523,112 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
                                           );
                                         }).toList(),
                                       ),
-                                      const SizedBox(height: 14),
-                                      Row(
-                                        children: <Widget>[
-                                          const Icon(
-                                            Icons.wb_sunny_outlined,
-                                            color: Color(0xFFF59E0B),
-                                            size: 18,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Today: Mostly Sunny • 22°–28°C',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w400,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
                                     ],
                                   ),
                                 ),
                                 Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16, 24, 16, 0,
+                                  ),
                                   child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: <Widget>[
-                              _PanelCard(
-                                title: 'About Us',
-                                child: const Text(
-                                  'Professional cricket ground with well-maintained turf pitch. '
-                                  'Suitable for practice matches and tournaments. Facilities',
-                                  style: TextStyle(
-                                    color: Color(0xFFDDDDDD),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(0x1F2563EB),
-                                  ),
-                                  color: const Color(0x0A2563EB),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: <Widget>[
-                                    _CircleAction(
-                                      icon: Icons.call,
-                                      color: const Color(0xFF08B36A),
-                                    ),
-                                    _divider(),
-                                    _CircleAction(
-                                      icon: Icons.near_me_rounded,
-                                      color: const Color(0xFFDA321F),
-                                    ),
-                                    _divider(),
-                                    _CircleAction(
-                                      icon: Icons.chat,
-                                      color: const Color(0xFF22C55E),
-                                    ),
-                                    _divider(),
-                                    _CircleAction(
-                                      icon: Icons.sports_cricket,
-                                      color: Colors.white,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const _SectionTitle(title: 'Select Date'),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 78,
-                                child: ListView(
-                                  scrollDirection: Axis.horizontal,
-                                  children: const <Widget>[
-                                    _DateChip(label: 'Mon', day: '12'),
-                                    SizedBox(width: 12),
-                                    _DateChip(
-                                      label: 'Tue',
-                                      day: '13',
-                                      selected: true,
-                                    ),
-                                    SizedBox(width: 12),
-                                    _DateChip(label: 'Wed', day: '14'),
-                                    SizedBox(width: 12),
-                                    _DateChip(label: 'Thu', day: '15'),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const _SlotLegend(),
-                              const SizedBox(height: 16),
-                              _SlotSection(
-                                title: 'Morning',
-                                slots: const <_SlotItem>[
-                                  _SlotItem(
-                                    time: '07:30 - 08:30 AM',
-                                    weather: 'Cloudy',
-                                    temp: '22°C',
-                                    status: 'Available',
-                                    colorA: Color(0xFF77A2C4),
-                                    colorB: Color(0xFF7FC2F9),
-                                  ),
-                                  _SlotItem(
-                                    time: '09:00 - 10:00 AM',
-                                    weather: 'Sunny',
-                                    temp: '26°C',
-                                    status: 'Booked',
-                                    colorA: Color(0xFFE5C28F),
-                                    colorB: Color(0xFFDE8E19),
-                                  ),
-                                  _SlotItem(
-                                    time: '10:30 - 11:30 AM',
-                                    weather: 'Rainy',
-                                    temp: '24°C',
-                                    status: 'Blocked',
-                                    colorA: Color(0xFF629CDD),
-                                    colorB: Color(0xFF1F5C9F),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              _SlotSection(
-                                title: 'Afternoon',
-                                slots: const <_SlotItem>[
-                                  _SlotItem(
-                                    time: '12:00 - 01:00 PM',
-                                    weather: 'Cloudy',
-                                    temp: '22°C',
-                                    status: 'Available',
-                                    colorA: Color(0xFF77A2C4),
-                                    colorB: Color(0xFF7FC2F9),
-                                  ),
-                                  _SlotItem(
-                                    time: '01:30 - 02:30 PM',
-                                    weather: 'Sunny',
-                                    temp: '26°C',
-                                    status: 'Booked',
-                                    colorA: Color(0xFFE5C28F),
-                                    colorB: Color(0xFFDE8E19),
-                                  ),
-                                  _SlotItem(
-                                    time: '03:00 - 04:00 PM',
-                                    weather: 'Rainy',
-                                    temp: '24°C',
-                                    status: 'Blocked',
-                                    colorA: Color(0xFF629CDD),
-                                    colorB: Color(0xFF1F5C9F),
-                                  ),
-                                ],
-                              ),
-                                      const SizedBox(height: 16),
-                                      _SlotSection(
-                                        title: 'Evening',
-                                        slots: const <_SlotItem>[
-                                          _SlotItem(
-                                            time: '04:30 - 05:30 PM',
-                                            weather: 'Cloudy',
-                                            temp: '22°C',
-                                            status: 'Available',
-                                            colorA: Color(0xFF77A2C4),
-                                            colorB: Color(0xFF7FC2F9),
+                                      _PanelCard(
+                                        title: 'About Us',
+                                        child: const Text(
+                                          'Professional cricket ground with well-maintained turf pitch. '
+                                          'Suitable for practice matches and tournaments.',
+                                          style: TextStyle(
+                                            color: Color(0xFFDDDDDD),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w400,
                                           ),
-                                          _SlotItem(
-                                            time: '06:00 - 07:00 PM',
-                                            weather: 'Moon Night',
-                                            temp: '26°C',
-                                            status: 'Booked',
-                                            colorA: Color(0xFFE5C28F),
-                                            colorB: Color(0xFFDE8E19),
-                                          ),
-                                          _SlotItem(
-                                            time: '07:30 - 08:30 PM',
-                                            weather: 'Moon Night',
-                                            temp: '24°C',
-                                            status: 'Blocked',
-                                            colorA: Color(0xFF629CDD),
-                                            colorB: Color(0xFF1F5C9F),
-                                          ),
-                                        ],
+                                        ),
                                       ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: const Color(0x1F2563EB),
+                                          ),
+                                          color: const Color(0x0A2563EB),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: <Widget>[
+                                            _CircleAction(
+                                              icon: Icons.call,
+                                              color: const Color(0xFF08B36A),
+                                            ),
+                                            _divider(),
+                                            _CircleAction(
+                                              icon: Icons.near_me_rounded,
+                                              color: const Color(0xFFDA321F),
+                                            ),
+                                            _divider(),
+                                            _CircleAction(
+                                              icon: Icons.chat,
+                                              color: const Color(0xFF22C55E),
+                                            ),
+                                            _divider(),
+                                            _CircleAction(
+                                              icon: Icons.sports_cricket,
+                                              color: Colors.white,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const _SectionTitle(title: 'Select Date'),
+                                      const SizedBox(height: 12),
+                                      SizedBox(
+                                        height: 78,
+                                        child: ListView.separated(
+                                          scrollDirection: Axis.horizontal,
+                                          itemCount: dateDays.length,
+                                          separatorBuilder: (_, __) =>
+                                              const SizedBox(width: 12),
+                                          itemBuilder: (
+                                            BuildContext ctx,
+                                            int i,
+                                          ) {
+                                            final DateTime d = dateDays[i];
+                                            final bool sel =
+                                                _selectedDate.year ==
+                                                        d.year &&
+                                                    _selectedDate.month ==
+                                                        d.month &&
+                                                    _selectedDate.day == d.day;
+                                            return GestureDetector(
+                                              onTap: () {
+                                                setState(
+                                                  () => _selectedDate = d,
+                                                );
+                                                _loadSlots();
+                                              },
+                                              child: _DateChip(
+                                                label:
+                                                    _weekLabels[d.weekday - 1],
+                                                day: '${d.day}',
+                                                selected: sel,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const _SlotLegend(),
+                                      const SizedBox(height: 16),
+                                      _buildSlotSections(),
+                                      const SizedBox(height: 8),
                                     ],
                                   ),
                                 ),
@@ -504,6 +656,7 @@ class SportsNeoGroundDetailScreen extends StatelessWidget {
     );
   }
 }
+
 
 class _TopHeader extends StatelessWidget {
   const _TopHeader({
@@ -750,10 +903,19 @@ class _LegendItem extends StatelessWidget {
 }
 
 class _SlotSection extends StatelessWidget {
-  const _SlotSection({required this.title, required this.slots});
+  const _SlotSection({
+    required this.title,
+    required this.slots,
+    this.selectedId,
+    this.slotIds = const <String>[],
+    this.onSlotTap,
+  });
 
   final String title;
   final List<_SlotItem> slots;
+  final String? selectedId;
+  final List<String> slotIds;
+  final void Function(String id, String status)? onSlotTap;
 
   @override
   Widget build(BuildContext context) {
@@ -769,12 +931,28 @@ class _SlotSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...slots.map(
-          (_SlotItem slot) => Padding(
+        ...List<Widget>.generate(slots.length, (int i) {
+          final _SlotItem slot = slots[i];
+          final String id = i < slotIds.length ? slotIds[i] : '';
+          final bool selected = id.isNotEmpty && id == selectedId;
+          return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _SlotCard(slot: slot),
-          ),
-        ),
+            child: GestureDetector(
+              onTap: onSlotTap != null && id.isNotEmpty
+                  ? () => onSlotTap!(id, slot.status)
+                  : null,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: selected
+                      ? Border.all(color: const Color(0xFF2563EB), width: 2)
+                      : null,
+                ),
+                child: _SlotCard(slot: slot),
+              ),
+            ),
+          );
+        }),
       ],
     );
   }

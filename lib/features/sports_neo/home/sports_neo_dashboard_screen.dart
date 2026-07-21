@@ -305,6 +305,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         imageUrl: imageUrl,
         rating: rating,
         facilities: facilities,
+        groundId: item['_id']?.toString() ?? item['id']?.toString() ?? '',
       );
     }).toList();
   }
@@ -1652,6 +1653,7 @@ class _NearbyGroundShowcaseCard extends StatelessWidget {
                               rating: item.rating,
                               facilities: item.facilities,
                               price: item.price,
+                              groundId: item.groundId,
                             ),
                           ),
                         );
@@ -2084,6 +2086,7 @@ class _GroundCardData {
     this.imageUrl = '',
     this.rating = 0,
     this.facilities = const <String>[],
+    this.groundId = '',
   });
 
   final String name;
@@ -2093,6 +2096,7 @@ class _GroundCardData {
   final String imageUrl;
   final double rating;
   final List<String> facilities;
+  final String groundId;
 }
 
 class _InfoCardData {

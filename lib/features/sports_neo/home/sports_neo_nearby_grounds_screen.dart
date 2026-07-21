@@ -338,6 +338,7 @@ class _NearbyGroundListCard extends StatelessWidget {
                               rating: item.rating,
                               facilities: item.facilities,
                               price: item.price,
+                              groundId: item.groundId,
                             ),
                           ),
                         );
@@ -381,6 +382,7 @@ class _NearbyGroundItem {
     required this.rating,
     required this.facilities,
     required this.price,
+    this.groundId = '',
   });
 
   final String name;
@@ -389,6 +391,7 @@ class _NearbyGroundItem {
   final double rating;
   final List<String> facilities;
   final String price;
+  final String groundId;
 
   factory _NearbyGroundItem.fromMap(
     Map<String, dynamic> map, {
@@ -415,6 +418,7 @@ class _NearbyGroundItem {
           ? const <String>['No facility details']
           : facilities,
       price: priceText ?? 'N/A',
+      groundId: map['_id']?.toString() ?? map['id']?.toString() ?? '',
     );
   }
 

@@ -3,9 +3,38 @@ import 'package:flutter/material.dart';
 import 'sports_neo_choose_team_screen.dart';
 
 class SportsNeoMatchDetailsScreen extends StatelessWidget {
-  const SportsNeoMatchDetailsScreen({super.key, required this.amount});
+  const SportsNeoMatchDetailsScreen({
+    super.key,
+    required this.amount,
+    this.groundName = '',
+    this.location = '',
+    this.date = '',
+    this.startTime = '',
+    this.endTime = '',
+  });
 
   final int amount;
+  final String groundName;
+  final String location;
+  final String date;
+  final String startTime;
+  final String endTime;
+
+  String _formatDate(String isoDate) {
+    try {
+      final DateTime d = DateTime.parse(isoDate);
+      const List<String> months = <String>[
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      const List<String> weekdays = <String>[
+        'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+      ];
+      return '${weekdays[d.weekday - 1]}, ${months[d.month - 1]} ${d.day}, ${d.year}';
+    } catch (_) {
+      return isoDate;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,22 +102,24 @@ class SportsNeoMatchDetailsScreen extends StatelessWidget {
                           const SizedBox(height: 16),
                           Container(height: 1, color: const Color(0x33FFFFFF)),
                           const SizedBox(height: 12),
-                          const _DetailRow(
+                          _DetailRow(
                             icon: Icons.location_on_outlined,
-                            title: 'Green Valley Cricket Ground',
-                            subtitle: 'sector 18, Mohali',
+                            title: groundName.isNotEmpty ? groundName : 'Cricket Ground',
+                            subtitle: location.isNotEmpty ? location : '',
                           ),
                           const SizedBox(height: 12),
-                          const _DetailRow(
+                          _DetailRow(
                             icon: Icons.calendar_month_outlined,
-                            title: 'Wednesday, Apr 8, 2026',
-                            subtitle: '6:00 AM - 8:00 AM',
+                            title: date.isNotEmpty ? _formatDate(date) : '—',
+                            subtitle: startTime.isNotEmpty && endTime.isNotEmpty
+                                ? '$startTime - $endTime'
+                                : '',
                           ),
                           const SizedBox(height: 12),
                           _DetailRow(
                             icon: Icons.sports_cricket,
                             title: 'Cricket Match',
-                            subtitle: 'Amount: ₹$amount',
+                            subtitle: amount > 0 ? 'Amount: ₹$amount' : '',
                           ),
                         ],
                       ),
