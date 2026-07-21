@@ -286,10 +286,24 @@ class _BoxCricketManageSlotsScreenState
       final DateTime end = to.isAfter(_rangeEnd) ? _rangeEnd : to;
 
       while (!cursor.isAfter(end)) {
-        final Map<String, dynamic> entry = Map<String, dynamic>.from(slot);
-        entry['date'] = _dateKey(cursor);
-        entry['status'] = _statusForDay(slot, cursor);
-        expanded.add(entry);
+        final String dayKey = _dateKey(cursor);
+
+        // Skip days that were soft-deleted for this range slot.
+        final Set<String> deletedKeys = _dayKeysFrom(slot['deletedDates']);
+        if (!deletedKeys.contains(dayKey)) {
+          final Map<String, dynamic> entry = Map<String, dynamic>.from(slot);
+          entry['date'] = dayKey;
+          entry['status'] = _statusForDay(slot, cursor);
+
+          // Apply per-day price override if present.
+          final dynamic rawOverrides = slot['priceOverrides'];
+          if (rawOverrides is Map && rawOverrides.containsKey(dayKey)) {
+            entry['price'] = rawOverrides[dayKey];
+          }
+
+          expanded.add(entry);
+        }
+
         cursor = cursor.add(const Duration(days: 1));
       }
     }
@@ -719,6 +733,11 @@ class _BoxCricketManageSlotsScreenState
                             'endTime': endCtrl.text.trim(),
                             'price': _toInt(priceCtrl.text.trim()),
                             'status': slot['status']?.toString() ?? 'available',
+                            // For range slots, scope the price update to the
+                            // specific day being edited.
+                            if (slot['dateFrom'] != null && slot['dateTo'] != null &&
+                                slot['date'] != null)
+                              'date': slot['date'].toString(),
                           },
                         );
                         if (!modalContext.mounted) {
@@ -769,49 +788,103 @@ class _BoxCricketManageSlotsScreenState
   Future<void> _confirmDelete(Map<String, dynamic> slot) async {
     final bool? ok = await showDialog<bool>(
       context: context,
+      barrierColor: const Color(0x66000000),
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Center(
-            child: Text(
-              'Delete Slot?',
-              style: TextStyle(
-                color: Color(0xFF242424),
-                fontWeight: FontWeight.w600,
-              ),
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 358,
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
             ),
-          ),
-          content: const Text(
-            'This action cannot be undone.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0x99242424)),
-          ),
-          actions: <Widget>[
-            Expanded(
-              child: TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0x1F08B36A),
-                  foregroundColor: const Color(0xFF08B36A),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(
+                    color: Color(0x1FE3220D),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFFE3220D),
+                    size: 32,
+                  ),
                 ),
-                child: const Text('Cancel'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0x1FE3220D),
-                  foregroundColor: const Color(0xFFE3220D),
+                const SizedBox(height: 16),
+                const Text(
+                  'Delete Slot?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF0A2E4E),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                child: const Text('Delete'),
-              ),
+                const SizedBox(height: 12),
+                const Text(
+                  'This action cannot be undone.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF4F5D73),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF08B36A)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size.fromHeight(44),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Color(0xFF08B36A),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE3220D),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size.fromHeight(44),
+                        ),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -826,7 +899,12 @@ class _BoxCricketManageSlotsScreenState
         }
         return;
       }
-      await GroundWaleApi.instance.deleteSlot(slotId);
+      // For range slots, pass the specific day so only that day is removed.
+      final bool isRangeSlot =
+          slot['dateFrom'] != null && slot['dateTo'] != null;
+      final String? deleteDate =
+          isRangeSlot ? slot['date']?.toString() : null;
+      await GroundWaleApi.instance.deleteSlot(slotId, date: deleteDate);
       if (!mounted) {
         return;
       }
@@ -837,49 +915,103 @@ class _BoxCricketManageSlotsScreenState
   Future<void> _confirmBlock(Map<String, dynamic> slot) async {
     final bool? ok = await showDialog<bool>(
       context: context,
+      barrierColor: const Color(0x66000000),
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Center(
-            child: Text(
-              'Block Slot?',
-              style: TextStyle(
-                color: Color(0xFF242424),
-                fontWeight: FontWeight.w600,
-              ),
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 358,
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
             ),
-          ),
-          content: const Text(
-            'Are you sure this slot blocked.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0x99242424)),
-          ),
-          actions: <Widget>[
-            Expanded(
-              child: TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0x1F08B36A),
-                  foregroundColor: const Color(0xFF08B36A),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: const BoxDecoration(
+                    color: Color(0x1FE3220D),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.block_rounded,
+                    color: Color(0xFFE3220D),
+                    size: 32,
+                  ),
                 ),
-                child: const Text('Cancel'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0x1FE3220D),
-                  foregroundColor: const Color(0xFFE3220D),
+                const SizedBox(height: 16),
+                const Text(
+                  'Block Slot?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF0A2E4E),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                child: const Text('Block'),
-              ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Are you sure you want to block this slot?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF4F5D73),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF08B36A)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size.fromHeight(44),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Color(0xFF08B36A),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE3220D),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size.fromHeight(44),
+                        ),
+                        child: const Text(
+                          'Block',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );

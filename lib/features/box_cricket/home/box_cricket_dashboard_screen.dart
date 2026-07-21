@@ -21,12 +21,14 @@ class BoxCricketDashboardScreen extends StatefulWidget {
     this.onOpenBookings,
     this.onOpenSlots,
     this.onOpenProfile,
+    this.refreshKey = 0,
   });
 
   final bool showBottomNav;
   final VoidCallback? onOpenBookings;
   final VoidCallback? onOpenSlots;
   final VoidCallback? onOpenProfile;
+  final int refreshKey;
 
   @override
   State<BoxCricketDashboardScreen> createState() =>
@@ -68,6 +70,14 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(BoxCricketDashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshKey != oldWidget.refreshKey) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -539,16 +549,24 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
         final DateTime? dateFrom = _parseCalendarDate(slot['dateFrom']);
         final DateTime? dateTo = _parseCalendarDate(slot['dateTo']);
         if (dateFrom != null && dateTo != null) {
+          final List<String> deletedDayKeys =
+              ((slot['deletedDates'] as List<dynamic>?) ?? <dynamic>[])
+                  .map((dynamic item) => item.toString().trim())
+                  .where((String item) => item.isNotEmpty)
+                  .toList();
           DateTime cursor = dateFrom.isBefore(monthStart) ? monthStart : dateFrom;
           final DateTime end = dateTo.isAfter(monthEnd) ? monthEnd : dateTo;
           while (!cursor.isAfter(end)) {
             final String dayKey = _dayKey(cursor);
-            final bool blockedForDay =
-              status == 'blocked' || blockedDayKeys.contains(dayKey);
-            final String dayStatus = blockedForDay
-              ? 'blocked'
-              : (bookedDayKeys.contains(dayKey) ? 'booked' : 'available');
-            applyToDay(dayKey, dayStatus, slot);
+            // Skip soft-deleted days entirely — they have no slot.
+            if (!deletedDayKeys.contains(dayKey)) {
+              final bool blockedForDay =
+                status == 'blocked' || blockedDayKeys.contains(dayKey);
+              final String dayStatus = blockedForDay
+                ? 'blocked'
+                : (bookedDayKeys.contains(dayKey) ? 'booked' : 'available');
+              applyToDay(dayKey, dayStatus, slot);
+            }
             cursor = cursor.add(const Duration(days: 1));
           }
         }
@@ -687,11 +705,13 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       widget.onOpenSlots!.call();
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const BoxCricketManageSlotsScreen(),
-      ),
-    );
+    Navigator.of(context)
+        .push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const BoxCricketManageSlotsScreen(),
+          ),
+        )
+        .then((_) => _load());
   }
 
   Future<void> _openEditGround() async {

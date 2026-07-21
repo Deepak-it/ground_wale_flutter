@@ -30,6 +30,7 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
   int _topTabIndex = 0;
   int _groundNavIndex = 0;
   int _academyNavIndex = 0;
+  int _dashboardRefreshKey = 0;
   bool _isLoadingCounts = true;
   int _groundCount = 0;
   int _academyCount = 0;
@@ -248,6 +249,7 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
               children: <Widget>[
                 BoxCricketDashboardScreen(
                   showBottomNav: false,
+                  refreshKey: _dashboardRefreshKey,
                   onOpenBookings: () => setState(() => _groundNavIndex = 1),
                   onOpenSlots: () => setState(() => _groundNavIndex = 2),
                   onOpenProfile: () => setState(() => _groundNavIndex = 3),
@@ -361,6 +363,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             selected: _groundNavIndex == 0,
             onTap: () {
               _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              if (_groundNavIndex != 0) {
+                _dashboardRefreshKey++;
+              }
               setState(() => _groundNavIndex = 0);
             },
           ),

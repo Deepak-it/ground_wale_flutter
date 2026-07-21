@@ -625,9 +625,12 @@ class GroundWaleApi {
     }
   }
 
-  Future<void> deleteSlot(String slotId) async {
+  Future<void> deleteSlot(String slotId, {String? date}) async {
     try {
-      await _dio.delete<dynamic>('/slots/$slotId');
+      await _dio.delete<dynamic>(
+        '/slots/$slotId',
+        queryParameters: date != null ? <String, dynamic>{'date': date} : null,
+      );
     } catch (error) {
       throw _mapError(error);
     }
