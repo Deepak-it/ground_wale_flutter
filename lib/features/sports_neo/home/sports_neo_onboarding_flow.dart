@@ -213,13 +213,15 @@ const List<_OnboardingSlideData> _sportsNeoSlides = <_OnboardingSlideData>[
     imageAsset: 'assets/images/1st-slide.png',
     titlePrimary: 'Book Ground\n',
     titleAccent: 'instantly',
-    subtitle: 'Find nearby sports grounds, compare slots and play without waiting.',
+    subtitle:
+        'Find nearby sports grounds, compare slots and play without waiting.',
   ),
   _OnboardingSlideData(
     imageAsset: 'assets/images/2nd-slide.png',
     titlePrimary: 'Manage Teams\n',
     titleAccent: '& Matches',
-    subtitle: 'Create squads, track players and schedule matches, split payments.',
+    subtitle:
+        'Create squads, track players and schedule matches, split payments.',
   ),
   _OnboardingSlideData(
     imageAsset: 'assets/images/3rd-slide.png',
@@ -248,7 +250,9 @@ class _SportsNeoWelcomeScreenState extends State<SportsNeoWelcomeScreen> {
 
   void _openLoginOptions() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const _SportsNeoLoginOptionsScreen()),
+      MaterialPageRoute<void>(
+        builder: (_) => const _SportsNeoLoginOptionsScreen(),
+      ),
     );
   }
 
@@ -358,9 +362,13 @@ class _SportsNeoWelcomeScreenState extends State<SportsNeoWelcomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
                   Row(
-                    children: List<Widget>.generate(_sportsNeoSlides.length, (int i) {
+                    children: List<Widget>.generate(_sportsNeoSlides.length, (
+                      int i,
+                    ) {
                       return Padding(
-                        padding: EdgeInsets.only(right: i == _sportsNeoSlides.length - 1 ? 0 : 6),
+                        padding: EdgeInsets.only(
+                          right: i == _sportsNeoSlides.length - 1 ? 0 : 6,
+                        ),
                         child: _indicatorDot(i == _currentPage),
                       );
                     }),
@@ -773,56 +781,60 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  GestureDetector(
-                    onTap: () {
-                      setState(() => _acceptedTerms = !_acceptedTerms);
-                    },
-                    child: Container(
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.white),
-                        color: _acceptedTerms
-                            ? const Color(0xFF2563EB)
-                            : Colors.transparent,
-                      ),
-                      child: _acceptedTerms
-                          ? const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 12,
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        style: TextStyle(
-                          fontFamily: 'Lato',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
+              GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () {
+                  setState(() => _acceptedTerms = !_acceptedTerms);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.white),
+                          color: _acceptedTerms
+                              ? const Color(0xFF2563EB)
+                              : Colors.transparent,
                         ),
-                        children: <InlineSpan>[
-                          TextSpan(
-                            text: 'If you continue, you are accepting ',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          TextSpan(
-                            text:
-                                'SportsNeo Terms & Conditions and Prvacy Policy.',
-                            style: TextStyle(color: Color(0xFF2563EB)),
-                          ),
-                        ],
+                        child: _acceptedTerms
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 12,
+                              )
+                            : null,
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            style: TextStyle(
+                              fontFamily: 'Lato',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            children: <InlineSpan>[
+                              TextSpan(
+                                text: 'If you continue, you are accepting ',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              TextSpan(
+                                text:
+                                    'SportsNeo Terms & Conditions and Privacy Policy.',
+                                style: TextStyle(color: Color(0xFF2563EB)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 24),
               _PrimaryActionButton(
@@ -942,7 +954,8 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              if (widget.apiOtp != null && widget.apiOtp!.trim().isNotEmpty) ...<Widget>[
+              if (widget.apiOtp != null &&
+                  widget.apiOtp!.trim().isNotEmpty) ...<Widget>[
                 const SizedBox(height: 6),
                 Text(
                   'OTP: ${widget.apiOtp}',
@@ -1185,7 +1198,9 @@ class _SportsNeoCompleteProfileScreenState
             throw Exception('Selected image has no readable bytes');
           }
           if (bytes.length > _maxImageBytes) {
-            throw Exception('Image is too large. Please select an image smaller than 3 MB.');
+            throw Exception(
+              'Image is too large. Please select an image smaller than 3 MB.',
+            );
           }
           mime = _mimeTypeFromName(file.name);
         } on MissingPluginException {
@@ -1203,7 +1218,9 @@ class _SportsNeoCompleteProfileScreenState
             throw Exception('Selected image has no readable bytes');
           }
           if (bytes.length > _maxImageBytes) {
-            throw Exception('Image is too large. Please select an image smaller than 3 MB.');
+            throw Exception(
+              'Image is too large. Please select an image smaller than 3 MB.',
+            );
           }
           mime = file.mimeType ?? _mimeTypeFromName(file.name);
         }
@@ -1221,7 +1238,9 @@ class _SportsNeoCompleteProfileScreenState
           throw Exception('Selected image has no readable bytes');
         }
         if (bytes.length > _maxImageBytes) {
-          throw Exception('Image is too large. Please select an image smaller than 3 MB.');
+          throw Exception(
+            'Image is too large. Please select an image smaller than 3 MB.',
+          );
         }
         mime = file.mimeType ?? _mimeTypeFromName(file.name);
       }
@@ -1276,8 +1295,8 @@ class _SportsNeoCompleteProfileScreenState
     final DateTime lastDate = DateTime(now.year - 5, now.month, now.day);
     final DateTime initialDate =
         _selectedDob != null && _selectedDob!.isBefore(lastDate)
-            ? _selectedDob!
-            : lastDate;
+        ? _selectedDob!
+        : lastDate;
 
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -1315,7 +1334,8 @@ class _SportsNeoCompleteProfileScreenState
   Future<void> _fetchProfileLocation() async {
     setState(() => _isFetchingLocation = true);
     try {
-      final LocationResult result = await LocationService.fetchCurrentLocation();
+      final LocationResult result =
+          await LocationService.fetchCurrentLocation();
       setState(() {
         _cityController.text = result.city;
         _stateController.text = result.state;
@@ -1350,9 +1370,9 @@ class _SportsNeoCompleteProfileScreenState
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Location error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Location error: $e')));
     } finally {
       if (mounted) setState(() => _isFetchingLocation = false);
     }
@@ -1615,21 +1635,23 @@ class _SportsNeoCompleteProfileScreenState
 
                         setState(() => _isSaving = true);
                         try {
-                          final String normalizedRole =
-                              _selectedRole == 'Owner' ? 'owner' : 'player';
-                          final Map<String, dynamic> payload = <String, dynamic>{
-                            'ownerName': _fullNameController.text.trim(),
-                            'email': widget.prefillEmail,
-                            'address': _cityController.text.trim(),
-                            'city': _cityController.text.trim(),
-                            'state': _stateController.text.trim(),
-                            'sports': _sportsController.text.trim(),
-                            'dob': _dobController.text.trim(),
-                            'sportsNeoRole': normalizedRole,
-                            'role': normalizedRole,
-                            if (_profileImageBase64 != null)
-                              'profileImage': _profileImageBase64,
-                          };
+                          final String normalizedRole = _selectedRole == 'Owner'
+                              ? 'owner'
+                              : 'player';
+                          final Map<String, dynamic> payload =
+                              <String, dynamic>{
+                                'ownerName': _fullNameController.text.trim(),
+                                'email': widget.prefillEmail,
+                                'address': _cityController.text.trim(),
+                                'city': _cityController.text.trim(),
+                                'state': _stateController.text.trim(),
+                                'sports': _sportsController.text.trim(),
+                                'dob': _dobController.text.trim(),
+                                'sportsNeoRole': normalizedRole,
+                                'role': normalizedRole,
+                                if (_profileImageBase64 != null)
+                                  'profileImage': _profileImageBase64,
+                              };
                           await _api.updateOwnerProfile(
                             ApiSession.instance.ownerId!,
                             payload,
@@ -3541,7 +3563,8 @@ class _SportsNeoLocationScreenState extends State<SportsNeoLocationScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final LocationResult result = await LocationService.fetchCurrentLocation();
+      final LocationResult result =
+          await LocationService.fetchCurrentLocation();
       // Save whatever we have — coordinates are always saved.
       // city/state may be empty if geocoding failed; that is acceptable.
       await _api.updateOwnerProfile(ownerId, <String, dynamic>{
@@ -3558,7 +3581,9 @@ class _SportsNeoLocationScreenState extends State<SportsNeoLocationScreen> {
       if (!result.geocodingSucceeded) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Location saved. You can update city/state in your profile.'),
+            content: Text(
+              'Location saved. You can update city/state in your profile.',
+            ),
           ),
         );
       }
@@ -3825,5 +3850,3 @@ class _SportsNeoLocationScreenState extends State<SportsNeoLocationScreen> {
     );
   }
 }
-
-
