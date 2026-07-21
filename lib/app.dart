@@ -6,8 +6,39 @@ import 'features/ground_court/home/ground_court_owner_shell_screen.dart';
 import 'features/sports_neo/home/sports_neo_dashboard_screen.dart';
 import 'features/sports_neo/home/sports_neo_onboarding_flow.dart';
 
-class GroundWaleApp extends StatelessWidget {
+class GroundWaleApp extends StatefulWidget {
   const GroundWaleApp({super.key});
+
+  @override
+  State<GroundWaleApp> createState() => _GroundWaleAppState();
+}
+
+class _GroundWaleAppState extends State<GroundWaleApp> {
+  bool _sessionBootstrapped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapSession();
+  }
+
+  Future<void> _bootstrapSession() async {
+    bool restored = false;
+    for (int attempt = 0; attempt < 5; attempt++) {
+      restored = await ApiSession.instance.restoreFromStorage();
+      if (restored) {
+        break;
+      }
+      await Future<void>.delayed(Duration(milliseconds: 250 * (attempt + 1)));
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _sessionBootstrapped = true;
+    });
+  }
 
   String _normalizeRole(dynamic raw) {
     if (raw == null) {
@@ -67,17 +98,35 @@ class GroundWaleApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!_sessionBootstrapped) {
+      return MaterialApp(
+        title: 'Cric Info',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.darkTheme,
+        home: const Scaffold(
+          backgroundColor: Color(0xFF0A0F1E),
+          body: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      );
+    }
+
     return MaterialApp(
       title: 'Cric Info',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: _homeForCurrentSession(),
+      home: AnimatedBuilder(
+        animation: ApiSession.instance,
+        builder: (BuildContext context, Widget? _) {
+          return _homeForCurrentSession();
+        },
+      ),
       builder: (BuildContext context, Widget? child) {
-        return SafeArea(
-          top: true,
-          bottom: true,
-          child: child!,
-        );
+        return SafeArea(top: true, bottom: true, child: child!);
       },
     );
   }
