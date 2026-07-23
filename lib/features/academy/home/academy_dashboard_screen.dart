@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -58,6 +59,46 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       }
     }
     return null;
+  }
+
+  List<String> _academyImageValues(Map<String, dynamic> academy) {
+    final List<String> values = <String>[];
+
+    void addIfValid(dynamic raw) {
+      final String value = raw?.toString().trim() ?? '';
+      if (value.isNotEmpty && !values.contains(value)) {
+        values.add(value);
+      }
+    }
+
+    addIfValid(academy['image']);
+    addIfValid(academy['imageUrl']);
+    addIfValid(academy['coverImage']);
+    addIfValid(academy['bannerImage']);
+    addIfValid(academy['photoUrl']);
+
+    final dynamic imageUrls = academy['imageUrls'];
+    if (imageUrls is List) {
+      for (final dynamic item in imageUrls) {
+        addIfValid(item);
+      }
+    }
+
+    final dynamic academyImages = academy['academyImages'];
+    if (academyImages is List) {
+      for (final dynamic item in academyImages) {
+        addIfValid(item);
+      }
+    }
+
+    final dynamic images = academy['images'];
+    if (images is List) {
+      for (final dynamic item in images) {
+        addIfValid(item);
+      }
+    }
+
+    return values;
   }
 
   String _monthKey(DateTime date) {
@@ -230,7 +271,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           );
           return Image.memory(
             base64Decode(encoded),
-            fit: BoxFit.contain,
+            fit: BoxFit.cover,
             errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
           );
         } catch (_) {
@@ -243,7 +284,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     if (source.startsWith('http://') || source.startsWith('https://')) {
       return Image.network(
         source,
-        fit: BoxFit.contain,
+        fit: BoxFit.cover,
         errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
       );
     }
@@ -253,7 +294,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       final String encoded = _normalizeBase64(source);
       return Image.memory(
         base64Decode(encoded),
-        fit: BoxFit.contain,
+        fit: BoxFit.cover,
         errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
       );
     } catch (_) {
@@ -845,7 +886,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                     const SizedBox(height: 12),
                     if (_academies.isNotEmpty)
                       SizedBox(
-                        height: 460,
+                        height: 336,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _academies.length + 1,
@@ -858,267 +899,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             final Map<String, dynamic> academy =
                                 _academies[index];
                             final String academyId = _academyId(academy);
-                            final bool selected =
-                                academyId == _selectedAcademyId;
-                            final String? imageUrl = _academyImageUrl(academy);
-                            final List<String> facilities = _academyFacilities(
+                            return _academyCard(
                               academy,
-                            );
-                            final int monthlyFee = _academyMonthlyFee(academy);
-                            return GestureDetector(
-                              onTap: academyId.isEmpty
-                                  ? null
-                                  : () => _onAcademyFilterTap(academyId),
-                              child: Container(
-                                width: 300,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: selected
-                                        ? const Color(0xFF00C9A7)
-                                        : const Color(0x1FFFFFFF),
-                                  ),
-                                  color: const Color(0x0FFFFFFF),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(10),
-                                      ),
-                                      child: SizedBox(
-                                        height: 176,
-                                        width: double.infinity,
-                                        child: imageUrl == null
-                                            ? Container(
-                                                color: const Color(0xFF1B2F38),
-                                                alignment: Alignment.center,
-                                                child: const Icon(
-                                                  Icons.school_outlined,
-                                                  color: Color(0xFF9FB9B3),
-                                                  size: 30,
-                                                ),
-                                              )
-                                            : _academyImageWidget(imageUrl),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          Text(
-                                            _academyName(academy),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            academy['city']
-                                                        ?.toString()
-                                                        .trim()
-                                                        .isNotEmpty ==
-                                                    true
-                                                ? academy['city']
-                                                      .toString()
-                                                      .trim()
-                                                : 'Location not set',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Color(0xFF9FB9B3),
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Wrap(
-                                            spacing: 8,
-                                            runSpacing: 8,
-                                            children: <Widget>[
-                                              ...facilities.take(3).map((
-                                              String facility,
-                                            ) {
-                                              return Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 6,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                  color: const Color(
-                                                    0x0AFFFFFF,
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  _facilityLabel(facility),
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              );
-                                            }),
-                                              if (facilities.length > 3)
-                                                GestureDetector(
-                                                  onTap: () => _showAllFacilities(
-                                                    context,
-                                                    facilities,
-                                                  ),
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 6,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius: BorderRadius.circular(6),
-                                                      color: const Color(0x0AFFFFFF),
-                                                    ),
-                                                    child: const Text(
-                                                      '...',
-                                                      style: TextStyle(
-                                                        color: Color(0xFF00C9A7),
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              // + add facilities chip
-                                              GestureDetector(
-                                                onTap: () => _addFacilityToAcademy(
-                                                  academyId,
-                                                  facilities,
-                                                ),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 6,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(
-                                                      color: const Color(0x3300C9A7),
-                                                    ),
-                                                    color: const Color(0x0A00C9A7),
-                                                  ),
-                                                  child: const Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: <Widget>[
-                                                      Icon(
-                                                        Icons.add,
-                                                        size: 12,
-                                                        color: Color(0xFF00C9A7),
-                                                      ),
-                                                      SizedBox(width: 4),
-                                                      Text(
-                                                        'Add',
-                                                        style: TextStyle(
-                                                          color: Color(0xFF00C9A7),
-                                                          fontSize: 12,
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.only(
-                                              top: 10,
-                                            ),
-                                            decoration: const BoxDecoration(
-                                              border: Border(
-                                                top: BorderSide(
-                                                  color: Color(0x14000000),
-                                                ),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: <Widget>[
-                                                Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: <Widget>[
-                                                    const Text(
-                                                      'Monthly Fees',
-                                                      style: TextStyle(
-                                                        color: Color(0xFF667084),
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      'Rs $monthlyFee',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 17,
-                                                        fontWeight: FontWeight.w800,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                SizedBox(
-                                                  height: 38,
-                                                  child: ElevatedButton(
-                                                    onPressed: () {
-                                                      Navigator.of(context)
-                                                          .push(
-                                                            MaterialPageRoute<
-                                                              void
-                                                            >(
-                                                              builder: (_) =>
-                                                                  const AcademyBatchTimingsScreen(),
-                                                            ),
-                                                          )
-                                                          .then((_) => _load());
-                                                    },
-                                                    style:
-                                                        ElevatedButton.styleFrom(
-                                                          backgroundColor:
-                                                              const Color(
-                                                                0xFF2563EB,
-                                                              ),
-                                                          foregroundColor:
-                                                              Colors.white,
-                                                          elevation: 0,
-                                                        ),
-                                                    child: const Text(
-                                                      'View Batches',
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              selected: academyId == _selectedAcademyId,
                             );
                           },
                         ),
@@ -2058,6 +1841,293 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     );
   }
 
+  Widget _academyCard(Map<String, dynamic> academy, {bool selected = false}) {
+    final String academyId = _academyId(academy);
+    final String name = _academyName(academy);
+    final String location =
+        academy['city']?.toString().trim().isNotEmpty == true
+        ? academy['city'].toString().trim()
+        : 'Location not set';
+    final String rating = academy['rating']?.toString() ?? '4.6';
+    final List<String> imageValues = _academyImageValues(academy);
+    final String? imageUrl = _academyImageUrl(academy);
+    final List<String> facilities = _academyFacilities(academy);
+    final int monthlyFee = _academyMonthlyFee(academy);
+
+    return GestureDetector(
+      onTap: academyId.isEmpty ? null : () => _onAcademyFilterTap(academyId),
+      child: Container(
+        width: 263,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF00C9A7)
+                : const Color(0x1FFFFFFF),
+            width: selected ? 1.5 : 1,
+          ),
+          color: const Color(0x0AFFFFFF),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Container(
+                height: 140,
+                width: double.infinity,
+                color: const Color(0x29242424),
+                child: Stack(
+                  children: <Widget>[
+                    if (imageValues.isNotEmpty)
+                      Positioned.fill(
+                        child: _AcademyImageCarousel(
+                          imageValues: imageValues,
+                          imageBuilder: _academyImageWidget,
+                        ),
+                      )
+                    else
+                      Positioned.fill(
+                        child: imageUrl == null
+                            ? Container(
+                                color: const Color(0xFF1B2F38),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.school_outlined,
+                                  color: Color(0xFF9FB9B3),
+                                  size: 30,
+                                ),
+                              )
+                            : _academyImageWidget(imageUrl),
+                      ),
+                    Positioned(
+                      left: 10,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: const Color(0xCC0B0E0C),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.star_border,
+                              color: Color(0xFFEAB308),
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 16,
+                        color: Color(0x99FFFFFF),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0x99FFFFFF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: <Widget>[
+                      ...facilities.take(3).map(
+                        (String facility) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            color: const Color(0x0AFFFFFF),
+                          ),
+                          child: Text(
+                            _facilityLabel(facility),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (facilities.length > 3)
+                        GestureDetector(
+                          onTap: () => _showAllFacilities(context, facilities),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              color: const Color(0x0AFFFFFF),
+                            ),
+                            child: const Text(
+                              '...',
+                              style: TextStyle(
+                                color: Color(0xFF00C9A7),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      GestureDetector(
+                        onTap: () => _addFacilityToAcademy(academyId, facilities),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0x3300C9A7)),
+                            color: const Color(0x0A00C9A7),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(Icons.add, size: 12, color: Color(0xFF00C9A7)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Add',
+                                style: TextStyle(
+                                  color: Color(0xFF00C9A7),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.only(top: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: Color(0x14000000)),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Text(
+                              'Monthly Fees',
+                              style: TextStyle(
+                                color: Color(0xFF667084),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Rs $monthlyFee',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(
+                          height: 38,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context)
+                                  .push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const AcademyBatchTimingsScreen(),
+                                    ),
+                                  )
+                                  .then((_) => _load());
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'View Batches',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   BoxDecoration _overlayCardDecoration() {
     return BoxDecoration(
       borderRadius: BorderRadius.circular(8),
@@ -2134,6 +2204,121 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
+    );
+  }
+}
+
+class _AcademyImageCarousel extends StatefulWidget {
+  const _AcademyImageCarousel({
+    required this.imageValues,
+    required this.imageBuilder,
+  });
+
+  final List<String> imageValues;
+  final Widget Function(String imageValue) imageBuilder;
+
+  @override
+  State<_AcademyImageCarousel> createState() => _AcademyImageCarouselState();
+}
+
+class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
+  late final PageController _pageController;
+  Timer? _autoSlideTimer;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoSlideIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AcademyImageCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageValues.length != widget.imageValues.length) {
+      _currentIndex = 0;
+      _pageController.jumpToPage(0);
+      _restartAutoSlide();
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoSlideIfNeeded() {
+    _autoSlideTimer?.cancel();
+    if (widget.imageValues.length <= 1) {
+      return;
+    }
+
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_pageController.hasClients) {
+        return;
+      }
+      final int nextIndex = (_currentIndex + 1) % widget.imageValues.length;
+      _pageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _restartAutoSlide() {
+    _autoSlideTimer?.cancel();
+    _startAutoSlideIfNeeded();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> images = widget.imageValues;
+    if (images.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Stack(
+      children: <Widget>[
+        PageView.builder(
+          controller: _pageController,
+          itemCount: images.length,
+          onPageChanged: (int index) {
+            setState(() {
+              _currentIndex = index;
+            });
+            _restartAutoSlide();
+          },
+          itemBuilder: (_, int index) => widget.imageBuilder(images[index]),
+        ),
+        if (images.length > 1)
+          Positioned(
+            bottom: 8,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List<Widget>.generate(images.length, (int index) {
+                final bool isActive = index == _currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: isActive ? 14 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF00C9A7)
+                        : const Color(0xCCFFFFFF),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
     );
   }
 }

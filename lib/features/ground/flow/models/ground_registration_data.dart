@@ -50,8 +50,8 @@ class GroundRegistrationData {
   String pinCode = '';
   final Set<String> selectedSports = <String>{'Cricket'};
 
-  String academyBatchName = 'Morning Practice';
-  String academyCoachName = 'Rahul Kumar';
+  String academyBatchName = '';
+  String academyCoachName = '';
   int academyCoachExperience = 0;
   String academyPerBatchStudents = '40';
   String academyCategory = 'Beginner';

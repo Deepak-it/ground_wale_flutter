@@ -910,7 +910,7 @@ class _AcademyBatchSetupScreenState extends State<AcademyBatchSetupScreen> {
                 LabeledTextField(
                   label: 'Coach (Optional)',
                   controller: _coachController,
-                  hint: 'Rahul Kumar',
+                  hint: 'Munish Rathee',
                   onChanged: (_) => _syncBasicFields(),
                 ),
                 const SizedBox(height: 14),
