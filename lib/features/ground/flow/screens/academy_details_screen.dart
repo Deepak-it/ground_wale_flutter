@@ -53,8 +53,8 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
     if (hasAcademyContext) {
       final String sessionState = ApiSession.instance.state?.trim() ?? '';
       final String sessionCity = ApiSession.instance.city?.trim() ?? '';
-      final bool isDefaultState = _stateController.text.trim() == 'Punjab';
-      final bool isDefaultCity = _cityController.text.trim() == 'Mohali';
+      final bool isDefaultState = _stateController.text.trim() == '';
+      final bool isDefaultCity = _cityController.text.trim() == '';
 
       if (sessionState.isNotEmpty &&
           (_stateController.text.trim().isEmpty || isDefaultState)) {
@@ -70,8 +70,8 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
     }
 
     final bool seededDefaults =
-        _stateController.text.trim() == 'Punjab' &&
-        _cityController.text.trim() == 'Mohali' &&
+        _stateController.text.trim() == '' &&
+        _cityController.text.trim() == '' &&
         _pinCodeController.text.trim().isEmpty;
     if (seededDefaults) {
       _stateController.clear();
@@ -305,7 +305,7 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
                 LabeledTextField(
                   label: 'State',
                   controller: _stateController,
-                  hint: 'Punjab',
+                  hint: '',
                   readOnly: true,
                   onTap: _pickCityState,
                   suffixIcon: const Icon(
@@ -317,7 +317,7 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
                 LabeledTextField(
                   label: 'City',
                   controller: _cityController,
-                  hint: 'Mohali',
+                  hint: '',
                   readOnly: true,
                   onTap: _pickCityState,
                   suffixIcon: const Icon(

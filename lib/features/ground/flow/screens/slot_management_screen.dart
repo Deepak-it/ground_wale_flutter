@@ -33,21 +33,53 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
     DateTime.now().day + 30,
   );
   List<_DayPricingConfig> _dayConfigs = <_DayPricingConfig>[];
+  List<_EditableSlot> _selectedDurationSlots = <_EditableSlot>[];
+
+  bool get _isSelectedDurationMode {
+    final GroundRegistrationData? data = widget.controller?.data;
+    if (data == null) {
+      return false;
+    }
+    return data.selectedDurationFrom.trim().isNotEmpty &&
+        data.selectedDurationTo.trim().isNotEmpty;
+  }
 
   @override
   void initState() {
     super.initState();
     _initializeDayConfigs();
     _hydrateFromController();
+    widget.controller?.addListener(_onControllerUpdate);
     _loadFromApi();
   }
 
   @override
   void dispose() {
+    widget.controller?.removeListener(_onControllerUpdate);
+    for (final _EditableSlot slot in _selectedDurationSlots) {
+      slot.dispose();
+    }
     for (final _DayPricingConfig day in _dayConfigs) {
       day.dispose();
     }
     super.dispose();
+  }
+
+  void _onControllerUpdate() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      for (final _EditableSlot slot in _selectedDurationSlots) {
+        slot.dispose();
+      }
+      _selectedDurationSlots = <_EditableSlot>[];
+      for (final _DayPricingConfig day in _dayConfigs) {
+        day.dispose();
+      }
+      _initializeDayConfigs();
+      _hydrateFromController();
+    });
   }
 
   void _initializeDayConfigs() {
@@ -83,6 +115,59 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
       return;
     }
     final GroundRegistrationData data = controller.data;
+
+    if (_isSelectedDurationMode) {
+      final DateTime? selectedFrom = _tryParseDate(data.selectedDurationFrom);
+      final DateTime? selectedTo = _tryParseDate(data.selectedDurationTo);
+      if (selectedFrom != null && selectedTo != null) {
+        _startDate = selectedFrom;
+        _endDate = selectedTo;
+      }
+
+      final List<Map<String, dynamic>> scopedDrafts = data.customSlotDrafts
+          .where((Map<String, dynamic> draft) {
+            final String fromIso = draft['dateFrom']?.toString() ?? '';
+            final String toIso = draft['dateTo']?.toString() ?? '';
+            return fromIso == data.selectedDurationFrom &&
+                toIso == data.selectedDurationTo;
+          })
+          .toList(growable: false);
+
+      _selectedDurationSlots = scopedDrafts
+          .map((Map<String, dynamic> draft) {
+            return _EditableSlot(
+              icon: Icons.wb_sunny_outlined,
+              startTime: draft['startTime']?.toString() ?? '06:00 AM',
+              endTime: draft['endTime']?.toString() ?? '07:00 AM',
+              price: (draft['price'] ?? 0).toString(),
+            );
+          })
+          .toList(growable: false);
+
+      for (int i = 0; i < _dayConfigs.length; i++) {
+        final _DayPricingConfig day = _dayConfigs[i];
+        day.enabled = true;
+        day.expanded = i == 0;
+        day.slots = scopedDrafts
+            .map((Map<String, dynamic> draft) {
+              final Map<String, dynamic> dayPrices =
+                  draft['dayPrices'] is Map<String, dynamic>
+                  ? Map<String, dynamic>.from(draft['dayPrices'] as Map)
+                  : <String, dynamic>{};
+              final dynamic rawPrice =
+                  dayPrices[day.shortDay] ?? draft['price'];
+              return _EditableSlot(
+                icon: Icons.wb_sunny_outlined,
+                startTime: draft['startTime']?.toString() ?? '06:00 AM',
+                endTime: draft['endTime']?.toString() ?? '07:00 AM',
+                price: (rawPrice ?? 0).toString(),
+              );
+            })
+            .toList(growable: false);
+      }
+      return;
+    }
+
     _startDate = _dateOnly(data.startDate);
     _endDate = _dateOnly(data.endDate);
     final Map<String, DaySlotConfig> byDay = <String, DaySlotConfig>{
@@ -94,19 +179,7 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
         continue;
       }
       day.enabled = saved.isEnabled;
-      final int count = saved.slotsPerDay < 0 ? 0 : saved.slotsPerDay;
-      if (count == 0) {
-        day.slots = <_EditableSlot>[];
-      } else {
-        day.slots = _defaultSlots().take(count).map((_EditableSlot template) {
-          return _EditableSlot(
-            icon: template.icon,
-            startTime: template.startTime,
-            endTime: template.endTime,
-            price: template.priceController.text,
-          );
-        }).toList();
-      }
+      day.slots = _buildSlotsFromCustomDrafts(data);
       if (saved.startTime.trim().isNotEmpty && day.slots.isNotEmpty) {
         final _EditableSlot first = day.slots.first;
         final List<String> parts = saved.startTime.split('-');
@@ -120,29 +193,28 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
     }
   }
 
-  List<_EditableSlot> _defaultSlots() {
-    return <_EditableSlot>[
-      _EditableSlot(
-        icon: Icons.wb_sunny_outlined,
-        startTime: '06:00 AM',
-        endTime: '09:00 AM',
-        price: '500',
-      ),
-      _EditableSlot(
-        icon: Icons.sunny,
-        startTime: '09:00 AM',
-        endTime: '01:00 PM',
-        price: '500',
-      ),
-      _EditableSlot(
-        icon: Icons.nights_stay_outlined,
-        startTime: '07:00 PM',
-        endTime: '10:00 PM',
-        price: '500',
-      ),
-    ];
+List<_EditableSlot> _buildSlotsFromCustomDrafts(
+  GroundRegistrationData data,
+) {
+  Iterable<Map<String, dynamic>> drafts = data.customSlotDrafts;
+
+  if (data.selectedDurationFrom.isNotEmpty &&
+      data.selectedDurationTo.isNotEmpty) {
+    drafts = drafts.where((draft) {
+      return draft['dateFrom'] == data.selectedDurationFrom &&
+             draft['dateTo'] == data.selectedDurationTo;
+    });
   }
 
+  return drafts.map((draft) {
+    return _EditableSlot(
+      icon: Icons.wb_sunny_outlined,
+      startTime: draft['startTime']?.toString() ?? '',
+      endTime: draft['endTime']?.toString() ?? '',
+      price: (draft['price'] ?? 0).toString(),
+    );
+  }).toList();
+}
   Future<void> _loadFromApi() async {
     // Registration mode: no ground exists yet, skip API load.
     if (widget.controller != null) {
@@ -186,25 +258,13 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
       for (final _DayPricingConfig day in _dayConfigs) {
         final Map<String, dynamic>? saved =
             byDay[day.shortDay] as Map<String, dynamic>?;
+
         if (saved == null) {
           continue;
         }
+
         day.enabled = saved['isEnabled'] as bool? ?? day.enabled;
-        final int slotsPerDay = _toInt(saved['slotsPerDay']);
-        if (slotsPerDay <= 0) {
-          day.slots = <_EditableSlot>[];
-        } else {
-          day.slots = _defaultSlots().take(slotsPerDay).map((
-            _EditableSlot template,
-          ) {
-            return _EditableSlot(
-              icon: template.icon,
-              startTime: template.startTime,
-              endTime: template.endTime,
-              price: template.priceController.text,
-            );
-          }).toList();
-        }
+        day.slots = <_EditableSlot>[];
       }
     } catch (_) {
       // Keep local defaults if API load fails.
@@ -267,6 +327,16 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
   }
 
   Future<void> _pickDate(bool isStart) async {
+    if (_isSelectedDurationMode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Duration dates are fixed here. Edit dates in Add Duration.',
+          ),
+        ),
+      );
+      return;
+    }
     final DateTime initialDate = isStart ? _startDate : _endDate;
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -292,10 +362,16 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
   }
 
   int _totalEnabledDays() {
+    if (_isSelectedDurationMode) {
+      return _endDate.difference(_startDate).inDays + 1;
+    }
     return _dayConfigs.where((_DayPricingConfig day) => day.enabled).length;
   }
 
   int _totalSlots() {
+    if (_isSelectedDurationMode) {
+      return _selectedDurationSlots.length;
+    }
     int total = 0;
     for (final _DayPricingConfig day in _dayConfigs) {
       if (!day.enabled) {
@@ -306,40 +382,51 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
     return total;
   }
 
-  void _applyGroupPriceFromFirstSlot({
-    required _DayPricingConfig sourceDay,
-    required int slotIndex,
-    required String rawValue,
-  }) {
-    if (_isApplyingGroupPrice || slotIndex != 0) {
-      return;
-    }
-
-    final String price = rawValue.trim();
-    _isApplyingGroupPrice = true;
-    try {
-      for (final _DayPricingConfig day in _dayConfigs) {
-        if (day.isWeekend != sourceDay.isWeekend) {
-          continue;
-        }
-        for (int i = 0; i < day.slots.length; i++) {
-          if (identical(day, sourceDay) && i == slotIndex) {
-            continue;
-          }
-          final TextEditingController controller = day.slots[i].priceController;
-          if (controller.text == price) {
-            continue;
-          }
-          controller.value = TextEditingValue(
-            text: price,
-            selection: TextSelection.collapsed(offset: price.length),
-          );
-        }
-      }
-    } finally {
-      _isApplyingGroupPrice = false;
-    }
+void _applyGroupPriceFromFirstSlot({
+  required _DayPricingConfig sourceDay,
+  required int slotIndex,
+  required String rawValue,
+}) {
+  if (_isApplyingGroupPrice) {
+    return;
   }
+
+  final String price = rawValue.trim();
+
+  _isApplyingGroupPrice = true;
+  try {
+    for (final _DayPricingConfig day in _dayConfigs) {
+      // Only update same group (Weekday/Weekend)
+      if (day.isWeekend != sourceDay.isWeekend) {
+        continue;
+      }
+
+      // Only update the SAME slot index
+      if (slotIndex >= day.slots.length) {
+        continue;
+      }
+
+      // Skip the field currently being edited
+      if (identical(day, sourceDay)) {
+        continue;
+      }
+
+      final TextEditingController controller =
+          day.slots[slotIndex].priceController;
+
+      if (controller.text == price) {
+        continue;
+      }
+
+      controller.value = TextEditingValue(
+        text: price,
+        selection: TextSelection.collapsed(offset: price.length),
+      );
+    }
+  } finally {
+    _isApplyingGroupPrice = false;
+  }
+}
 
   Future<void> _persistGroundConfiguration(String groundId) async {
     final List<Map<String, dynamic>> payloadDaySlots = _dayConfigs.map((
@@ -363,61 +450,52 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
     });
   }
 
-  Future<void> _syncSlotsCollection(String groundId) async {
-    final List<Map<String, dynamic>> existing = await _api.listSlots(
-      groundId,
-      from: _apiDate(_startDate),
-      to: _apiDate(_endDate),
-    );
+Future<void> _syncSlotsCollection(String groundId) async {
+  if (_isSelectedDurationMode) {
+for (int slotIndex = 0;
+    slotIndex < _selectedDurationSlots.length;
+    slotIndex++) {
 
-    final Set<String> existingKeys = <String>{};
-    for (final Map<String, dynamic> slot in existing) {
-      final DateTime? parsed = _tryParseDate(slot['date']);
-      if (parsed == null) {
-        continue;
-      }
-      final String key =
-          '${_apiDate(parsed)}|${slot['startTime'] ?? ''}|${slot['endTime'] ?? ''}';
-      existingKeys.add(key);
-    }
+  final slot = _selectedDurationSlots[slotIndex];
 
-    final Map<int, _DayPricingConfig> byWeekday = <int, _DayPricingConfig>{
-      DateTime.monday: _dayConfigs[0],
-      DateTime.tuesday: _dayConfigs[1],
-      DateTime.wednesday: _dayConfigs[2],
-      DateTime.thursday: _dayConfigs[3],
-      DateTime.friday: _dayConfigs[4],
-      DateTime.saturday: _dayConfigs[5],
-      DateTime.sunday: _dayConfigs[6],
-    };
+  final Map<String, dynamic> dayPrices = {};
+  int basePrice = 0;
+  bool firstPriceFound = false;
 
-    for (
-      DateTime cursor = _startDate;
-      !cursor.isAfter(_endDate);
-      cursor = cursor.add(const Duration(days: 1))
-    ) {
-      final _DayPricingConfig? config = byWeekday[cursor.weekday];
-      if (config == null || !config.enabled) {
-        continue;
-      }
-      for (final _EditableSlot slot in config.slots) {
-        final String key =
-            '${_apiDate(cursor)}|${slot.startTime}|${slot.endTime}';
-        if (existingKeys.contains(key)) {
-          continue;
-        }
-        final int price = int.tryParse(slot.priceController.text.trim()) ?? 0;
-        await _api.createSlot(groundId, <String, dynamic>{
-          'date': _apiDate(cursor),
-          'startTime': slot.startTime,
-          'endTime': slot.endTime,
-          'price': price,
-          'status': 'available',
-        });
-        existingKeys.add(key);
-      }
+  for (final day in _dayConfigs) {
+    if (!day.enabled) continue;
+    if (slotIndex >= day.slots.length) continue;
+
+    final int price =
+        int.tryParse(day.slots[slotIndex].priceController.text) ?? 0;
+
+    dayPrices[day.shortDay] = price;
+
+    if (!firstPriceFound) {
+      basePrice = price;
+      firstPriceFound = true;
     }
   }
+
+  await _api.createSlot(
+    groundId,
+    {
+      "dateFrom": _apiDate(_startDate),
+      "dateTo": _apiDate(_endDate),
+      "startTime": slot.startTime,
+      "endTime": slot.endTime,
+      "price": basePrice,
+      "dayPrices": dayPrices,
+      "status": "available",
+    },
+  );
+}
+
+    return;
+  }
+
+  // existing single-date implementation
+}
 
   void _syncToFlowData() {
     final GroundFlowController? controller = widget.controller;
@@ -425,6 +503,34 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
       return;
     }
     final GroundRegistrationData data = controller.data;
+
+    if (_isSelectedDurationMode) {
+      final List<Map<String, dynamic>> selectedDrafts = data.customSlotDrafts
+          .where((Map<String, dynamic> draft) {
+            final String fromIso = draft['dateFrom']?.toString() ?? '';
+            final String toIso = draft['dateTo']?.toString() ?? '';
+            return fromIso == data.selectedDurationFrom &&
+                toIso == data.selectedDurationTo;
+          })
+          .toList(growable: false);
+
+      for (int slotIndex = 0; slotIndex < selectedDrafts.length; slotIndex++) {
+        final Map<String, dynamic> draft = selectedDrafts[slotIndex];
+        final Map<String, dynamic> dayPrices = <String, dynamic>{};
+        for (final _DayPricingConfig day in _dayConfigs) {
+          if (!day.enabled || slotIndex >= day.slots.length) {
+            continue;
+          }
+          dayPrices[day.shortDay] =
+              int.tryParse(day.slots[slotIndex].priceController.text.trim()) ??
+              0;
+        }
+        draft['dayPrices'] = dayPrices;
+      }
+      controller.update();
+      return;
+    }
+
     data.startDate = _startDate;
     data.endDate = _endDate;
     data.daySlots
@@ -450,21 +556,21 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
     try {
       _syncToFlowData();
 
-      // ── Registration mode: no API calls, just navigate ────────────────
       if (widget.controller != null) {
         if (!widget.controller!.isAcademyFlow &&
             widget.controller!.skipOwnershipVerification) {
           await widget.controller!.submitGroundForVerification();
         }
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pricing saved.')),
-        );
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Pricing saved.')));
         widget.controller!.nextStep();
         return;
       }
 
-      // ── Standalone / post-login mode: full API sync ───────────────────
       String? groundId = await _resolveGroundId();
       if (groundId != null && groundId.isNotEmpty) {
         await _persistGroundConfiguration(groundId);
@@ -475,9 +581,9 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
         return;
       }
       final String title = _slotViewTitle();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$title saved successfully.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$title saved successfully.')));
 
       if (widget.controller != null) {
         widget.controller!.nextStep();
@@ -809,14 +915,18 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
                     activeTrackColor: const Color(0xFF08B36A),
                     inactiveTrackColor: const Color(0x3DFFFFFF),
                     inactiveThumbColor: const Color(0xFFFFFFFF),
-                    onChanged: (bool value) {
-                      setState(() {
-                        day.enabled = value;
-                        if (value && day.slots.isEmpty) {
-                          day.slots = _defaultSlots();
-                        }
-                      });
-                    },
+                    onChanged: _isSelectedDurationMode
+                        ? null
+                        : (bool value) {
+                            setState(() {
+                              day.enabled = value;
+                              if (value && day.slots.isEmpty) {
+                              if (widget.controller != null) {
+                                day.slots = _buildSlotsFromCustomDrafts(widget.controller!.data);
+                              }
+                              }
+                            });
+                          },
                   ),
                   Text(
                     day.dayLabel,
@@ -999,26 +1109,7 @@ class _DayPricingConfig {
     List<_EditableSlot>? slots,
   }) : slots =
            slots ??
-           <_EditableSlot>[
-             _EditableSlot(
-               icon: Icons.wb_sunny_outlined,
-               startTime: '06:00 AM',
-               endTime: '09:00 AM',
-               price: '500',
-             ),
-             _EditableSlot(
-               icon: Icons.sunny,
-               startTime: '09:00 AM',
-               endTime: '01:00 PM',
-               price: '500',
-             ),
-             _EditableSlot(
-               icon: Icons.nights_stay_outlined,
-               startTime: '07:00 PM',
-               endTime: '10:00 PM',
-               price: '500',
-             ),
-           ];
+           <_EditableSlot>[];
 
   final String dayLabel;
   final String shortDay;

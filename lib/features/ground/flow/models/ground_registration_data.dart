@@ -44,8 +44,8 @@ class GroundRegistrationData {
   PitchType pitchType = PitchType.cement;
   final Set<String> facilities = <String>{'Parking'};
 
-  String state = 'Punjab';
-  String city = 'Mohali';
+  String state = '';
+  String city = '';
   String groundName = 'Alexa Ground';
   String pinCode = '';
   final Set<String> selectedSports = <String>{'Cricket'};
@@ -75,10 +75,13 @@ class GroundRegistrationData {
 
   String openingTime = '06:00 AM';
   String slotViewName = '';
+  String selectedDurationName = '';
+  String selectedDurationFrom = '';
+  String selectedDurationTo = '';
   int totalCreatedSlots = 0;
   // Slot configurations stored in memory during registration.
   // Each map has: name, dateFrom, dateTo, startTime, endTime, price
-  final List<Map<String, dynamic>> customSlotDrafts = <Map<String, dynamic>>[]; 
+  final List<Map<String, dynamic>> customSlotDrafts = <Map<String, dynamic>>[];
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now().add(const Duration(days: 30));
   String slotSize = '3 hours';

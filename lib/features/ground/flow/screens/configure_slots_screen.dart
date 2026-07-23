@@ -5,11 +5,7 @@ import '../controllers/ground_flow_controller.dart';
 import '../models/ground_registration_data.dart';
 
 class ConfigureSlotsScreen extends StatefulWidget {
-  const ConfigureSlotsScreen({
-    super.key,
-    required this.data,
-    this.controller,
-  });
+  const ConfigureSlotsScreen({super.key, required this.data, this.controller});
 
   final GroundRegistrationData data;
   final GroundFlowController? controller;
@@ -49,13 +45,71 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
     try {
       final DateTime d = DateTime.parse(iso);
       const List<String> m = <String>[
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       return '${d.day} ${m[d.month - 1]} ${d.year}';
     } catch (_) {
       return iso;
     }
+  }
+
+  List<_DurationGroup> _groupDrafts(List<Map<String, dynamic>> drafts) {
+    final Map<String, _DurationGroup> byKey = <String, _DurationGroup>{};
+    for (int i = 0; i < drafts.length; i++) {
+      final Map<String, dynamic> d = drafts[i];
+      final String fromRaw = d['dateFrom']?.toString() ?? '';
+      final String toRaw = d['dateTo']?.toString() ?? '';
+      final String key = '$fromRaw|$toRaw';
+      final _DurationGroup group = byKey.putIfAbsent(
+        key,
+        () => _DurationGroup(
+          fromIso: fromRaw,
+          toIso: toRaw,
+          label: d['name']?.toString() ?? 'Duration',
+        ),
+      );
+      group.indexes.add(i);
+      group.slots.add(d);
+    }
+    return byKey.values.toList(growable: false);
+  }
+
+  Map<String, dynamic> _extractDayPrices(Map<String, dynamic> draft) {
+    final dynamic raw = draft['dayPrices'];
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    return <String, dynamic>{};
+  }
+
+  int _deriveBasePrice(Map<String, dynamic> draft, Map<String, dynamic> dayPrices) {
+    final dynamic rawPrice = draft['price'];
+    final int parsedPrice = rawPrice is int
+        ? rawPrice
+        : int.tryParse(rawPrice?.toString() ?? '') ?? 0;
+    if (parsedPrice > 0) {
+      return parsedPrice;
+    }
+    for (final dynamic value in dayPrices.values) {
+      final int parsed = value is int
+          ? value
+          : int.tryParse(value?.toString() ?? '') ?? 0;
+      if (parsed > 0) {
+        return parsed;
+      }
+    }
+    return 0;
   }
 
   Future<void> _generate() async {
@@ -67,19 +121,24 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
       if (groundId == null || groundId.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not create ground. Try again.')),
+            const SnackBar(
+              content: Text('Could not create ground. Try again.'),
+            ),
           );
         }
         return;
       }
       for (final Map<String, dynamic> draft in widget.data.customSlotDrafts) {
+        final Map<String, dynamic> dayPrices = _extractDayPrices(draft);
+        final int basePrice = _deriveBasePrice(draft, dayPrices);
         await GroundWaleApi.instance.createSlot(groundId, <String, dynamic>{
-          'dateFrom':  draft['dateFrom'],
-          'dateTo':    draft['dateTo'],
+          'dateFrom': draft['dateFrom'],
+          'dateTo': draft['dateTo'],
           'startTime': draft['startTime'],
-          'endTime':   draft['endTime'],
-          'price':     draft['price'] ?? 0,
-          'status':    'available',
+          'endTime': draft['endTime'],
+          'price': basePrice,
+          if (dayPrices.isNotEmpty) 'dayPrices': dayPrices,
+          'status': 'available',
         });
       }
 
@@ -92,7 +151,9 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -102,12 +163,16 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> drafts = widget.data.customSlotDrafts;
+    final List<_DurationGroup> groups = _groupDrafts(drafts);
     return Scaffold(
       backgroundColor: const Color(0xFF1D1D1D),
       body: Stack(
         children: <Widget>[
           Positioned(
-            top: 0, left: 0, right: 0, height: 280,
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 280,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -130,7 +195,8 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
                   child: Row(
                     children: <Widget>[
                       SizedBox(
-                        width: 44, height: 44,
+                        width: 44,
+                        height: 44,
                         child: IconButton(
                           onPressed: () {
                             if (widget.controller != null) {
@@ -139,14 +205,21 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
                               Navigator.of(context).maybePop();
                             }
                           },
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                              color: Color(0xFFDDF730)),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: Color(0xFFDDF730),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text('Configure Slot',
-                          style: TextStyle(color: Colors.white, fontSize: 24,
-                              fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Configure Slot',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -155,7 +228,7 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
                     children: <Widget>[
-                      if (drafts.isEmpty) ...<Widget>[
+                      if (groups.isEmpty) ...<Widget>[
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
@@ -165,91 +238,160 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
                           ),
                           child: const Column(
                             children: <Widget>[
-                              Icon(Icons.calendar_today_outlined,
-                                  color: Color(0xFFDDF730), size: 40),
+                              Icon(
+                                Icons.calendar_today_outlined,
+                                color: Color(0xFFDDF730),
+                                size: 40,
+                              ),
                               SizedBox(height: 12),
-                              Text('No slots added yet',
-                                  style: TextStyle(color: Colors.white,
-                                      fontSize: 16, fontWeight: FontWeight.w600)),
+                              Text(
+                                'No slots added yet',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               SizedBox(height: 4),
-                              Text('Tap "Add Slot" below to configure your first slot.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Color(0x99FFFFFF), fontSize: 13)),
+                              Text(
+                                'Tap "Add Duration" below to configure your first duration of slot.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0x99FFFFFF),
+                                  fontSize: 13,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 24),
                       ] else ...<Widget>[
-                        ...drafts.asMap().entries.map(
-                          (MapEntry<int, Map<String, dynamic>> entry) {
-                            final int i = entry.key;
-                            final Map<String, dynamic> d = entry.value;
-                            final String name = d['name']?.toString() ?? 'Slot ${i + 1}';
-                            final String from = _fmt(d['dateFrom']?.toString() ?? '');
-                            final String to   = _fmt(d['dateTo']?.toString() ?? '');
-                            final String time = '${d['startTime']} – ${d['endTime']}';
-                            final int price = (d['price'] as num?)?.toInt() ?? 0;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  color: const Color(0x08FFFFFF),
-                                  border: Border.all(color: const Color(0x1AFFFFFF)),
-                                ),
-                                child: Row(
-                                  children: <Widget>[
-                                    Container(
-                                      width: 36, height: 36,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: const Color(0xFFDDF730)),
-                                      ),
-                                      child: Text('${i + 1}',
-                                          style: const TextStyle(color: Color(0xFFDDF730),
-                                              fontSize: 14, fontWeight: FontWeight.w600)),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          Text(name,
-                                              style: const TextStyle(color: Colors.white,
-                                                  fontSize: 14, fontWeight: FontWeight.w600)),
-                                          Text('$from → $to',
-                                              style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 12)),
-                                          Text(time,
-                                              style: const TextStyle(color: Color(0x99FFFFFF), fontSize: 12)),
-                                        ],
-                                      ),
-                                    ),
-                                    Text(price > 0 ? '₹$price' : 'Free',
-                                        style: const TextStyle(color: Color(0xFFDDF730),
-                                            fontSize: 14, fontWeight: FontWeight.w600)),
-                                    const SizedBox(width: 8),
-                                    GestureDetector(
-                                      onTap: () => widget.controller?.jumpToStep(10),
-                                      child: const Icon(Icons.tune_rounded,
-                                          color: Color(0xFFDDF730), size: 20),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    GestureDetector(
-                                      onTap: () {
-                                        widget.data.customSlotDrafts.removeAt(i);
-                                        setState(() {});
-                                      },
-                                      child: const Icon(Icons.delete_outline_rounded,
-                                          color: Color(0x99FFFFFF), size: 20),
-                                    ),
-                                  ],
+                        ...groups.asMap().entries.map((
+                          MapEntry<int, _DurationGroup> entry,
+                        ) {
+                          final int i = entry.key;
+                          final _DurationGroup group = entry.value;
+                          final String from = _fmt(group.fromIso);
+                          final String to = _fmt(group.toIso);
+                          final String firstTime = group.slots.isEmpty
+                              ? ''
+                              : '${group.slots.first['startTime']} - ${group.slots.first['endTime']}';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: const Color(0x08FFFFFF),
+                                border: Border.all(
+                                  color: const Color(0x1AFFFFFF),
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFDDF730),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${i + 1}',
+                                      style: const TextStyle(
+                                        color: Color(0xFFDDF730),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Text(
+                                          group.label,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Text(
+                                          '$from -> $to',
+                                          style: const TextStyle(
+                                            color: Color(0x99FFFFFF),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${group.slots.length} slots${firstTime.isEmpty ? '' : ' • $firstTime'}',
+                                          style: const TextStyle(
+                                            color: Color(0x99FFFFFF),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (widget.controller != null) {
+                                        widget
+                                                .controller!
+                                                .data
+                                                .selectedDurationName =
+                                            group.label;
+                                        widget
+                                                .controller!
+                                                .data
+                                                .selectedDurationFrom =
+                                            group.fromIso;
+                                        widget
+                                                .controller!
+                                                .data
+                                                .selectedDurationTo =
+                                            group.toIso;
+                                        widget.controller!.jumpToStep(10);
+                                      }
+                                    },
+                                    child: const Icon(
+                                      Icons.tune_rounded,
+                                      color: Color(0xFFDDF730),
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () {
+                                      widget.data.customSlotDrafts.removeWhere((
+                                        Map<String, dynamic> item,
+                                      ) {
+                                        final String fromIso =
+                                            item['dateFrom']?.toString() ?? '';
+                                        final String toIso =
+                                            item['dateTo']?.toString() ?? '';
+                                        return fromIso == group.fromIso &&
+                                            toIso == group.toIso;
+                                      });
+                                      setState(() {});
+                                    },
+                                    child: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: Color(0x99FFFFFF),
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
                         const SizedBox(height: 12),
                       ],
                       GestureDetector(
@@ -260,19 +402,31 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: const Color(0xFFDDF730)),
                             boxShadow: <BoxShadow>[
-                              BoxShadow(color: const Color(0xFFDDF730).withValues(alpha: 0.18),
-                                  blurRadius: 20),
+                              BoxShadow(
+                                color: const Color(
+                                  0xFFDDF730,
+                                ).withValues(alpha: 0.18),
+                                blurRadius: 20,
+                              ),
                             ],
                           ),
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: <Widget>[
-                              Icon(Icons.add_circle_outline_rounded,
-                                  color: Color(0xFFDDF730), size: 22),
+                              Icon(
+                                Icons.add_circle_outline_rounded,
+                                color: Color(0xFFDDF730),
+                                size: 22,
+                              ),
                               SizedBox(width: 10),
-                              Text('Add Slot',
-                                  style: TextStyle(color: Color(0xFFDDF730),
-                                      fontSize: 16, fontWeight: FontWeight.w600)),
+                              Text(
+                                'Add Duration',
+                                style: TextStyle(
+                                  color: Color(0xFFDDF730),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -284,25 +438,42 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
             ),
           ),
           Positioned(
-            left: 16, right: 16, bottom: 24,
+            left: 16,
+            right: 16,
+            bottom: 24,
             child: SafeArea(
               top: false,
               child: SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _isGenerating ? null : (drafts.isEmpty ? null : _generate),
+                  onPressed: _isGenerating
+                      ? null
+                      : (groups.isEmpty ? null : _generate),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFDDF730),
                     foregroundColor: const Color(0xFF1D1D1D),
                     disabledBackgroundColor: const Color(0x33DDF730),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: _isGenerating
-                      ? const SizedBox(width: 22, height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF1D1D1D)))
-                      : const Text('Generate Slots',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Color(0xFF1D1D1D),
+                          ),
+                        )
+                      : const Text(
+                          'Generate Slots',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -313,3 +484,16 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
   }
 }
 
+class _DurationGroup {
+  _DurationGroup({
+    required this.fromIso,
+    required this.toIso,
+    required this.label,
+  });
+
+  final String fromIso;
+  final String toIso;
+  final String label;
+  final List<int> indexes = <int>[];
+  final List<Map<String, dynamic>> slots = <Map<String, dynamic>>[];
+}

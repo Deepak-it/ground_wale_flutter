@@ -469,7 +469,7 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            academy ? 'Academy Details' : 'Ground Details',
+            academy ? 'Academy Details1' : 'Ground Details',
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
@@ -484,7 +484,7 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
                   LabeledTextField(
                     label: 'Ground / Stadium Name',
                     controller: _groundNameController,
-                    hint: 'e.g. Highland Arena',
+                    hint: 'e.g. Rising Challengers Arena',
                     onChanged: (_) => _sync(),
                   ),
                   const SizedBox(height: 14),

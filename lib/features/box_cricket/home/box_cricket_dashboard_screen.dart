@@ -995,56 +995,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                     _calendarCard(),
 
                     const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: _overlayCardDecoration(),
-                      child: const Row(
-                        children: <Widget>[
-                          SizedBox(
-                            width: 36,
-                            height: 36,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Color(0x29DDF730),
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(10),
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.access_time_rounded,
-                                color: Color(0xFFDDF730),
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  'Timing: 06:00 AM - 11:00 PM',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Total Slots per Day: 8',
-                                  style: TextStyle(
-                                    color: Color(0xFF9CA3AF),
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: <Widget>[

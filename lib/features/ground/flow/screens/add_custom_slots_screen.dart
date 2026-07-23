@@ -25,12 +25,14 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
   final GroundWaleApi _api = GroundWaleApi.instance;
   final ApiSession _session = ApiSession.instance;
 
-  final TextEditingController _slotNameCtrl =
-      TextEditingController(text: 'Morning slot');
+  final TextEditingController _slotNameCtrl = TextEditingController(
+    text: 'e.g. Winter season',
+  );
 
   bool _isLoading = true;
   bool _isSavingAll = false;
   bool _isAdding = false;
+  bool _durationEditUnlocked = false;
 
   DateTime _fromDate = DateTime.now();
   DateTime _toDate = DateTime.now().add(const Duration(days: 7));
@@ -58,6 +60,40 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
 
   DateTime _dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
+  }
+
+  bool get _isDurationLocked => _items.isNotEmpty && !_durationEditUnlocked;
+
+  Future<bool> _ensureDurationEditUnlocked() async {
+    if (!_isDurationLocked) {
+      return true;
+    }
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Unlock Duration Details?'),
+          content: const Text(
+            'Duration name and date range are parent details. Changing them may affect all slots under this duration. Continue?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Keep Locked'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Unlock'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true && mounted) {
+      setState(() => _durationEditUnlocked = true);
+      return true;
+    }
+    return false;
   }
 
   String _apiDate(DateTime date) {
@@ -131,6 +167,94 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
     return endMins - startMins;
   }
 
+  int _toMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
+
+  bool _timeRangesOverlap(
+    TimeOfDay startA,
+    TimeOfDay endA,
+    TimeOfDay startB,
+    TimeOfDay endB,
+  ) {
+    int aStart = _toMinutes(startA);
+    int aEnd = _toMinutes(endA);
+    if (aEnd <= aStart) {
+      aEnd += 24 * 60;
+    }
+
+    int bStart = _toMinutes(startB);
+    int bEnd = _toMinutes(endB);
+    if (bEnd <= bStart) {
+      bEnd += 24 * 60;
+    }
+
+    return aStart < bEnd && bStart < aEnd;
+  }
+
+  bool _dateRangesOverlap(
+    DateTime fromA,
+    DateTime toA,
+    DateTime fromB,
+    DateTime toB,
+  ) {
+    return !toA.isBefore(fromB) && !toB.isBefore(fromA);
+  }
+
+  String? _durationConflictMessage({
+    required DateTime from,
+    required DateTime to,
+    required TimeOfDay start,
+    required TimeOfDay end,
+    int? ignoreIndex,
+  }) {
+    final List<_CustomSlotDraft> comparable = <_CustomSlotDraft>[];
+    for (int i = 0; i < _items.length; i++) {
+      if (ignoreIndex != null && i == ignoreIndex) {
+        continue;
+      }
+      comparable.add(_items[i]);
+    }
+
+    if (comparable.isNotEmpty) {
+      final _CustomSlotDraft first = comparable.first;
+      final bool sameRange =
+          _dateOnly(from) == _dateOnly(first.from) &&
+          _dateOnly(to) == _dateOnly(first.to);
+      if (!sameRange) {
+        return 'Only one duration date range is allowed at a time. Add more slots using the same From and To dates.';
+      }
+    }
+
+    for (final _CustomSlotDraft existing in comparable) {
+      final bool dateOverlap = _dateRangesOverlap(
+        from,
+        to,
+        existing.from,
+        existing.to,
+      );
+      if (!dateOverlap) {
+        continue;
+      }
+      final bool timeOverlap = _timeRangesOverlap(
+        start,
+        end,
+        existing.startTime,
+        existing.endTime,
+      );
+      if (!timeOverlap) {
+        continue;
+      }
+
+      final bool sameDates =
+          _dateOnly(from) == _dateOnly(existing.from) &&
+          _dateOnly(to) == _dateOnly(existing.to);
+      if (sameDates) {
+        return 'This duration has same dates and overlapping slot timing. Please choose different timing.';
+      }
+      return 'Duration dates overlap and slot timing also overlaps with an existing duration. Please adjust date range or time.';
+    }
+    return null;
+  }
+
   String _durationLabelFromMinutes(int minutes) {
     final int h = minutes ~/ 60;
     final int m = minutes % 60;
@@ -202,7 +326,7 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
         loaded.add(
           _CustomSlotDraft(
             id: _slotId(item),
-            slotName: 'Morning slot',
+            slotName: '',
             from: date,
             to: date,
             startTime: _parseTime(item['startTime']?.toString() ?? '06:00 AM'),
@@ -229,6 +353,10 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
   }
 
   Future<void> _pickDate(bool isFrom) async {
+    final bool allowed = await _ensureDurationEditUnlocked();
+    if (!allowed) {
+      return;
+    }
     final DateTime initial = isFrom ? _fromDate : _toDate;
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -284,9 +412,9 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
     }
     final String slotName = _slotNameCtrl.text.trim();
     if (slotName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Slot name is required.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Slot name is required.')));
       return;
     }
 
@@ -295,6 +423,19 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('End time must be after start time.')),
       );
+      return;
+    }
+
+    final String? conflict = _durationConflictMessage(
+      from: _fromDate,
+      to: _toDate,
+      start: _startTime,
+      end: _endTime,
+    );
+    if (conflict != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(conflict)));
       return;
     }
 
@@ -312,6 +453,7 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
           isPersisted: false,
         ),
       );
+      _durationEditUnlocked = false;
       _isAdding = false;
     });
   }
@@ -347,13 +489,8 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       widget.controller!.jumpToStep(10);
       return;
     }
-    // Standalone mode: inline dialog.
+    // Standalone mode: time-only edit. Duration details are parent-level.
     final _CustomSlotDraft item = _items[index];
-    final TextEditingController nameCtrl = TextEditingController(
-      text: item.slotName,
-    );
-    DateTime from = item.from;
-    DateTime to = item.to;
     TimeOfDay start = item.startTime;
     TimeOfDay end = item.endTime;
 
@@ -361,157 +498,116 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder: (
-            BuildContext dialogInnerContext,
-            void Function(void Function()) setDialog,
-          ) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1D1D1D),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Text(
-                'Edit Slot',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: SizedBox(
-                width: 320,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    TextField(
-                      controller: nameCtrl,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Slot Name',
-                        labelStyle: TextStyle(color: Color(0x99FFFFFF)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
+          builder:
+              (
+                BuildContext dialogInnerContext,
+                void Function(void Function()) setDialog,
+              ) {
+                return AlertDialog(
+                  backgroundColor: const Color(0xFF1D1D1D),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: const Text(
+                    'Edit Slot Time',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  content: SizedBox(
+                    width: 320,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final DateTime? picked = await showDatePicker(
-                                context: dialogInnerContext,
-                                initialDate: from,
-                                firstDate: DateTime.now()
-                                    .subtract(const Duration(days: 365)),
-                                lastDate: DateTime.now()
-                                    .add(const Duration(days: 365 * 3)),
-                              );
-                              if (picked == null) {
-                                return;
-                              }
-                              setDialog(() {
-                                from = _dateOnly(picked);
-                                if (to.isBefore(from)) {
-                                  to = from;
-                                }
-                              });
-                            },
-                            child: Text(_fmtDateShort(from)),
+                        Text(
+                          '${_fmtDateShort(item.from)} -> ${_fmtDateShort(item.to)}',
+                          style: const TextStyle(
+                            color: Color(0x99FFFFFF),
+                            fontSize: 12,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final DateTime? picked = await showDatePicker(
-                                context: dialogInnerContext,
-                                initialDate: to,
-                                firstDate: DateTime.now()
-                                    .subtract(const Duration(days: 365)),
-                                lastDate: DateTime.now()
-                                    .add(const Duration(days: 365 * 3)),
-                              );
-                              if (picked == null) {
-                                return;
-                              }
-                              setDialog(() {
-                                to = _dateOnly(picked);
-                                if (to.isBefore(from)) {
-                                  from = to;
-                                }
-                              });
-                            },
-                            child: Text(_fmtDateShort(to)),
-                          ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  final TimeOfDay? picked =
+                                      await showTimePicker(
+                                        context: dialogInnerContext,
+                                        initialTime: start,
+                                      );
+                                  if (picked != null) {
+                                    setDialog(() => start = picked);
+                                  }
+                                },
+                                child: Text(_fmtTime(start)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  final TimeOfDay? picked =
+                                      await showTimePicker(
+                                        context: dialogInnerContext,
+                                        initialTime: end,
+                                      );
+                                  if (picked != null) {
+                                    setDialog(() => end = picked);
+                                  }
+                                },
+                                child: Text(_fmtTime(end)),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final TimeOfDay? picked = await showTimePicker(
-                                context: dialogInnerContext,
-                                initialTime: start,
-                              );
-                              if (picked != null) {
-                                setDialog(() => start = picked);
-                              }
-                            },
-                            child: Text(_fmtTime(start)),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final TimeOfDay? picked = await showTimePicker(
-                                context: dialogInnerContext,
-                                initialTime: end,
-                              );
-                              if (picked != null) {
-                                setDialog(() => end = picked);
-                              }
-                            },
-                            child: Text(_fmtTime(end)),
-                          ),
-                        ),
-                      ],
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      child: const Text('Save'),
                     ),
                   ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
+                );
+              },
         );
       },
     );
 
     if (save != true || !mounted) {
-      nameCtrl.dispose();
       return;
     }
 
     final _CustomSlotDraft updated = item.copyWith(
-      slotName: nameCtrl.text.trim().isEmpty ? item.slotName : nameCtrl.text.trim(),
-      from: from,
-      to: to,
       startTime: start,
       endTime: end,
       isPersisted: false,
     );
 
+    final String? conflict = _durationConflictMessage(
+      from: updated.from,
+      to: updated.to,
+      start: updated.startTime,
+      end: updated.endTime,
+      ignoreIndex: index,
+    );
+    if (conflict != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(conflict)));
+      }
+      return;
+    }
+
     setState(() {
       _items[index] = updated;
     });
-    nameCtrl.dispose();
   }
 
   Future<void> _saveAll() async {
@@ -529,20 +625,20 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
         ..addAll(
           _items.map(
             (_CustomSlotDraft item) => <String, dynamic>{
-              'name':      item.slotName,
-              'dateFrom':  _apiDate(item.from),
-              'dateTo':    _apiDate(item.to),
+              'name': item.slotName,
+              'dateFrom': _apiDate(item.from),
+              'dateTo': _apiDate(item.to),
               'startTime': _fmtTime(item.startTime),
-              'endTime':   _fmtTime(item.endTime),
-              'price':     item.price,
+              'endTime': _fmtTime(item.endTime),
+              'price': item.price,
             },
           ),
         );
       widget.data.totalCreatedSlots = _items.length;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Slots saved.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Slots saved.')));
       }
       widget.controller!.nextStep();
       return;
@@ -603,16 +699,14 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
           if (existingKeys.contains(key)) {
             continue;
           }
-          final Map<String, dynamic> created = await _api.createSlot(
-            groundId,
-            <String, dynamic>{
-              'date': _apiDate(cursor),
-              'startTime': _fmtTime(item.startTime),
-              'endTime': _fmtTime(item.endTime),
-              'price': 0,
-              'status': 'available',
-            },
-          );
+          final Map<String, dynamic> created = await _api
+              .createSlot(groundId, <String, dynamic>{
+                'date': _apiDate(cursor),
+                'startTime': _fmtTime(item.startTime),
+                'endTime': _fmtTime(item.endTime),
+                'price': 0,
+                'status': 'available',
+              });
           existingKeys.add(key);
           final String? createdId = _slotId(created);
           if (createdId != null && _dateOnly(item.from) == _dateOnly(item.to)) {
@@ -638,7 +732,9 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
       );
     } finally {
       if (mounted) {
@@ -657,10 +753,7 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
     return _durationLabelFromMinutes(total);
   }
 
-  Widget _cardField({
-    required String label,
-    required Widget child,
-  }) {
+  Widget _cardField({required String label, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -687,10 +780,7 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
     );
   }
 
-  Widget _pickerBtn({
-    required String text,
-    required VoidCallback onTap,
-  }) {
+  Widget _pickerBtn({required String text, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -710,17 +800,18 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                 style: const TextStyle(color: Color(0xB3FFFFFF), fontSize: 12),
               ),
             ),
-            const Icon(Icons.calendar_month_outlined, size: 18, color: Color(0x99FFFFFF)),
+            const Icon(
+              Icons.calendar_month_outlined,
+              size: 18,
+              color: Color(0x99FFFFFF),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _timeBtn({
-    required String text,
-    required VoidCallback onTap,
-  }) {
+  Widget _timeBtn({required String text, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -804,11 +895,19 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
             children: <Widget>[
               IconButton(
                 onPressed: () => _editItem(index),
-                icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               IconButton(
                 onPressed: () => _deleteItem(index),
-                icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ],
           ),
@@ -824,14 +923,20 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: <Color>[Color(0xFF21452E), Color(0xFF1D1D1D), Color(0xFF141414)],
+            colors: <Color>[
+              Color(0xFF21452E),
+              Color(0xFF1D1D1D),
+              Color(0xFF141414),
+            ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: SafeArea(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFDDF730)))
+              ? const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFDDF730)),
+                )
               : Column(
                   children: <Widget>[
                     Expanded(
@@ -881,7 +986,10 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                           const SizedBox(height: 6),
                           const Text(
                             'Create your own time slots for your ground / court.',
-                            style: TextStyle(color: Color(0x99FFFFFF), fontSize: 14),
+                            style: TextStyle(
+                              color: Color(0x99FFFFFF),
+                              fontSize: 14,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Container(
@@ -889,28 +997,90 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               color: const Color(0x08FFFFFF),
-                              border: Border.all(color: const Color(0x1FFFFFFF)),
+                              border: Border.all(
+                                color: const Color(0x1FFFFFFF),
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 _cardField(
-                                  label: 'Slot Name',
-                                  child: TextField(
-                                    controller: _slotNameCtrl,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: const InputDecoration.collapsed(
-                                      hintText: 'e.g. summer session, winter session',
-                                      hintStyle: TextStyle(
-                                        color: Color(0x99FFFFFF),
-                                        fontSize: 11,
+                                  label: 'Duration Name',
+                                  child: Row(
+                                    children: <Widget>[
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _slotNameCtrl,
+                                          readOnly: _isDurationLocked,
+                                          onTap: _isDurationLocked
+                                              ? () {
+                                                  _ensureDurationEditUnlocked();
+                                                }
+                                              : null,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                          ),
+                                          decoration:
+                                              const InputDecoration.collapsed(
+                                                hintText:
+                                                    'e.g. summer session, winter session',
+                                                hintStyle: TextStyle(
+                                                  color: Color(0x99FFFFFF),
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        _isDurationLocked
+                                            ? Icons.lock_outline_rounded
+                                            : Icons.lock_open_rounded,
+                                        color: _isDurationLocked
+                                            ? const Color(0xFFDDF730)
+                                            : const Color(0x99FFFFFF),
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: <Widget>[
+                                    Expanded(
+                                      child: Text(
+                                        _isDurationLocked
+                                            ? 'Duration details are locked. Edit slot times below.'
+                                            : 'Duration details are unlocked for editing.',
+                                        style: const TextStyle(
+                                          color: Color(0x99FFFFFF),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    TextButton(
+                                      onPressed: _isDurationLocked
+                                          ? _ensureDurationEditUnlocked
+                                          : () {
+                                              setState(() {
+                                                _durationEditUnlocked = false;
+                                              });
+                                            },
+                                      child: Text(
+                                        _isDurationLocked ? 'Unlock' : 'Lock',
+                                        style: const TextStyle(
+                                          color: Color(0xFFDDF730),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 12),
                                 const Text(
-                                  'Slot Duration (Date Range)',
+                                  'Slots Valid From, To (Date Range)',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -922,7 +1092,8 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                   children: <Widget>[
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: <Widget>[
                                           const Text(
                                             'From',
@@ -942,7 +1113,8 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: <Widget>[
                                           const Text(
                                             'To',
@@ -975,7 +1147,8 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                   children: <Widget>[
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: <Widget>[
                                           const Text(
                                             'Start Time',
@@ -995,7 +1168,8 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: <Widget>[
                                           const Text(
                                             'End Time',
@@ -1018,7 +1192,9 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
-                                    onPressed: (_isAdding || _isSavingAll) ? null : _addDraft,
+                                    onPressed: (_isAdding || _isSavingAll)
+                                        ? null
+                                        : _addDraft,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFFDDF730),
                                       foregroundColor: const Color(0xFF1D1D1D),
@@ -1028,7 +1204,9 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                     ),
                                     child: const Text(
                                       'Add Slot',
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1051,14 +1229,18 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: <Widget>[
-                              const Text(
-                                'Added Slots',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+                              Expanded(
+                                child: Text(
+                                  'Added Slots (${_slotNameCtrl.text.trim().isEmpty ? 'Duration' : _slotNameCtrl.text.trim()})',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Text(
                                 '${_fmtDateShort(_fromDate)} - ${_fmtDateShort(_toDate)}',
                                 style: const TextStyle(
@@ -1076,7 +1258,9 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
                                 color: const Color(0x10FFFFFF),
-                                border: Border.all(color: const Color(0x1CFFFFFF)),
+                                border: Border.all(
+                                  color: const Color(0x1CFFFFFF),
+                                ),
                               ),
                               child: const Text(
                                 'No slots added yet.',
@@ -1084,7 +1268,9 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                               ),
                             )
                           else
-                            ...List<Widget>.generate(_items.length, (int index) {
+                            ...List<Widget>.generate(_items.length, (
+                              int index,
+                            ) {
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: _slotTile(_items[index], index),
@@ -1096,13 +1282,16 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               color: const Color(0x08FFFFFF),
-                              border: Border.all(color: const Color(0x1FFFFFFF)),
+                              border: Border.all(
+                                color: const Color(0x1FFFFFFF),
+                              ),
                             ),
                             child: Row(
                               children: <Widget>[
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: <Widget>[
                                       const Text(
                                         'Total Slots',
@@ -1126,10 +1315,11 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                 ),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: <Widget>[
                                       const Text(
-                                        'Total Duration (per Day)',
+                                        'Total Hours Available (per Day)',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 12,
@@ -1201,7 +1391,9 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                       Navigator.of(context).maybePop();
                                     },
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFDDF730)),
+                                side: const BorderSide(
+                                  color: Color(0xFFDDF730),
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),

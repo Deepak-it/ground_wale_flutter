@@ -21,7 +21,13 @@ class _ManageSlotTurfScreenState extends State<ManageSlotTurfScreen> {
   String statusFilter = 'All';
   final GroundWaleApi _api = GroundWaleApi.instance;
   late Future<List<Map<String, dynamic>>> _slotsFuture = _loadSlots();
+DateTime _selectedDate = DateTime.now();
 
+String get _selectedDateString {
+  return '${_selectedDate.year}-'
+      '${_selectedDate.month.toString().padLeft(2, '0')}-'
+      '${_selectedDate.day.toString().padLeft(2, '0')}';
+}
   String _slotId(Map<String, dynamic> slot) {
     return slot['_id']?.toString() ?? slot['id']?.toString() ?? '';
   }
@@ -45,7 +51,10 @@ class _ManageSlotTurfScreenState extends State<ManageSlotTurfScreen> {
     if (groundId == null) {
       return <Map<String, dynamic>>[];
     }
-    return _api.listSlots(groundId);
+return _api.listSlots(
+  groundId,
+    date: _selectedDateString, // yyyy-MM-dd
+  );
   }
 
   void _refresh() {
@@ -89,8 +98,21 @@ class _ManageSlotTurfScreenState extends State<ManageSlotTurfScreen> {
         labelStyle: TextStyle(color: selected ? const Color(0xFF242424) : Colors.white),
         backgroundColor: const Color(0x12FFFFFF),
         side: const BorderSide(color: Color(0x30FFFFFF)),
-        onSelected: (_) => setState(() => dayFilter = label),
-      );
+        onSelected: (_) {
+          setState(() {
+            dayFilter = label;
+
+            if (label == 'Today') {
+              _selectedDate = DateTime.now();
+            } else if (label == 'Tomorrow') {
+              _selectedDate = DateTime.now().add(const Duration(days: 1));
+            } else {
+              _selectedDate = DateTime.now();
+            }
+
+            _slotsFuture = _loadSlots();
+          });
+        },      );
     }
 
     Widget statusChip(String label) {
@@ -145,8 +167,13 @@ class _ManageSlotTurfScreenState extends State<ManageSlotTurfScreen> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(_formatSlotDate(slot['date']?.toString() ?? ''), style: const TextStyle(color: Colors.white54, fontSize: 13)),
-                    ],
+Text(
+  _formatSlotDate(_selectedDateString),
+  style: const TextStyle(
+    color: Colors.white54,
+    fontSize: 13,
+  ),
+),                    ],
                   ),
                 ),
                 Text('₹${slot['price'] ?? 0}', style: const TextStyle(color: Color(0xFF08B36A), fontSize: 19, fontWeight: FontWeight.w700)),
@@ -267,10 +294,15 @@ class _ManageSlotTurfScreenState extends State<ManageSlotTurfScreen> {
               child: FutureBuilder<List<Map<String, dynamic>>>(
                 future: _slotsFuture,
                 builder: (BuildContext context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-                  final List<Map<String, dynamic>> slots = (snapshot.data ?? <Map<String, dynamic>>[])
-                      .where((Map<String, dynamic> slot) => _matchesDayFilter(slot))
-                      .where((Map<String, dynamic> slot) => statusFilter == 'All' || slot['status']?.toString().toLowerCase() == statusFilter.toLowerCase())
-                      .toList();
+                final List<Map<String, dynamic>> slots =
+                    (snapshot.data ?? <Map<String, dynamic>>[])
+                        .where((slot) =>
+                            statusFilter == 'All' ||
+                            slot['status']
+                                    ?.toString()
+                                    .toLowerCase() ==
+                                statusFilter.toLowerCase())
+                        .toList();
 
                   final int bookedCount = slots.where((Map<String, dynamic> slot) => slot['status'] == 'booked').length;
                   final int earned = slots.fold<int>(0, (int total, Map<String, dynamic> slot) => total + ((slot['price'] as num?)?.toInt() ?? 0));
