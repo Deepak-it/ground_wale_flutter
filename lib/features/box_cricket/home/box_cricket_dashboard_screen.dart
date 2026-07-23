@@ -38,6 +38,12 @@ class BoxCricketDashboardScreen extends StatefulWidget {
 
 class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   bool _isLoading = true;
+    final Map<String, Uint8List> _imageCache = {};
+    Uint8List _decodedImage(String source) {
+      return _imageCache.putIfAbsent(source, () {
+        return base64Decode(_normalizeBase64(source));
+      });
+    }
   Map<String, dynamic> _dashboard = <String, dynamic>{};
   bool _isCalendarLoading = false;
   bool _isGroundDataLoading = false;
@@ -1952,6 +1958,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
         value,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        gaplessPlayback: true,
       );
     }
 
@@ -1966,11 +1973,11 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     }
 
     try {
-      final Uint8List bytes = Uint8List.fromList(base64Decode(base64Part));
       return Image.memory(
-        bytes,
+        _decodedImage(base64Part),
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        gaplessPlayback: true,
       );
     } catch (_) {
       return const SizedBox.shrink();
@@ -2314,12 +2321,30 @@ class _GroundImageCarouselState extends State<_GroundImageCarousel> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _precacheNetworkImages(widget.imageValues);
+  }
+
+  @override
   void didUpdateWidget(covariant _GroundImageCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageValues != widget.imageValues) {
+      _precacheNetworkImages(widget.imageValues);
+    }
     if (oldWidget.imageValues.length != widget.imageValues.length) {
       _currentIndex = 0;
       _pageController.jumpToPage(0);
       _restartAutoSlide();
+    }
+  }
+
+  void _precacheNetworkImages(List<String> images) {
+    for (final String image in images) {
+      final String value = image.trim();
+      if (value.startsWith('http://') || value.startsWith('https://')) {
+        precacheImage(NetworkImage(value), context);
+      }
     }
   }
 

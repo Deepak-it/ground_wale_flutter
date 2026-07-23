@@ -44,6 +44,7 @@ Widget buildBase64OrNetworkImage({
       source,
       fit: fit,
       errorBuilder: (_, error, stackTrace) => fallback,
+      gaplessPlayback: true,
     );
   }
 

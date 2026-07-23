@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
-
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
@@ -28,6 +28,12 @@ class AcademyDashboardScreen extends StatefulWidget {
 
 class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   bool _isLoading = true;
+    final Map<String, Uint8List> _imageCache = {};
+    Uint8List _decodedImage(String source) {
+      return _imageCache.putIfAbsent(source, () {
+        return base64Decode(_normalizeBase64(source));
+      });
+    }
   Map<String, dynamic> _dashboard = <String, dynamic>{};
   List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
   String? _selectedAcademyId;
@@ -270,9 +276,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
             source.substring(commaIndex + 1),
           );
           return Image.memory(
-            base64Decode(encoded),
+            _decodedImage(encoded),
             fit: BoxFit.cover,
-            errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
+            gaplessPlayback: true,
           );
         } catch (_) {
           return _academyImageFallback();
@@ -286,6 +292,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         source,
         fit: BoxFit.cover,
         errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
+        gaplessPlayback: true,
       );
     }
 
@@ -293,10 +300,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     try {
       final String encoded = _normalizeBase64(source);
       return Image.memory(
-        base64Decode(encoded),
-        fit: BoxFit.cover,
-        errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
-      );
+          _decodedImage(encoded),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
     } catch (_) {
       return _academyImageFallback();
     }
@@ -2226,6 +2233,7 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
   Timer? _autoSlideTimer;
   int _currentIndex = 0;
 
+
   @override
   void initState() {
     super.initState();
@@ -2234,8 +2242,24 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    for (final image in widget.imageValues) {
+      precacheImage(NetworkImage(image), context);
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant _AcademyImageCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.imageValues != widget.imageValues) {
+      for (final image in widget.imageValues) {
+        precacheImage(NetworkImage(image), context);
+      }
+    }
+
     if (oldWidget.imageValues.length != widget.imageValues.length) {
       _currentIndex = 0;
       _pageController.jumpToPage(0);
@@ -2263,7 +2287,7 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
       final int nextIndex = (_currentIndex + 1) % widget.imageValues.length;
       _pageController.animateToPage(
         nextIndex,
-        duration: const Duration(milliseconds: 350),
+        duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
     });
