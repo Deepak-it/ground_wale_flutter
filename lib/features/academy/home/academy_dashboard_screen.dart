@@ -2055,7 +2055,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                   const SizedBox(height: 16),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.only(),
                     decoration: const BoxDecoration(
                       border: Border(
                         top: BorderSide(color: Color(0x14000000)),

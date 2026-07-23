@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
@@ -293,6 +295,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
           _location;
       final String detail = _facilityText(item) ?? 'No facility details';
       final String price = _priceText(item) ?? 'N/A';
+        final List<String> imageValues = _groundImageValuesFromAny(item);
       final String imageUrl = _groundImageFromAny(item) ?? '';
       final double rating =
           _doubleFromAny(item, <String>['rating', 'groundRating']) ?? 0;
@@ -303,6 +306,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         price: price,
         detail: detail,
         imageUrl: imageUrl,
+        imageValues: imageValues,
         rating: rating,
         facilities: facilities,
         groundId: item['_id']?.toString() ?? item['id']?.toString() ?? '',
@@ -310,43 +314,60 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     }).toList();
   }
 
-  String? _groundImageFromAny(Map<String, dynamic> item) {
-    final dynamic groundImages = item['groundImages'];
-    if (groundImages is List && groundImages.isNotEmpty) {
-      final dynamic first = groundImages.first;
-      if (first is String && first.trim().isNotEmpty) {
-        return first.trim();
+  List<String> _groundImageValuesFromAny(Map<String, dynamic> item) {
+    final List<String> values = <String>[];
+
+    void addIfValid(dynamic raw) {
+      final String value = raw?.toString().trim() ?? '';
+      if (value.isNotEmpty && !values.contains(value)) {
+        values.add(value);
       }
-      if (first is Map) {
-        final String url = first['url']?.toString().trim() ?? '';
-        if (url.isNotEmpty) {
-          return url;
+    }
+
+    final dynamic groundImages = item['groundImages'];
+    if (groundImages is List) {
+      for (final dynamic entry in groundImages) {
+        if (entry is Map) {
+          addIfValid(entry['url']);
+        } else {
+          addIfValid(entry);
         }
       }
     }
 
-    final String image = item['image']?.toString().trim() ?? '';
-    if (image.isNotEmpty) {
-      return image;
-    }
-
-    final String imageUrl = item['imageUrl']?.toString().trim() ?? '';
-    if (imageUrl.isNotEmpty) {
-      return imageUrl;
+    final dynamic imageUrls = item['imageUrls'];
+    if (imageUrls is List) {
+      for (final dynamic entry in imageUrls) {
+        if (entry is Map) {
+          addIfValid(entry['url']);
+        } else {
+          addIfValid(entry);
+        }
+      }
     }
 
     final dynamic photos = item['photos'];
-    if (photos is List && photos.isNotEmpty) {
-      final dynamic first = photos.first;
-      if (first is String && first.trim().isNotEmpty) {
-        return first.trim();
-      }
-      if (first is Map) {
-        return first['url']?.toString();
+    if (photos is List) {
+      for (final dynamic entry in photos) {
+        if (entry is Map) {
+          addIfValid(entry['url']);
+        } else {
+          addIfValid(entry);
+        }
       }
     }
 
-    return null;
+    addIfValid(item['image']);
+    addIfValid(item['imageUrl']);
+    return values;
+  }
+
+  String? _groundImageFromAny(Map<String, dynamic> item) {
+    final List<String> values = _groundImageValuesFromAny(item);
+    if (values.isEmpty) {
+      return null;
+    }
+    return values.first;
   }
 
   void _applyCityFilter(String city) {
@@ -1530,13 +1551,21 @@ class _NearbyGroundShowcaseCard extends StatelessWidget {
             height: 140,
             child: Stack(
               children: <Widget>[
-                Positioned.fill(
-                  child: buildBase64OrNetworkImage(
-                    value: item.imageUrl.isEmpty ? null : item.imageUrl,
-                    fit: BoxFit.cover,
-                    fallback: imageFallback,
+                if (item.imageValues.isNotEmpty)
+                  Positioned.fill(
+                    child: _SportsNeoGroundImageCarousel(
+                      imageValues: item.imageValues,
+                      fallback: imageFallback,
+                    ),
+                  )
+                else
+                  Positioned.fill(
+                    child: buildBase64OrNetworkImage(
+                      value: item.imageUrl.isEmpty ? null : item.imageUrl,
+                      fit: BoxFit.cover,
+                      fallback: imageFallback,
+                    ),
                   ),
-                ),
                 if (item.rating > 0)
                   Positioned(
                     top: 10,
@@ -2016,6 +2045,128 @@ class _DrawerStat extends StatelessWidget {
   }
 }
 
+class _SportsNeoGroundImageCarousel extends StatefulWidget {
+  const _SportsNeoGroundImageCarousel({
+    required this.imageValues,
+    required this.fallback,
+  });
+
+  final List<String> imageValues;
+  final Widget fallback;
+
+  @override
+  State<_SportsNeoGroundImageCarousel> createState() =>
+      _SportsNeoGroundImageCarouselState();
+}
+
+class _SportsNeoGroundImageCarouselState
+    extends State<_SportsNeoGroundImageCarousel> {
+  late final PageController _pageController;
+  Timer? _autoSlideTimer;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoSlideIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SportsNeoGroundImageCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageValues.length != widget.imageValues.length) {
+      _currentIndex = 0;
+      _pageController.jumpToPage(0);
+      _restartAutoSlide();
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoSlideIfNeeded() {
+    _autoSlideTimer?.cancel();
+    if (widget.imageValues.length <= 1) {
+      return;
+    }
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_pageController.hasClients) {
+        return;
+      }
+      final int next = (_currentIndex + 1) % widget.imageValues.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _restartAutoSlide() {
+    _autoSlideTimer?.cancel();
+    _startAutoSlideIfNeeded();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageValues.isEmpty) {
+      return widget.fallback;
+    }
+
+    return Stack(
+      children: <Widget>[
+        PageView.builder(
+          controller: _pageController,
+          itemCount: widget.imageValues.length,
+          onPageChanged: (int index) {
+            setState(() => _currentIndex = index);
+            _restartAutoSlide();
+          },
+          itemBuilder: (_, int index) {
+            final String imageValue = widget.imageValues[index];
+            return buildBase64OrNetworkImage(
+              value: imageValue,
+              fit: BoxFit.cover,
+              fallback: widget.fallback,
+            );
+          },
+        ),
+        if (widget.imageValues.length > 1)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List<Widget>.generate(widget.imageValues.length, (
+                int index,
+              ) {
+                final bool active = index == _currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: active ? 14 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: active
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xCCFFFFFF),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _SidebarMenuTile extends StatelessWidget {
   const _SidebarMenuTile({required this.label, required this.onTap});
 
@@ -2084,6 +2235,7 @@ class _GroundCardData {
     required this.price,
     required this.detail,
     this.imageUrl = '',
+    this.imageValues = const <String>[],
     this.rating = 0,
     this.facilities = const <String>[],
     this.groundId = '',
@@ -2094,6 +2246,7 @@ class _GroundCardData {
   final String price;
   final String detail;
   final String imageUrl;
+  final List<String> imageValues;
   final double rating;
   final List<String> facilities;
   final String groundId;
