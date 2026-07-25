@@ -209,9 +209,8 @@ class ChooseRoleScreen extends StatelessWidget {
                     width: 44,
                     height: 44,
                     child: IconButton(
-                      onPressed: controller.currentStep == 0
-                          ? null
-                          : controller.previousStep,
+                      onPressed: () => Navigator.pop(context),
+
                       icon: const Icon(
                         Icons.arrow_back_ios_new_rounded,
                         color: Color(0xFFD7FF3F),

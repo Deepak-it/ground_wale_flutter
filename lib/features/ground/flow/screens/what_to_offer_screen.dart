@@ -373,7 +373,7 @@ class WhatToOfferScreen extends StatelessWidget {
                 SizedBox(
                   height: 44,
                   child: OutlinedButton(
-                    onPressed: controller.previousStep,
+                    onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0x80D7FF00)),
                       shape: RoundedRectangleBorder(

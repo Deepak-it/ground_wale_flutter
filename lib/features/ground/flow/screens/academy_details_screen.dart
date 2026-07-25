@@ -373,10 +373,8 @@ class _AcademyDetailsScreenState extends State<AcademyDetailsScreen> {
                 SizedBox(
                   height: 44,
                   child: OutlinedButton(
-                    onPressed: () {
-                      _sync();
-                      widget.controller.previousStep();
-                    },
+                    onPressed: () => Navigator.pop(context),
+
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0x80D7FF00)),
                       shape: RoundedRectangleBorder(

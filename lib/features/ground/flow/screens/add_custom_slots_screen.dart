@@ -950,13 +950,8 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                   width: 44,
                                   height: 44,
                                   child: IconButton(
-                                    onPressed: () {
-                                      if (widget.controller != null) {
-                                        widget.controller!.previousStep();
-                                        return;
-                                      }
-                                      Navigator.of(context).maybePop();
-                                    },
+                                    onPressed: () => Navigator.pop(context),
+
                                     icon: const Icon(
                                       Icons.arrow_back_ios_new_rounded,
                                       color: Color(0xFFDDF730),
