@@ -1438,23 +1438,10 @@ class _SportsNeoCompleteProfileScreenState
               ),
               const SizedBox(height: 24),
               Center(
-                child: Column(
-                  children: <Widget>[
-                    const Text(
-                      'Profile Photo (Optional)',
-                      style: TextStyle(
-                        color: Color(0xCCFFFFFF),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _AddPhotoCircle(
-                      imageBase64: _profileImageBase64,
-                      isLoading: _isPickingImage,
-                      onTap: _pickProfileImage,
-                    ),
-                  ],
+                child: _AddPhotoCircle(
+                  imageBase64: _profileImageBase64,
+                  isLoading: _isPickingImage,
+                  onTap: _pickProfileImage,
                 ),
               ),
               const SizedBox(height: 24),
@@ -2079,46 +2066,60 @@ class _AddPhotoCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget fallback = Container(
-      width: 72,
-      height: 72,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(36),
-        color: const Color(0x05FFFFFF),
-      ),
-      child: isLoading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-          : const Icon(Icons.add, color: Color(0x66FFFFFF), size: 24),
-    );
+    final bool hasImage = imageBase64 != null && imageBase64!.trim().isNotEmpty;
+
+    Widget circleChild;
+    if (isLoading) {
+      circleChild = const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+      );
+    } else if (hasImage) {
+      circleChild = buildBase64OrNetworkImage(
+        value: imageBase64,
+        fit: BoxFit.cover,
+        fallback: const Icon(
+          Icons.person_outline_rounded,
+          color: Color(0x66FFFFFF),
+          size: 36,
+        ),
+      );
+    } else {
+      circleChild = const Icon(
+        Icons.person_outline_rounded,
+        color: Color(0x66FFFFFF),
+        size: 36,
+      );
+    }
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(36),
-          border: Border.all(
-            color: const Color(0x33FFFFFF),
-            width: 2,
-            style: BorderStyle.solid,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 92,
+            height: 92,
+            decoration: BoxDecoration(
+              color: const Color(0x08FFFFFF),
+              borderRadius: BorderRadius.circular(1000),
+              border: Border.all(color: const Color(0x33FFFFFF)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            alignment: Alignment.center,
+            child: circleChild,
           ),
-          color: const Color(0x05FFFFFF),
-        ),
-        clipBehavior: Clip.antiAlias,
-        alignment: Alignment.center,
-        child: buildBase64OrNetworkImage(
-          value: imageBase64,
-          fit: BoxFit.cover,
-          fallback: fallback,
-        ),
+          const SizedBox(height: 10),
+          Text(
+            hasImage ? 'Change Photo' : 'Upload Photo',
+            style: const TextStyle(
+              color: Color(0xFF2563EB),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

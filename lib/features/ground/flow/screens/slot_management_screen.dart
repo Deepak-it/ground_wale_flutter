@@ -136,7 +136,6 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
       _selectedDurationSlots = scopedDrafts
           .map((Map<String, dynamic> draft) {
             return _EditableSlot(
-              icon: Icons.wb_sunny_outlined,
               startTime: draft['startTime']?.toString() ?? '06:00 AM',
               endTime: draft['endTime']?.toString() ?? '07:00 AM',
               price: (draft['price'] ?? 0).toString(),
@@ -147,7 +146,7 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
       for (int i = 0; i < _dayConfigs.length; i++) {
         final _DayPricingConfig day = _dayConfigs[i];
         day.enabled = true;
-        day.expanded = i == 0;
+        day.expanded = true;
         day.slots = scopedDrafts
             .map((Map<String, dynamic> draft) {
               final Map<String, dynamic> dayPrices =
@@ -157,7 +156,6 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
               final dynamic rawPrice =
                   dayPrices[day.shortDay] ?? draft['price'];
               return _EditableSlot(
-                icon: Icons.wb_sunny_outlined,
                 startTime: draft['startTime']?.toString() ?? '06:00 AM',
                 endTime: draft['endTime']?.toString() ?? '07:00 AM',
                 price: (rawPrice ?? 0).toString(),
@@ -208,7 +206,6 @@ List<_EditableSlot> _buildSlotsFromCustomDrafts(
 
   return drafts.map((draft) {
     return _EditableSlot(
-      icon: Icons.wb_sunny_outlined,
       startTime: draft['startTime']?.toString() ?? '',
       endTime: draft['endTime']?.toString() ?? '',
       price: (draft['price'] ?? 0).toString(),
@@ -859,7 +856,7 @@ for (int slotIndex = 0;
         ),
         child: Row(
           children: <Widget>[
-            Icon(icon, size: 16, color: const Color(0xFFDDF730)),
+            // Icon(icon, size: 16, color: const Color(0xFFDDF730)),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -1009,7 +1006,8 @@ for (int slotIndex = 0;
   Widget _slotTile(_DayPricingConfig day, int slotIndex, _EditableSlot slot) {
     return Container(
       width: 96,
-      padding: const EdgeInsets.all(10),
+      height: 50,
+      padding: const EdgeInsets.fromLTRB(5,5, 5, 2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0x2EFFFFFF)),
@@ -1018,7 +1016,6 @@ for (int slotIndex = 0;
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Icon(slot.icon, size: 18, color: const Color(0xFFF59E0B)),
           const SizedBox(height: 8),
           Text(
             '${slot.startTime} - ${slot.endTime}',
@@ -1066,7 +1063,7 @@ for (int slotIndex = 0;
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 4),
+                      contentPadding: EdgeInsets.symmetric(vertical: 2),
                     ),
                   ),
                 ),
@@ -1081,13 +1078,11 @@ for (int slotIndex = 0;
 
 class _EditableSlot {
   _EditableSlot({
-    required this.icon,
     required this.startTime,
     required this.endTime,
     required String price,
   }) : priceController = TextEditingController(text: price);
 
-  final IconData icon;
   String startTime;
   String endTime;
   final TextEditingController priceController;

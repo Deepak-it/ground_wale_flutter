@@ -5,6 +5,8 @@ import '../../../../core/api/ground_wale_api.dart';
 import '../controllers/ground_flow_controller.dart';
 import '../models/ground_registration_data.dart';
 
+// ignore_for_file: use_build_context_synchronously
+
 class AddCustomSlotsScreen extends StatefulWidget {
   const AddCustomSlotsScreen({
     super.key,
@@ -25,94 +27,86 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
   final GroundWaleApi _api = GroundWaleApi.instance;
   final ApiSession _session = ApiSession.instance;
 
-  final TextEditingController _slotNameCtrl = TextEditingController(
-    text: 'e.g. Winter season',
-  );
-
-  bool _isLoading = true;
+  final bool _isLoading = false;
   bool _isSavingAll = false;
-  bool _isAdding = false;
-  bool _durationEditUnlocked = false;
 
-  DateTime _fromDate = DateTime.now();
-  DateTime _toDate = DateTime.now().add(const Duration(days: 7));
-  TimeOfDay _startTime = const TimeOfDay(hour: 6, minute: 0);
-  TimeOfDay _endTime = const TimeOfDay(hour: 7, minute: 0);
+  // ── All durations currently configured ───────────────────────────────────
+  final List<_DurationDraft> _durations = <_DurationDraft>[];
 
-  final List<_CustomSlotDraft> _items = <_CustomSlotDraft>[];
+  // ── "Add new duration" form state ─────────────────────────────────────────
+  bool _showDurationForm = false;
+  final TextEditingController _nameCtrl = TextEditingController();
+  DateTime _newFrom = DateTime.now();
+  DateTime _newTo = DateTime.now().add(const Duration(days: 30));
+
+  // ── "Add slot" inline form state (index into _durations, null = closed) ──
+  int? _activeSlotForDuration; // which duration card shows the slot-add form
+  TimeOfDay _slotStart = const TimeOfDay(hour: 6, minute: 0);
+  TimeOfDay _slotEnd = const TimeOfDay(hour: 7, minute: 0);
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _fromDate = _dateOnly(widget.data.startDate);
-    _toDate = _dateOnly(widget.data.endDate);
-    if (widget.data.slotViewName.trim().isNotEmpty) {
-      _slotNameCtrl.text = widget.data.slotViewName.trim();
+    _loadFromDrafts();
+    // If nothing loaded yet, start with the add-duration form open
+    if (_durations.isEmpty) {
+      _showDurationForm = true;
     }
-    _loadExisting();
   }
 
   @override
   void dispose() {
-    _slotNameCtrl.dispose();
+    _nameCtrl.dispose();
     super.dispose();
   }
 
-  DateTime _dateOnly(DateTime value) {
-    return DateTime(value.year, value.month, value.day);
-  }
-
-  bool get _isDurationLocked => _items.isNotEmpty && !_durationEditUnlocked;
-
-  Future<bool> _ensureDurationEditUnlocked() async {
-    if (!_isDurationLocked) {
-      return true;
+  // ── Load existing customSlotDrafts into the _DurationDraft list ───────────
+  void _loadFromDrafts() {
+    final Map<String, _DurationDraft> byKey = <String, _DurationDraft>{};
+    for (final Map<String, dynamic> d in widget.data.customSlotDrafts) {
+      final String fromStr = d['dateFrom']?.toString() ?? '';
+      final String toStr = d['dateTo']?.toString() ?? '';
+      final String key = '$fromStr|$toStr';
+      final DateTime from = _tryParseDate(fromStr) ?? DateTime.now();
+      final DateTime to = _tryParseDate(toStr) ?? DateTime.now();
+      final _DurationDraft draft = byKey.putIfAbsent(
+        key,
+        () => _DurationDraft(
+          name: d['name']?.toString() ?? 'Duration',
+          from: _dateOnly(from),
+          to: _dateOnly(to),
+        ),
+      );
+      final TimeOfDay start = _parseTime(
+        d['startTime']?.toString() ?? '06:00 AM',
+      );
+      final TimeOfDay end = _parseTime(d['endTime']?.toString() ?? '07:00 AM');
+      draft.slots.add(_SlotTime(startTime: start, endTime: end));
     }
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Unlock Duration Details?'),
-          content: const Text(
-            'Duration name and date range are parent details. Changing them may affect all slots under this duration. Continue?',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Keep Locked'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Unlock'),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed == true && mounted) {
-      setState(() => _durationEditUnlocked = true);
-      return true;
-    }
-    return false;
+    _durations.addAll(byKey.values);
   }
 
-  String _apiDate(DateTime date) {
-    final String month = date.month.toString().padLeft(2, '0');
-    final String day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  DateTime? _tryParseDate(String raw) {
+    if (raw.trim().isEmpty) return null;
+    final DateTime? parsed = DateTime.tryParse(raw.trim());
+    if (parsed == null) return null;
+    final DateTime local = parsed.toLocal();
+    return DateTime(local.year, local.month, local.day);
   }
 
-  String _fmtDateShort(DateTime date) {
-    const List<String> day = <String>[
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ];
-    const List<String> month = <String>[
+  String _apiDate(DateTime d) {
+    final String m = d.month.toString().padLeft(2, '0');
+    final String day = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$m-$day';
+  }
+
+  String _fmtDate(DateTime d) {
+    const List<String> mn = <String>[
       'Jan',
       'Feb',
       'Mar',
@@ -126,311 +120,168 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       'Nov',
       'Dec',
     ];
-    return '${day[date.weekday - 1]}, ${date.day} ${month[date.month - 1]} ${date.year}';
+    const List<String> wd = <String>[
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
+    return '${wd[d.weekday - 1]}, ${d.day} ${mn[d.month - 1]} ${d.year}';
   }
 
-  String _fmtTime(TimeOfDay time) {
-    int hour = time.hour;
-    final int minute = time.minute;
-    final String period = hour >= 12 ? 'PM' : 'AM';
-    hour = hour % 12;
-    if (hour == 0) {
-      hour = 12;
-    }
-    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+  String _fmtTime(TimeOfDay t) {
+    int h = t.hour;
+    final String period = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h == 0) h = 12;
+    return '${h.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')} $period';
   }
 
   TimeOfDay _parseTime(String raw) {
-    final RegExp regExp = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
-    final RegExpMatch? match = regExp.firstMatch(raw.trim());
-    if (match == null) {
-      return const TimeOfDay(hour: 6, minute: 0);
-    }
-    int hour = int.tryParse(match.group(1) ?? '') ?? 6;
-    final int minute = int.tryParse(match.group(2) ?? '') ?? 0;
-    final String period = (match.group(3) ?? 'AM').toUpperCase();
-    if (hour == 12) {
-      hour = 0;
-    }
-    if (period == 'PM') {
-      hour += 12;
-    }
-    return TimeOfDay(hour: hour, minute: minute);
+    final RegExpMatch? m = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$',
+    ).firstMatch(raw.trim());
+    if (m == null) return const TimeOfDay(hour: 6, minute: 0);
+    int h = int.tryParse(m.group(1) ?? '') ?? 6;
+    final int min = int.tryParse(m.group(2) ?? '') ?? 0;
+    final String p = (m.group(3) ?? 'AM').toUpperCase();
+    if (h == 12) h = 0;
+    if (p == 'PM') h += 12;
+    return TimeOfDay(hour: h, minute: min);
   }
 
-  int _minutesBetween(TimeOfDay start, TimeOfDay end) {
-    int startMins = start.hour * 60 + start.minute;
-    int endMins = end.hour * 60 + end.minute;
-    if (endMins <= startMins) {
-      endMins += 24 * 60;
-    }
-    return endMins - startMins;
+  int _toMins(TimeOfDay t) => t.hour * 60 + t.minute;
+
+  bool _dateRangesOverlap(DateTime fa, DateTime ta, DateTime fb, DateTime tb) {
+    return !ta.isBefore(fb) && !tb.isBefore(fa);
   }
 
-  int _toMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
-
-  bool _timeRangesOverlap(
-    TimeOfDay startA,
-    TimeOfDay endA,
-    TimeOfDay startB,
-    TimeOfDay endB,
-  ) {
-    int aStart = _toMinutes(startA);
-    int aEnd = _toMinutes(endA);
-    if (aEnd <= aStart) {
-      aEnd += 24 * 60;
-    }
-
-    int bStart = _toMinutes(startB);
-    int bEnd = _toMinutes(endB);
-    if (bEnd <= bStart) {
-      bEnd += 24 * 60;
-    }
-
-    return aStart < bEnd && bStart < aEnd;
+  bool _timesOverlap(TimeOfDay sa, TimeOfDay ea, TimeOfDay sb, TimeOfDay eb) {
+    int aS = _toMins(sa), aE = _toMins(ea);
+    int bS = _toMins(sb), bE = _toMins(eb);
+    if (aE <= aS) aE += 24 * 60;
+    if (bE <= bS) bE += 24 * 60;
+    return aS < bE && bS < aE;
   }
 
-  bool _dateRangesOverlap(
-    DateTime fromA,
-    DateTime toA,
-    DateTime fromB,
-    DateTime toB,
-  ) {
-    return !toA.isBefore(fromB) && !toB.isBefore(fromA);
-  }
-
-  String? _durationConflictMessage({
-    required DateTime from,
-    required DateTime to,
-    required TimeOfDay start,
-    required TimeOfDay end,
-    int? ignoreIndex,
+  /// Returns an overlap message if [start]-[end] on dates [from]-[to] clashes
+  /// with any existing slot across all durations (except slots in
+  /// [ignoreDurationIndex] at [ignoreSlotIndex]).
+  String? _overlapMessage(
+    DateTime from,
+    DateTime to,
+    TimeOfDay start,
+    TimeOfDay end, {
+    int? ignoreDurationIndex,
+    int? ignoreSlotIndex,
   }) {
-    final List<_CustomSlotDraft> comparable = <_CustomSlotDraft>[];
-    for (int i = 0; i < _items.length; i++) {
-      if (ignoreIndex != null && i == ignoreIndex) {
-        continue;
+    for (int di = 0; di < _durations.length; di++) {
+      final _DurationDraft dur = _durations[di];
+      if (!_dateRangesOverlap(from, to, dur.from, dur.to)) continue;
+      for (int si = 0; si < dur.slots.length; si++) {
+        if (di == ignoreDurationIndex && si == ignoreSlotIndex) continue;
+        if (_timesOverlap(
+          start,
+          end,
+          dur.slots[si].startTime,
+          dur.slots[si].endTime,
+        )) {
+          return 'Slot ${_fmtTime(start)}–${_fmtTime(end)} overlaps with an existing slot in "${dur.name}". Choose a different time.';
+        }
       }
-      comparable.add(_items[i]);
-    }
-
-    if (comparable.isNotEmpty) {
-      final _CustomSlotDraft first = comparable.first;
-      final bool sameRange =
-          _dateOnly(from) == _dateOnly(first.from) &&
-          _dateOnly(to) == _dateOnly(first.to);
-      if (!sameRange) {
-        return 'Only one duration date range is allowed at a time. Add more slots using the same From and To dates.';
-      }
-    }
-
-    for (final _CustomSlotDraft existing in comparable) {
-      final bool dateOverlap = _dateRangesOverlap(
-        from,
-        to,
-        existing.from,
-        existing.to,
-      );
-      if (!dateOverlap) {
-        continue;
-      }
-      final bool timeOverlap = _timeRangesOverlap(
-        start,
-        end,
-        existing.startTime,
-        existing.endTime,
-      );
-      if (!timeOverlap) {
-        continue;
-      }
-
-      final bool sameDates =
-          _dateOnly(from) == _dateOnly(existing.from) &&
-          _dateOnly(to) == _dateOnly(existing.to);
-      if (sameDates) {
-        return 'This duration has same dates and overlapping slot timing. Please choose different timing.';
-      }
-      return 'Duration dates overlap and slot timing also overlaps with an existing duration. Please adjust date range or time.';
     }
     return null;
   }
 
-  String _durationLabelFromMinutes(int minutes) {
-    final int h = minutes ~/ 60;
-    final int m = minutes % 60;
-    return '${h.toString().padLeft(2, '0')}h ${m.toString().padLeft(2, '0')}m';
-  }
-
-  DateTime? _tryParseDate(dynamic raw) {
-    final String value = raw?.toString() ?? '';
-    if (value.trim().isEmpty) {
-      return null;
-    }
-    final DateTime? parsed = DateTime.tryParse(value);
-    if (parsed == null) {
-      return null;
-    }
-    final DateTime local = parsed.toLocal();
-    return DateTime(local.year, local.month, local.day);
-  }
-
-  String? _slotId(Map<String, dynamic> map) {
-    final String id = map['_id']?.toString() ?? map['id']?.toString() ?? '';
-    return id.isEmpty ? null : id;
-  }
-
-  Future<String?> _resolveGroundId() async {
-    if (_session.hasGround) {
-      return _session.groundId;
-    }
-    final String? ownerId = _session.ownerId;
-    if (ownerId == null || ownerId.isEmpty) {
-      return null;
-    }
-    final String? resolved = await _api.ensureGroundIdForOwner(ownerId);
-    if (resolved != null && resolved.isNotEmpty) {
-      _session.setGroundId(resolved);
-    }
-    return resolved;
-  }
-
-  Future<void> _loadExisting() async {
-    // Registration mode: no ground exists yet, skip API load.
-    if (widget.controller != null) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-    try {
-      final String? groundId = await _resolveGroundId();
-      if (groundId == null || groundId.isEmpty) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-        return;
-      }
-
-      final DateTime from = _dateOnly(widget.data.startDate);
-      final DateTime to = _dateOnly(widget.data.endDate);
-      final List<Map<String, dynamic>> existing = await _api.listSlots(
-        groundId,
-        from: _apiDate(from),
-        to: _apiDate(to),
-      );
-
-      final List<_CustomSlotDraft> loaded = <_CustomSlotDraft>[];
-      for (final Map<String, dynamic> item in existing) {
-        final DateTime? date = _tryParseDate(item['date']);
-        if (date == null) {
-          continue;
-        }
-        loaded.add(
-          _CustomSlotDraft(
-            id: _slotId(item),
-            slotName: '',
-            from: date,
-            to: date,
-            startTime: _parseTime(item['startTime']?.toString() ?? '06:00 AM'),
-            endTime: _parseTime(item['endTime']?.toString() ?? '07:00 AM'),
-            isPersisted: true,
-          ),
-        );
-      }
-
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _items
-          ..clear()
-          ..addAll(loaded);
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _pickDate(bool isFrom) async {
-    final bool allowed = await _ensureDurationEditUnlocked();
-    if (!allowed) {
-      return;
-    }
-    final DateTime initial = isFrom ? _fromDate : _toDate;
+  // ── Add Duration form actions ─────────────────────────────────────────────
+  Future<void> _pickNewFrom() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: _newFrom,
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
     );
-    if (picked == null || !mounted) {
-      return;
-    }
+    if (picked == null || !mounted) return;
     setState(() {
-      if (isFrom) {
-        _fromDate = _dateOnly(picked);
-        if (_toDate.isBefore(_fromDate)) {
-          _toDate = _fromDate;
-        }
-      } else {
-        _toDate = _dateOnly(picked);
-        if (_toDate.isBefore(_fromDate)) {
-          _fromDate = _toDate;
-        }
-      }
+      _newFrom = _dateOnly(picked);
+      if (_newTo.isBefore(_newFrom)) _newTo = _newFrom;
     });
   }
 
-  Future<void> _pickTime(bool isStart) async {
-    final TimeOfDay initial = isStart ? _startTime : _endTime;
+  Future<void> _pickNewTo() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _newTo.isBefore(_newFrom) ? _newFrom : _newTo,
+      firstDate: _newFrom,
+      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _newTo = _dateOnly(picked));
+  }
+
+  void _confirmAddDuration() {
+    final String name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Duration name is required.')),
+      );
+      return;
+    }
+    setState(() {
+      _durations.add(_DurationDraft(name: name, from: _newFrom, to: _newTo));
+      _nameCtrl.clear();
+      _newFrom = DateTime.now();
+      _newTo = DateTime.now().add(const Duration(days: 30));
+      _showDurationForm = false;
+      _activeSlotForDuration = _durations.length - 1; // auto-open slot form
+      _slotStart = const TimeOfDay(hour: 6, minute: 0);
+      _slotEnd = const TimeOfDay(hour: 7, minute: 0);
+    });
+  }
+
+  // ── Add Slot to a duration ────────────────────────────────────────────────
+  Future<void> _pickSlotStart() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: initial,
-      builder: (BuildContext context, Widget? child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
+      initialTime: _slotStart,
+      builder: (BuildContext ctx, Widget? child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: false),
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() {
-      if (isStart) {
-        _startTime = picked;
-      } else {
-        _endTime = picked;
-      }
-    });
+    if (picked != null && mounted) setState(() => _slotStart = picked);
   }
 
-  Future<void> _addDraft() async {
-    if (_isAdding || _isSavingAll) {
-      return;
-    }
-    final String slotName = _slotNameCtrl.text.trim();
-    if (slotName.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Slot name is required.')));
-      return;
-    }
+  Future<void> _pickSlotEnd() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _slotEnd,
+      builder: (BuildContext ctx, Widget? child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: false),
+        child: child ?? const SizedBox.shrink(),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _slotEnd = picked);
+  }
 
-    final int duration = _minutesBetween(_startTime, _endTime);
-    if (duration <= 0) {
+  void _confirmAddSlot(int durationIndex) {
+    final _DurationDraft dur = _durations[durationIndex];
+    final int sS = _toMins(_slotStart), sE = _toMins(_slotEnd);
+    if (sE <= sS) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('End time must be after start time.')),
       );
       return;
     }
-
-    final String? conflict = _durationConflictMessage(
-      from: _fromDate,
-      to: _toDate,
-      start: _startTime,
-      end: _endTime,
+    final String? conflict = _overlapMessage(
+      dur.from,
+      dur.to,
+      _slotStart,
+      _slotEnd,
+      ignoreDurationIndex: durationIndex,
     );
     if (conflict != null) {
       ScaffoldMessenger.of(
@@ -438,203 +289,79 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       ).showSnackBar(SnackBar(content: Text(conflict)));
       return;
     }
-
     setState(() {
-      _isAdding = true;
-      widget.data.slotViewName = slotName;
-      _items.insert(
-        0,
-        _CustomSlotDraft(
-          slotName: slotName,
-          from: _fromDate,
-          to: _toDate,
-          startTime: _startTime,
-          endTime: _endTime,
-          isPersisted: false,
-        ),
+      dur.slots.add(_SlotTime(startTime: _slotStart, endTime: _slotEnd));
+      // Keep form open but reset times for next slot
+      _slotStart = _slotEnd; // next slot starts where this one ended
+      _slotEnd = TimeOfDay(
+        hour: (_slotEnd.hour + 1) % 24,
+        minute: _slotEnd.minute,
       );
-      _durationEditUnlocked = false;
-      _isAdding = false;
     });
   }
 
-  Future<void> _deleteItem(int index) async {
-    final _CustomSlotDraft draft = _items[index];
-    if (draft.isPersisted && draft.id != null && draft.id!.isNotEmpty) {
-      try {
-        await _api.deleteSlot(draft.id!);
-      } catch (error) {
-        if (!mounted) {
-          return;
-        }
+  // ── Delete ────────────────────────────────────────────────────────────────
+  void _deleteDuration(int index) {
+    setState(() {
+      _durations.removeAt(index);
+      if (_activeSlotForDuration == index) {
+        _activeSlotForDuration = null;
+      } else if (_activeSlotForDuration != null &&
+          _activeSlotForDuration! > index) {
+        _activeSlotForDuration = _activeSlotForDuration! - 1;
+      }
+    });
+  }
+
+  void _deleteSlot(int durIndex, int slotIndex) {
+    setState(() => _durations[durIndex].slots.removeAt(slotIndex));
+  }
+
+  // ── Save All ──────────────────────────────────────────────────────────────
+  Future<void> _saveAll() async {
+    if (_isSavingAll) return;
+
+    // Validate at least one duration with at least one slot
+    for (final _DurationDraft dur in _durations) {
+      if (dur.slots.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error.toString().replaceFirst('Exception: ', '')),
+            content: Text(
+              '"${dur.name}" has no slots. Add at least one slot or delete the duration.',
+            ),
           ),
         );
         return;
       }
     }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _items.removeAt(index);
-    });
-  }
-
-  Future<void> _editItem(int index) async {
-    // In registration mode: open day-wise pricing screen.
-    if (widget.controller != null) {
-      widget.controller!.jumpToStep(10);
-      return;
-    }
-    // Standalone mode: time-only edit. Duration details are parent-level.
-    final _CustomSlotDraft item = _items[index];
-    TimeOfDay start = item.startTime;
-    TimeOfDay end = item.endTime;
-
-    final bool? save = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder:
-              (
-                BuildContext dialogInnerContext,
-                void Function(void Function()) setDialog,
-              ) {
-                return AlertDialog(
-                  backgroundColor: const Color(0xFF1D1D1D),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  title: const Text(
-                    'Edit Slot Time',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  content: SizedBox(
-                    width: 320,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          '${_fmtDateShort(item.from)} -> ${_fmtDateShort(item.to)}',
-                          style: const TextStyle(
-                            color: Color(0x99FFFFFF),
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () async {
-                                  final TimeOfDay? picked =
-                                      await showTimePicker(
-                                        context: dialogInnerContext,
-                                        initialTime: start,
-                                      );
-                                  if (picked != null) {
-                                    setDialog(() => start = picked);
-                                  }
-                                },
-                                child: Text(_fmtTime(start)),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () async {
-                                  final TimeOfDay? picked =
-                                      await showTimePicker(
-                                        context: dialogInnerContext,
-                                        initialTime: end,
-                                      );
-                                  if (picked != null) {
-                                    setDialog(() => end = picked);
-                                  }
-                                },
-                                child: Text(_fmtTime(end)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(true),
-                      child: const Text('Save'),
-                    ),
-                  ],
-                );
-              },
-        );
-      },
-    );
-
-    if (save != true || !mounted) {
+    if (_durations.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add at least one duration with slots.')),
+      );
       return;
     }
 
-    final _CustomSlotDraft updated = item.copyWith(
-      startTime: start,
-      endTime: end,
-      isPersisted: false,
-    );
-
-    final String? conflict = _durationConflictMessage(
-      from: updated.from,
-      to: updated.to,
-      start: updated.startTime,
-      end: updated.endTime,
-      ignoreIndex: index,
-    );
-    if (conflict != null) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(conflict)));
+    // Build flat customSlotDrafts list
+    final List<Map<String, dynamic>> drafts = <Map<String, dynamic>>[];
+    for (final _DurationDraft dur in _durations) {
+      for (final _SlotTime slot in dur.slots) {
+        drafts.add(<String, dynamic>{
+          'name': dur.name,
+          'dateFrom': _apiDate(dur.from),
+          'dateTo': _apiDate(dur.to),
+          'startTime': _fmtTime(slot.startTime),
+          'endTime': _fmtTime(slot.endTime),
+          'price': 0,
+        });
       }
-      return;
     }
+    widget.data.customSlotDrafts
+      ..clear()
+      ..addAll(drafts);
+    widget.data.totalCreatedSlots = drafts.length;
 
-    setState(() {
-      _items[index] = updated;
-    });
-  }
-
-  Future<void> _saveAll() async {
-    if (_isSavingAll) {
-      return;
-    }
-    widget.data.slotViewName = _slotNameCtrl.text.trim().isEmpty
-        ? widget.data.slotViewName
-        : _slotNameCtrl.text.trim();
-
-    // ── Registration mode: store in memory, no API ──────────────────────
+    // Registration mode: just save in memory and advance
     if (widget.controller != null) {
-      widget.data.customSlotDrafts
-        ..clear()
-        ..addAll(
-          _items.map(
-            (_CustomSlotDraft item) => <String, dynamic>{
-              'name': item.slotName,
-              'dateFrom': _apiDate(item.from),
-              'dateTo': _apiDate(item.to),
-              'startTime': _fmtTime(item.startTime),
-              'endTime': _fmtTime(item.endTime),
-              'price': item.price,
-            },
-          ),
-        );
-      widget.data.totalCreatedSlots = _items.length;
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -644,146 +371,60 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       return;
     }
 
-    // ── Standalone / post-login mode: full API sync ───────────────────────
-    String? groundId = await _resolveGroundId();
-    if (groundId == null || groundId.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ground not found for this owner.')),
-        );
-      }
-      return;
-    }
-
+    // Standalone / post-login mode: write to API
     setState(() => _isSavingAll = true);
     try {
-      final DateTime dateFrom = _dateOnly(widget.data.startDate);
-      final DateTime dateTo = _dateOnly(widget.data.endDate);
-
-      final List<Map<String, dynamic>> existing = await _api.listSlots(
-        groundId,
-        from: _apiDate(dateFrom),
-        to: _apiDate(dateTo),
-      );
-      final Set<String> existingKeys = <String>{};
-      for (final Map<String, dynamic> slot in existing) {
-        final DateTime? d = _tryParseDate(slot['date']);
-        if (d == null) {
-          continue;
-        }
-        existingKeys.add(
-          '${_apiDate(d)}|${slot['startTime']?.toString() ?? ''}|${slot['endTime']?.toString() ?? ''}',
-        );
-      }
-
-      for (int i = 0; i < _items.length; i++) {
-        final _CustomSlotDraft item = _items[i];
-
-        if (item.id != null && item.id!.isNotEmpty) {
-          await _api.updateSlot(item.id!, <String, dynamic>{
-            'startTime': _fmtTime(item.startTime),
-            'endTime': _fmtTime(item.endTime),
-            'status': 'available',
-          });
-          _items[i] = item.copyWith(isPersisted: true);
-          continue;
-        }
-
-        for (
-          DateTime cursor = _dateOnly(item.from);
-          !cursor.isAfter(_dateOnly(item.to));
-          cursor = cursor.add(const Duration(days: 1))
-        ) {
-          final String key =
-              '${_apiDate(cursor)}|${_fmtTime(item.startTime)}|${_fmtTime(item.endTime)}';
-          if (existingKeys.contains(key)) {
-            continue;
-          }
-          final Map<String, dynamic> created = await _api
-              .createSlot(groundId, <String, dynamic>{
-                'date': _apiDate(cursor),
-                'startTime': _fmtTime(item.startTime),
-                'endTime': _fmtTime(item.endTime),
-                'price': 0,
-                'status': 'available',
-              });
-          existingKeys.add(key);
-          final String? createdId = _slotId(created);
-          if (createdId != null && _dateOnly(item.from) == _dateOnly(item.to)) {
-            _items[i] = item.copyWith(id: createdId, isPersisted: true);
+      String? groundId = _session.groundId;
+      if (groundId == null || groundId.isEmpty) {
+        final String? ownerId = _session.ownerId;
+        if (ownerId != null && ownerId.isNotEmpty) {
+          final String? resolved = await _api.ensureGroundIdForOwner(ownerId);
+          if (resolved != null && resolved.isNotEmpty) {
+            _session.setGroundId(resolved);
+            groundId = resolved;
           }
         }
       }
-
-      if (!mounted) {
-        return;
+      if (groundId == null || groundId.isEmpty) {
+        throw Exception('Ground not found for this owner.');
       }
-      widget.data.totalCreatedSlots = _items.length;
+
+      for (final Map<String, dynamic> draft in drafts) {
+        await _api.createSlot(groundId, <String, dynamic>{
+          'dateFrom': draft['dateFrom'],
+          'dateTo': draft['dateTo'],
+          'startTime': draft['startTime'],
+          'endTime': draft['endTime'],
+          'price': 0,
+          'status': 'available',
+        });
+      }
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('All slots saved successfully.')),
       );
-      if (widget.controller != null) {
-        widget.controller!.nextStep();
-      } else {
-        Navigator.of(context).pop(true);
-      }
+      Navigator.of(context).pop(true);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isSavingAll = false);
-      }
+      if (mounted) setState(() => _isSavingAll = false);
     }
   }
 
-  int _totalSlots() => _items.length;
-
-  String _totalDurationPerDayLabel() {
-    int total = 0;
-    for (final _CustomSlotDraft item in _items) {
-      total += _minutesBetween(item.startTime, item.endTime);
-    }
-    return _durationLabelFromMinutes(total);
-  }
-
-  Widget _cardField({required String label, required Widget child}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0x1FFFFFFF)),
-            color: const Color(0x0AFFFFFF),
-          ),
-          child: child,
-        ),
-      ],
-    );
-  }
-
-  Widget _pickerBtn({required String text, required VoidCallback onTap}) {
-    return InkWell(
+  // ── UI helpers ────────────────────────────────────────────────────────────
+  Widget _pickerBtn(
+    String text,
+    VoidCallback onTap, {
+    IconData icon = Icons.calendar_month_outlined,
+  }) {
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
@@ -800,122 +441,14 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                 style: const TextStyle(color: Color(0xB3FFFFFF), fontSize: 12),
               ),
             ),
-            const Icon(
-              Icons.calendar_month_outlined,
-              size: 18,
-              color: Color(0x99FFFFFF),
-            ),
+            Icon(icon, size: 16, color: const Color(0x99FFFFFF)),
           ],
         ),
       ),
     );
   }
 
-  Widget _timeBtn({required String text, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0x1FFFFFFF)),
-          color: const Color(0x0AFFFFFF),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            Text(
-              text,
-              style: const TextStyle(color: Color(0xB3FFFFFF), fontSize: 12),
-            ),
-            const Icon(Icons.access_time, size: 18, color: Color(0xFFDDF730)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _slotTile(_CustomSlotDraft item, int index) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: const Color(0x0FFFFFFF),
-        border: Border.all(color: const Color(0x1CFFFFFF)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 26,
-                height: 26,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: const Color(0xFFDDF730)),
-                ),
-                child: Text(
-                  '${index + 1}',
-                  style: const TextStyle(
-                    color: Color(0xFFDDF730),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    item.slotName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${_fmtTime(item.startTime)} - ${_fmtTime(item.endTime)}',
-                    style: const TextStyle(
-                      color: Color(0x99FFFFFF),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Row(
-            children: <Widget>[
-              IconButton(
-                onPressed: () => _editItem(index),
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-              IconButton(
-                onPressed: () => _deleteItem(index),
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -943,6 +476,7 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                         children: <Widget>[
+                          // ── Header ───────────────────────────────────────
                           Row(
                             children: <Widget>[
                               if (widget.showBackButton)
@@ -950,395 +484,89 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                   width: 44,
                                   height: 44,
                                   child: IconButton(
-                                    onPressed: () => Navigator.pop(context),
-
+                                    onPressed: () {
+                                      if (widget.controller != null) {
+                                        widget.controller!.previousStep();
+                                      } else {
+                                        Navigator.of(context).maybePop();
+                                      }
+                                    },
                                     icon: const Icon(
                                       Icons.arrow_back_ios_new_rounded,
                                       color: Color(0xFFDDF730),
                                     ),
                                   ),
                                 ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 4),
                               const Text(
-                                'Back',
+                                'Add Custom Slots',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w500,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           const Text(
-                            'Add Custom Slots',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Create your own time slots for your ground / court.',
+                            'Create durations with multiple time slots. Overlapping slots across durations are blocked.',
                             style: TextStyle(
                               color: Color(0x99FFFFFF),
-                              fontSize: 14,
+                              fontSize: 12,
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: const Color(0x08FFFFFF),
-                              border: Border.all(
-                                color: const Color(0x1FFFFFFF),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                _cardField(
-                                  label: 'Duration Name',
-                                  child: Row(
-                                    children: <Widget>[
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _slotNameCtrl,
-                                          readOnly: _isDurationLocked,
-                                          onTap: _isDurationLocked
-                                              ? () {
-                                                  _ensureDurationEditUnlocked();
-                                                }
-                                              : null,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                          ),
-                                          decoration:
-                                              const InputDecoration.collapsed(
-                                                hintText:
-                                                    'e.g. summer session, winter session',
-                                                hintStyle: TextStyle(
-                                                  color: Color(0x99FFFFFF),
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        _isDurationLocked
-                                            ? Icons.lock_outline_rounded
-                                            : Icons.lock_open_rounded,
-                                        color: _isDurationLocked
-                                            ? const Color(0xFFDDF730)
-                                            : const Color(0x99FFFFFF),
-                                        size: 16,
-                                      ),
-                                    ],
+
+                          // ── Duration cards ────────────────────────────────
+                          ..._buildDurationCards(),
+
+                          const SizedBox(height: 12),
+
+                          // ── Add Duration form / button ────────────────────
+                          if (_showDurationForm)
+                            _buildAddDurationForm()
+                          else
+                            GestureDetector(
+                              onTap: () => setState(() {
+                                _showDurationForm = true;
+                                _activeSlotForDuration = null;
+                              }),
+                              child: Container(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFDDF730),
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Row(
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: <Widget>[
-                                    Expanded(
-                                      child: Text(
-                                        _isDurationLocked
-                                            ? 'Duration details are locked. Edit slot times below.'
-                                            : 'Duration details are unlocked for editing.',
-                                        style: const TextStyle(
-                                          color: Color(0x99FFFFFF),
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
+                                    Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      color: Color(0xFFDDF730),
+                                      size: 20,
                                     ),
-                                    TextButton(
-                                      onPressed: _isDurationLocked
-                                          ? _ensureDurationEditUnlocked
-                                          : () {
-                                              setState(() {
-                                                _durationEditUnlocked = false;
-                                              });
-                                            },
-                                      child: Text(
-                                        _isDurationLocked ? 'Unlock' : 'Lock',
-                                        style: const TextStyle(
-                                          color: Color(0xFFDDF730),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Slots Valid From, To (Date Range)',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: <Widget>[
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          const Text(
-                                            'From',
-                                            style: TextStyle(
-                                              color: Color(0x99FFFFFF),
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          _pickerBtn(
-                                            text: _fmtDateShort(_fromDate),
-                                            onTap: () => _pickDate(true),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          const Text(
-                                            'To',
-                                            style: TextStyle(
-                                              color: Color(0x99FFFFFF),
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          _pickerBtn(
-                                            text: _fmtDateShort(_toDate),
-                                            onTap: () => _pickDate(false),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Slot Time',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: <Widget>[
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          const Text(
-                                            'Start Time',
-                                            style: TextStyle(
-                                              color: Color(0x99FFFFFF),
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          _timeBtn(
-                                            text: _fmtTime(_startTime),
-                                            onTap: () => _pickTime(true),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          const Text(
-                                            'End Time',
-                                            style: TextStyle(
-                                              color: Color(0x99FFFFFF),
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          _timeBtn(
-                                            text: _fmtTime(_endTime),
-                                            onTap: () => _pickTime(false),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: (_isAdding || _isSavingAll)
-                                        ? null
-                                        : _addDraft,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFFDDF730),
-                                      foregroundColor: const Color(0xFF1D1D1D),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Add Slot',
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Add Duration',
                                       style: TextStyle(
+                                        color: Color(0xFFDDF730),
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                                const SizedBox(height: 8),
-                                const Center(
-                                  child: Text(
-                                    'Add one slot at a time, You can add multiple slots for the same date range',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Color(0x99FFFFFF),
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  'Added Slots (${_slotNameCtrl.text.trim().isEmpty ? 'Duration' : _slotNameCtrl.text.trim()})',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${_fmtDateShort(_fromDate)} - ${_fmtDateShort(_toDate)}',
-                                style: const TextStyle(
-                                  color: Color(0xCCFFFFFF),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 8),
-                          if (_items.isEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: const Color(0x10FFFFFF),
-                                border: Border.all(
-                                  color: const Color(0x1CFFFFFF),
-                                ),
-                              ),
-                              child: const Text(
-                                'No slots added yet.',
-                                style: TextStyle(color: Color(0xCCFFFFFF)),
-                              ),
-                            )
-                          else
-                            ...List<Widget>.generate(_items.length, (
-                              int index,
-                            ) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: _slotTile(_items[index], index),
-                              );
-                            }),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: const Color(0x08FFFFFF),
-                              border: Border.all(
-                                color: const Color(0x1FFFFFFF),
-                              ),
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      const Text(
-                                        'Total Slots',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        '${_totalSlots()}',
-                                        style: const TextStyle(
-                                          color: Color(0xFFDDF730),
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      const Text(
-                                        'Total Hours Available (per Day)',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        _totalDurationPerDayLabel(),
-                                        style: const TextStyle(
-                                          color: Color(0xFFDDF730),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ),
+
+                    // ── Bottom action bar ─────────────────────────────────
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                       child: Column(
@@ -1381,9 +609,9 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
                                   : () {
                                       if (widget.controller != null) {
                                         widget.controller!.previousStep();
-                                        return;
+                                      } else {
+                                        Navigator.of(context).maybePop();
                                       }
-                                      Navigator.of(context).maybePop();
                                     },
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(
@@ -1412,48 +640,380 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
       ),
     );
   }
-}
 
-class _CustomSlotDraft {
-  const _CustomSlotDraft({
-    this.id,
-    required this.slotName,
-    required this.from,
-    required this.to,
-    required this.startTime,
-    required this.endTime,
-    required this.isPersisted,
-    this.price = 0,
-  });
+  // ── Duration cards ────────────────────────────────────────────────────────
+  List<Widget> _buildDurationCards() {
+    final List<Widget> cards = <Widget>[];
+    for (int di = 0; di < _durations.length; di++) {
+      final _DurationDraft dur = _durations[di];
+      final bool slotFormOpen = _activeSlotForDuration == di;
 
-  final String? id;
-  final String slotName;
-  final DateTime from;
-  final DateTime to;
-  final TimeOfDay startTime;
-  final TimeOfDay endTime;
-  final bool isPersisted;
-  final int price;
+      cards.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: const Color(0x08FFFFFF),
+              border: Border.all(color: const Color(0x1FFFFFFF)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Duration header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+                  child: Row(
+                    children: <Widget>[
+                      Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFDDF730)),
+                        ),
+                        child: Text(
+                          '${di + 1}',
+                          style: const TextStyle(
+                            color: Color(0xFFDDF730),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              dur.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '${_fmtDate(dur.from)} – ${_fmtDate(dur.to)}',
+                              style: const TextStyle(
+                                color: Color(0x99FFFFFF),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Color(0x99FFFFFF),
+                          size: 20,
+                        ),
+                        onPressed: () => _deleteDuration(di),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
 
-  _CustomSlotDraft copyWith({
-    String? id,
-    String? slotName,
-    DateTime? from,
-    DateTime? to,
-    TimeOfDay? startTime,
-    TimeOfDay? endTime,
-    bool? isPersisted,
-    int? price,
-  }) {
-    return _CustomSlotDraft(
-      id: id ?? this.id,
-      slotName: slotName ?? this.slotName,
-      from: from ?? this.from,
-      to: to ?? this.to,
-      startTime: startTime ?? this.startTime,
-      endTime: endTime ?? this.endTime,
-      isPersisted: isPersisted ?? this.isPersisted,
-      price: price ?? this.price,
+                // Slots list
+                if (dur.slots.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Text(
+                      'No slots yet. Add a time slot below.',
+                      style: const TextStyle(
+                        color: Color(0x66FFFFFF),
+                        fontSize: 12,
+                      ),
+                    ),
+                  )
+                else
+                  ...dur.slots.asMap().entries.map((
+                    MapEntry<int, _SlotTime> entry,
+                  ) {
+                    final int si = entry.key;
+                    final _SlotTime slot = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 3,
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          const Icon(
+                            Icons.schedule,
+                            size: 14,
+                            color: Color(0xFFDDF730),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_fmtTime(slot.startTime)} – ${_fmtTime(slot.endTime)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => _deleteSlot(di, si),
+                            child: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Color(0x99FFFFFF),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                const SizedBox(height: 8),
+
+                // Inline slot-add form or "Add Slot" button
+                if (slotFormOpen)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Divider(color: Color(0x1FFFFFFF)),
+                        const Text(
+                          'Add slot time',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: _pickerBtn(
+                                _fmtTime(_slotStart),
+                                _pickSlotStart,
+                                icon: Icons.access_time,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _pickerBtn(
+                                _fmtTime(_slotEnd),
+                                _pickSlotEnd,
+                                icon: Icons.access_time,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _confirmAddSlot(di),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDDF730),
+                                  foregroundColor: const Color(0xFF1D1D1D),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Add Slot',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () =>
+                                  setState(() => _activeSlotForDuration = null),
+                              child: const Text(
+                                'Done',
+                                style: TextStyle(color: Color(0x99FFFFFF)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _activeSlotForDuration = di;
+                        _showDurationForm = false;
+                        _slotStart = dur.slots.isEmpty
+                            ? const TimeOfDay(hour: 6, minute: 0)
+                            : TimeOfDay(
+                                hour: dur.slots.last.endTime.hour,
+                                minute: dur.slots.last.endTime.minute,
+                              );
+                        _slotEnd = TimeOfDay(
+                          hour: (_slotStart.hour + 1) % 24,
+                          minute: _slotStart.minute,
+                        );
+                      }),
+                      child: Row(
+                        children: <Widget>[
+                          const Icon(
+                            Icons.add_circle_outline,
+                            size: 16,
+                            color: Color(0xFFDDF730),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Add time slot',
+                            style: const TextStyle(
+                              color: Color(0xFFDDF730),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return cards;
+  }
+
+  // ── Add Duration inline form ──────────────────────────────────────────────
+  Widget _buildAddDurationForm() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: const Color(0x08FFFFFF),
+        border: Border.all(color: const Color(0x66DDF730)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'New Duration',
+            style: TextStyle(
+              color: Color(0xFFDDF730),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Name
+          Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0x1FFFFFFF)),
+              color: const Color(0x0AFFFFFF),
+            ),
+            child: TextField(
+              controller: _nameCtrl,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: const InputDecoration.collapsed(
+                hintText: 'Duration name (e.g. Summer, Weekend)',
+                hintStyle: TextStyle(color: Color(0x66FFFFFF), fontSize: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Date range
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'From',
+                      style: TextStyle(color: Color(0x99FFFFFF), fontSize: 11),
+                    ),
+                    const SizedBox(height: 4),
+                    _pickerBtn(_fmtDate(_newFrom), _pickNewFrom),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'To',
+                      style: TextStyle(color: Color(0x99FFFFFF), fontSize: 11),
+                    ),
+                    const SizedBox(height: 4),
+                    _pickerBtn(_fmtDate(_newTo), _pickNewTo),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _confirmAddDuration,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFDDF730),
+                    foregroundColor: const Color(0xFF1D1D1D),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Add Duration',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              if (_durations.isNotEmpty) ...<Widget>[
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () => setState(() => _showDurationForm = false),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Color(0x99FFFFFF)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
+}
+
+// ── Data models ───────────────────────────────────────────────────────────────
+
+class _DurationDraft {
+  _DurationDraft({required this.name, required this.from, required this.to});
+
+  String name;
+  DateTime from;
+  DateTime to;
+  final List<_SlotTime> slots = <_SlotTime>[];
+}
+
+class _SlotTime {
+  _SlotTime({required this.startTime, required this.endTime});
+  TimeOfDay startTime;
+  TimeOfDay endTime;
 }
