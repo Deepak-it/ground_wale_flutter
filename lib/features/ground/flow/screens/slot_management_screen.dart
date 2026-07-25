@@ -733,7 +733,7 @@ for (int slotIndex = 0;
                       'Set prices and time slots for each day or the week.',
                       style: TextStyle(color: Color(0x99E6F7EF), fontSize: 10),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
                       decoration: BoxDecoration(
@@ -774,7 +774,7 @@ for (int slotIndex = 0;
                       children: <Widget>[
                         Expanded(
                           child: SizedBox(
-                            height: 52,
+                            height: 20,
                             child: OutlinedButton(
                               onPressed: _isSaving ? null : _cancel,
                               style: OutlinedButton.styleFrom(
@@ -800,7 +800,7 @@ for (int slotIndex = 0;
                         const SizedBox(width: 12),
                         Expanded(
                           child: SizedBox(
-                            height: 52,
+                            height: 20,
                             child: ElevatedButton(
                               onPressed: _isSaving ? null : _save,
                               style: ElevatedButton.styleFrom(
@@ -889,7 +889,7 @@ for (int slotIndex = 0;
 
   Widget _dayCard(_DayPricingConfig day) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 4),
       padding: EdgeInsets.only(bottom: day == _dayConfigs.last ? 0 : 14),
       decoration: BoxDecoration(
         border: day == _dayConfigs.last
@@ -983,9 +983,9 @@ for (int slotIndex = 0;
             ],
           ),
           if (day.expanded && day.enabled) ...<Widget>[
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             SizedBox(
-              height: 118,
+              height: 90,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: day.slots.length,
@@ -1006,7 +1006,7 @@ for (int slotIndex = 0;
   Widget _slotTile(_DayPricingConfig day, int slotIndex, _EditableSlot slot) {
     return Container(
       width: 96,
-      height: 50,
+      height: 20,
       padding: const EdgeInsets.fromLTRB(5,5, 5, 2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
