@@ -335,6 +335,23 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     ];
   }
 
+  List<Map<String, dynamic>> _orderedGrounds(List<Map<String, dynamic>> input) {
+    if (_selectedGroundId == null || _selectedGroundId!.isEmpty) {
+      return input;
+    }
+
+    final List<Map<String, dynamic>> selected = <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> others = <Map<String, dynamic>>[];
+    for (final Map<String, dynamic> ground in input) {
+      if (_groundId(ground) == _selectedGroundId) {
+        selected.add(ground);
+      } else {
+        others.add(ground);
+      }
+    }
+    return <Map<String, dynamic>>[...selected, ...others];
+  }
+
   DateTime _dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
   }
@@ -792,6 +809,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     final List<Map<String, dynamic>> grounds = _groundOptions.isEmpty
         ? _grounds()
         : _groundOptions;
+    final List<Map<String, dynamic>> orderedGrounds = _orderedGrounds(grounds);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1B1F1B),
@@ -817,17 +835,38 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                     ],
 
                     const SizedBox(height: 12),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: <Widget>[
+                        Text(
+                          'Slide right',
+                          style: TextStyle(
+                            color: Color(0x99FFFFFF),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.keyboard_double_arrow_right_rounded,
+                          color: Color(0x99FFFFFF),
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     SizedBox(
                       height: 336,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        itemCount: grounds.length + 1,
+                        itemCount: orderedGrounds.length + 1,
                         separatorBuilder: (_, _) => const SizedBox(width: 12),
                         itemBuilder: (_, int index) {
-                          if (index == grounds.length) {
+                          if (index == orderedGrounds.length) {
                             return _addFacilityCard();
                           }
-                          final Map<String, dynamic> ground = grounds[index];
+                          final Map<String, dynamic> ground =
+                              orderedGrounds[index];
                           final String id = _groundId(ground);
                           final bool selected =
                               id.isNotEmpty && id == _selectedGroundId;

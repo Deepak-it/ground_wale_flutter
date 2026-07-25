@@ -21,6 +21,8 @@ class _BoxCricketAddBookingScreenState
   String? _selectedGroundId;
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
   String? _selectedSlotId;
+  Set<String> _activeBookedSlotKeys = <String>{};
+  bool _hasBookingLookup = false;
 
   @override
   void initState() {
@@ -92,13 +94,44 @@ class _BoxCricketAddBookingScreenState
     setState(() => _isLoading = true);
 
     try {
-      final List<Map<String, dynamic>> slots = await GroundWaleApi.instance
-          .listSlots(groundId, date: _apiDate(_selectedDate));
+      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
+        GroundWaleApi.instance.listSlots(groundId, date: _apiDate(_selectedDate)),
+        GroundWaleApi.instance.listBookings(groundId),
+      ]);
+
+      final List<Map<String, dynamic>> slots =
+          results[0] as List<Map<String, dynamic>>;
+      final List<Map<String, dynamic>> bookings =
+          results[1] as List<Map<String, dynamic>>;
+
+      final String selectedDateKey = _apiDate(_selectedDate);
+      final Set<String> activeBookedKeys = <String>{};
+      for (final Map<String, dynamic> booking in bookings) {
+        final String status = _bookingStatus(booking);
+        if (status == 'cancelled' || status == 'rejected') {
+          continue;
+        }
+
+        final String slotId = booking['slotId']?.toString() ?? '';
+        if (slotId.isEmpty) {
+          continue;
+        }
+
+        final String bookingDateKey = _bookingDateKey(booking);
+        if (bookingDateKey != selectedDateKey) {
+          continue;
+        }
+
+        activeBookedKeys.add(_slotDateKey(slotId, bookingDateKey));
+      }
+
       if (!mounted) {
         return;
       }
       setState(() {
         _slots = slots;
+        _activeBookedSlotKeys = activeBookedKeys;
+        _hasBookingLookup = true;
         _selectedSlotId = null;
         _isLoading = false;
       });
@@ -115,18 +148,178 @@ class _BoxCricketAddBookingScreenState
     }
   }
 
-  int _hourFromTime(String value) {
-    final RegExpMatch? match = RegExp(r'^(\d{1,2})').firstMatch(value);
-    if (match == null) {
-      return 0;
+  String _bookingStatus(Map<String, dynamic> booking) {
+    return (booking['bookingStatus']?.toString() ?? '').trim().toLowerCase();
+  }
+
+  String _bookingDateKey(Map<String, dynamic> booking) {
+    for (final String key in <String>['date', 'bookingDate', 'slotDate']) {
+      final String raw = booking[key]?.toString().trim() ?? '';
+      if (raw.isEmpty) {
+        continue;
+      }
+      final RegExpMatch? ymd = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(raw);
+      if (ymd != null) {
+        return '${ymd.group(1)}-${ymd.group(2)}-${ymd.group(3)}';
+      }
+      final DateTime? parsed = DateTime.tryParse(raw);
+      if (parsed != null) {
+        return _apiDate(parsed.toLocal());
+      }
     }
-    return int.tryParse(match.group(1) ?? '') ?? 0;
+    return _apiDate(_selectedDate);
+  }
+
+  String _slotDateKey(String slotId, String dateKey) {
+    return '$slotId|$dateKey';
+  }
+
+  String _effectiveSlotStatus(Map<String, dynamic> slot) {
+    final String baseStatus =
+        (slot['status']?.toString() ?? 'available').trim().toLowerCase();
+    if (baseStatus != 'booked' || !_hasBookingLookup) {
+      return baseStatus;
+    }
+
+    final String slotId = slot['_id']?.toString() ?? '';
+    if (slotId.isEmpty) {
+      return baseStatus;
+    }
+
+    final String slotDate = _apiDate(_selectedDate);
+    final bool hasActiveBooking = _activeBookedSlotKeys.contains(
+      _slotDateKey(slotId, slotDate),
+    );
+    return hasActiveBooking ? 'booked' : 'available';
+  }
+
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  int? _hourFromTime(String value) {
+    final String raw = value.trim().toLowerCase();
+    if (raw.isEmpty) {
+      return null;
+    }
+
+    final RegExpMatch? match = RegExp(
+      r'^(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)?$',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (match == null) {
+      return null;
+    }
+
+    int hour = int.tryParse(match.group(1) ?? '') ?? -1;
+    if (hour < 0 || hour > 23) {
+      return null;
+    }
+
+    final String meridiem = (match.group(3) ?? '').toLowerCase();
+    if (meridiem == 'am') {
+      if (hour == 12) {
+        hour = 0;
+      }
+    } else if (meridiem == 'pm') {
+      if (hour != 12) {
+        hour += 12;
+      }
+    }
+
+    if (hour < 0 || hour > 23) {
+      return null;
+    }
+    return hour;
+  }
+
+  DateTime? _dateTimeFromSlotStart(DateTime date, String startTime) {
+    final String raw = startTime.trim().toLowerCase();
+    if (raw.isEmpty) {
+      return null;
+    }
+
+    final RegExpMatch? match = RegExp(
+      r'^(\d{1,2})(?::(\d{1,2}))?\s*(am|pm)?$',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (match == null) {
+      return null;
+    }
+
+    int hour = int.tryParse(match.group(1) ?? '') ?? -1;
+    int minute = int.tryParse(match.group(2) ?? '0') ?? -1;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+
+    final String meridiem = (match.group(3) ?? '').toLowerCase();
+    if (meridiem == 'am') {
+      if (hour == 12) {
+        hour = 0;
+      }
+    } else if (meridiem == 'pm') {
+      if (hour != 12) {
+        hour += 12;
+      }
+    }
+
+    if (hour < 0 || hour > 23) {
+      return null;
+    }
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  bool _isPastSlotForSelectedDate(Map<String, dynamic> slot) {
+    final DateTime today = _dateOnly(DateTime.now());
+    final DateTime selected = _dateOnly(_selectedDate);
+    if (selected.isAfter(today) || selected.isBefore(today)) {
+      return false;
+    }
+
+    final DateTime? slotStart = _dateTimeFromSlotStart(
+      selected,
+      slot['startTime']?.toString() ?? '',
+    );
+    if (slotStart == null) {
+      return false;
+    }
+    return slotStart.isBefore(DateTime.now());
   }
 
   String _apiDate(DateTime date) {
     final String month = date.month.toString().padLeft(2, '0');
     final String day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
+  }
+
+  String _formatSelectedDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+
+    return '${date.day} ${months[date.month - 1]} ${date.year} (${weekdays[date.weekday - 1]})';
   }
 
   String _weekDay(DateTime date) {
@@ -144,7 +337,13 @@ class _BoxCricketAddBookingScreenState
 
   List<Map<String, dynamic>> _slotsForSection(int startHour, int endHour) {
     return _slots.where((Map<String, dynamic> slot) {
-      final int hour = _hourFromTime(slot['startTime']?.toString() ?? '0');
+      if (_isPastSlotForSelectedDate(slot)) {
+        return false;
+      }
+      final int? hour = _hourFromTime(slot['startTime']?.toString() ?? '');
+      if (hour == null) {
+        return false;
+      }
       return hour >= startHour && hour < endHour;
     }).toList();
   }
@@ -178,7 +377,10 @@ class _BoxCricketAddBookingScreenState
   }
 
   bool _isSlotSelectable(Map<String, dynamic> slot) {
-    return (slot['status']?.toString() ?? 'available') == 'available';
+    if (_isPastSlotForSelectedDate(slot)) {
+      return false;
+    }
+    return _effectiveSlotStatus(slot) == 'available';
   }
 
   Map<String, dynamic>? get _selectedSlot {
@@ -315,9 +517,73 @@ class _BoxCricketAddBookingScreenState
                   height: 78,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: 7,
+                    itemCount: 8,
                     separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (BuildContext context, int index) {
+                      if (index == 7) {
+                        return InkWell(
+                          onTap: () async {
+                            final DateTime now = DateTime.now();
+                            final DateTime? picked = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedDate.isBefore(now)
+                                  ? now
+                                  : _selectedDate,
+                              firstDate: DateTime(now.year, now.month, now.day),
+                              lastDate: DateTime(now.year + 2, 12, 31),
+                              builder: (BuildContext context, Widget? child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.dark(
+                                      primary: Color(0xFF08B36A),
+                                      onPrimary: Color(0xFF1C333B),
+                                      surface: Color(0xFF1B1F1B),
+                                    ),
+                                  ),
+                                  child: child ?? const SizedBox.shrink(),
+                                );
+                              },
+                            );
+                            if (picked == null || !mounted) {
+                              return;
+                            }
+                            setState(() {
+                              _selectedDate = _dateOnly(picked);
+                              _selectedSlotId = null;
+                            });
+                            _loadSlots();
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: 92,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: const Color(0x0DFFFFFF),
+                              border: Border.all(
+                                color: const Color(0x1FFFFFFF),
+                              ),
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Icon(
+                                  Icons.calendar_month_rounded,
+                                  color: Color(0xCCFFFFFF),
+                                  size: 20,
+                                ),
+                                SizedBox(height: 6),
+                                Text(
+                                  'Calendar',
+                                  style: TextStyle(
+                                    color: Color(0xCCFFFFFF),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
                       final DateTime date = DateTime.now().add(
                         Duration(days: index),
                       );
@@ -370,6 +636,41 @@ class _BoxCricketAddBookingScreenState
                     },
                   ),
                 ),
+
+                const SizedBox(height: 12),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x0AFFFFFF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0x1FFFFFFF)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        color: Color(0xFF08B36A),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Selected Date: ${_formatSelectedDate(_selectedDate)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
                 const SizedBox(height: 14),
                 Wrap(
                   spacing: 14,
@@ -501,7 +802,7 @@ class _BoxCricketAddBookingScreenState
               runSpacing: 8,
               children: sectionSlots.map((Map<String, dynamic> slot) {
                 final String slotId = slot['_id']?.toString() ?? '';
-                final String status = slot['status']?.toString() ?? 'available';
+                final String status = _effectiveSlotStatus(slot);
                 final bool selected = _selectedSlotId == slotId;
                 final bool canSelect = _isSlotSelectable(slot);
 

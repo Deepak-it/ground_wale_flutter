@@ -840,6 +840,25 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     return labels;
   }
 
+  List<Map<String, dynamic>> _orderedAcademies(
+    List<Map<String, dynamic>> input,
+  ) {
+    if (_selectedAcademyId == null || _selectedAcademyId!.isEmpty) {
+      return input;
+    }
+
+    final List<Map<String, dynamic>> selected = <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> others = <Map<String, dynamic>>[];
+    for (final Map<String, dynamic> academy in input) {
+      if (_academyId(academy) == _selectedAcademyId) {
+        selected.add(academy);
+      } else {
+        others.add(academy);
+      }
+    }
+    return <Map<String, dynamic>>[...selected, ...others];
+  }
+
   @override
   Widget build(BuildContext context) {
 
@@ -872,6 +891,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       paidStudents,
       pendingStudents,
     );
+    final List<Map<String, dynamic>> orderedAcademies = _orderedAcademies(
+      _academies,
+    );
 
     final List<Map<String, dynamic>> filteredBatches = _filteredBatches();
     final List<String> batchFilterLabels = _batchFilterLabels();
@@ -888,23 +910,52 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 color: const Color(0xFF00C9A7),
                 backgroundColor: const Color(0xFF203A43),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 92),
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                   children: <Widget>[
+                    if (_isLoading) ...<Widget>[
+                      const SizedBox(height: 8),
+                      const LinearProgressIndicator(
+                        minHeight: 2,
+                        color: Color(0xFFDDF730),
+                        backgroundColor: Color(0x1FFFFFFF),
+                      ),
+                    ],
                     const SizedBox(height: 12),
+                    if (_academies.isNotEmpty)
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: <Widget>[
+                          Text(
+                            'Slide right',
+                            style: TextStyle(
+                              color: Color(0x99FFFFFF),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(
+                            Icons.keyboard_double_arrow_right_rounded,
+                            color: Color(0x99FFFFFF),
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    if (_academies.isNotEmpty) const SizedBox(height: 8),
                     if (_academies.isNotEmpty)
                       SizedBox(
                         height: 336,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: _academies.length + 1,
+                          itemCount: orderedAcademies.length + 1,
                           separatorBuilder: (_, int index) =>
                               const SizedBox(width: 12),
                           itemBuilder: (BuildContext context, int index) {
-                            if (index == _academies.length) {
+                            if (index == orderedAcademies.length) {
                               return _addAcademyCard();
                             }
                             final Map<String, dynamic> academy =
-                                _academies[index];
+                                orderedAcademies[index];
                             final String academyId = _academyId(academy);
                             return _academyCard(
                               academy,

@@ -76,6 +76,7 @@ class _BoxCricketBookingDetailsScreenState
   Color _statusBg(String status) {
     switch (status) {
       case 'cancelled':
+      case 'rejected':
         return const Color(0x22E3220D);
       case 'completed':
       case 'confirmed':
@@ -88,6 +89,7 @@ class _BoxCricketBookingDetailsScreenState
   Color _statusTextColor(String status) {
     switch (status) {
       case 'cancelled':
+      case 'rejected':
         return const Color(0xFFE3220D);
       case 'completed':
       case 'confirmed':
@@ -100,6 +102,7 @@ class _BoxCricketBookingDetailsScreenState
   String _statusText(String status) {
     switch (status) {
       case 'cancelled':
+      case 'rejected':
         return 'Rejected';
       case 'completed':
         return 'Completed';
@@ -230,12 +233,21 @@ class _BoxCricketBookingDetailsScreenState
         }
 
         final Map<String, dynamic> booking = snapshot.data ?? <String, dynamic>{};
-        final String bookingStatus = booking['bookingStatus']?.toString() ?? 'pending';
+        final String bookingStatus =
+          (booking['bookingStatus']?.toString() ?? 'pending').toLowerCase();
         final String paymentMethod =
             booking['paymentMethod']?.toString().toUpperCase() ?? 'UPI';
-        final String paymentStatus = booking['paymentStatus']?.toString() ?? 'pending';
+        final String paymentStatus =
+          (booking['paymentStatus']?.toString() ?? 'pending').toLowerCase();
+        final bool isPending = bookingStatus == 'pending';
+        final bool isConfirmed = bookingStatus == 'confirmed';
+        final bool isCompleted = bookingStatus == 'completed';
+        final bool isRejected =
+          bookingStatus == 'cancelled' || bookingStatus == 'rejected';
         final bool isCodPending =
-            paymentMethod == 'COD' && paymentStatus == 'pending';
+          paymentMethod == 'COD' && paymentStatus == 'pending';
+        final bool showConfirmAction = isPending;
+        final bool showRefundAction = isPending || isConfirmed;
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -302,37 +314,66 @@ class _BoxCricketBookingDetailsScreenState
             const SizedBox(height: 12),
             _extraNoteCard(booking['notes']?.toString() ?? ''),
             const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _submitting ? null : () => _accept(booking),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF08B36A),
-                      foregroundColor: const Color(0xFF1C333B),
+            if (showConfirmAction || showRefundAction)
+              Row(
+                children: <Widget>[
+                  if (showConfirmAction)
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _submitting ? null : () => _accept(booking),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF08B36A),
+                          foregroundColor: const Color(0xFF1C333B),
+                        ),
+                        child: Text(
+                          isCodPending ? 'Accept' : 'Confirm Booking',
+                        ),
+                      ),
                     ),
-                    child: Text(isCodPending ? 'Accept' : 'Confirm Booking'),
+                  if (showConfirmAction && showRefundAction)
+                    const SizedBox(width: 10),
+                  if (showRefundAction)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _submitting
+                            ? null
+                            : () => _reject(
+                                isCodPending
+                                    ? 'COD booking cancelled by owner'
+                                    : 'Refund requested by owner',
+                              ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFD43827)),
+                          foregroundColor: const Color(0xFFD43827),
+                        ),
+                        child: Text(isCodPending && isPending ? 'Cancel' : 'Refund'),
+                      ),
+                    ),
+                ],
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0x0AFFFFFF),
+                  border: Border.all(color: const Color(0x1FFFFFFF)),
+                ),
+                child: Center(
+                  child: Text(
+                    isRejected
+                        ? 'Booking already rejected'
+                        : isCompleted
+                        ? 'Booking already completed'
+                        : 'No actions available',
+                    style: const TextStyle(
+                      color: Color(0xCCFFFFFF),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _submitting
-                        ? null
-                        : () => _reject(
-                            isCodPending
-                                ? 'COD booking cancelled by owner'
-                                : 'Refund requested by owner',
-                          ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFD43827)),
-                      foregroundColor: const Color(0xFFD43827),
-                    ),
-                    child: Text(isCodPending ? 'Cancel' : 'Refund'),
-                  ),
-                ),
-              ],
-            ),
+              ),
           ],
         );
       },

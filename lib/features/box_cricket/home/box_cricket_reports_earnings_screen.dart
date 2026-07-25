@@ -17,6 +17,7 @@ class _BoxCricketReportsEarningsScreenState
   Map<String, dynamic> _report = <String, dynamic>{};
   Map<String, dynamic> _wallet = <String, dynamic>{};
   Map<String, dynamic> _bookingSummary = <String, dynamic>{};
+  List<Map<String, dynamic>> _allBookings = <Map<String, dynamic>>[];
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _BoxCricketReportsEarningsScreenState
             GroundWaleApi.instance.getEarningsReport(groundId),
             GroundWaleApi.instance.getWallet(groundId),
             GroundWaleApi.instance.getBookingSummary(groundId),
+            GroundWaleApi.instance.listBookings(groundId),
           ]);
 
       if (!mounted) {
@@ -49,6 +51,10 @@ class _BoxCricketReportsEarningsScreenState
         _report = Map<String, dynamic>.from(results[0] as Map);
         _wallet = Map<String, dynamic>.from(results[1] as Map);
         _bookingSummary = Map<String, dynamic>.from(results[2] as Map);
+        _allBookings = (results[3] as List<dynamic>)
+            .whereType<Map>()
+            .map((Map item) => Map<String, dynamic>.from(item))
+            .toList();
         _isLoading = false;
       });
     } catch (_) {
@@ -97,18 +103,90 @@ class _BoxCricketReportsEarningsScreenState
     return <double>[8, 12, 10, 16, 14, 18, 15];
   }
 
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  DateTime? _bookingDate(Map<String, dynamic> booking) {
+    final List<String> keys = <String>['date', 'bookingDate', 'slotDate'];
+    for (final String key in keys) {
+      final String raw = booking[key]?.toString().trim() ?? '';
+      if (raw.isEmpty) {
+        continue;
+      }
+      final DateTime? parsed = DateTime.tryParse(raw);
+      if (parsed != null) {
+        final DateTime local = parsed.toLocal();
+        return _dateOnly(local);
+      }
+      final RegExpMatch? ymd = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(raw);
+      if (ymd != null) {
+        return DateTime(
+          int.parse(ymd.group(1)!),
+          int.parse(ymd.group(2)!),
+          int.parse(ymd.group(3)!),
+        );
+      }
+    }
+
+    final String createdAt = booking['createdAt']?.toString().trim() ?? '';
+    if (createdAt.isNotEmpty) {
+      final DateTime? parsed = DateTime.tryParse(createdAt);
+      if (parsed != null) {
+        return _dateOnly(parsed.toLocal());
+      }
+    }
+    return null;
+  }
+
+  bool _isRejectedBooking(Map<String, dynamic> booking) {
+    final String status =
+        (booking['bookingStatus']?.toString() ?? '').trim().toLowerCase();
+    return status == 'cancelled' || status == 'rejected';
+  }
+
+  int _nonRejectedRevenue({DateTime? from, DateTime? to}) {
+    int total = 0;
+    for (final Map<String, dynamic> booking in _allBookings) {
+      if (_isRejectedBooking(booking)) {
+        continue;
+      }
+      final DateTime? bookingDate = _bookingDate(booking);
+      if (bookingDate == null) {
+        continue;
+      }
+      if (from != null && bookingDate.isBefore(_dateOnly(from))) {
+        continue;
+      }
+      if (to != null && bookingDate.isAfter(_dateOnly(to))) {
+        continue;
+      }
+      total += _toInt(booking['amount']);
+    }
+    return total;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final int totalEarnings = _toInt(
-      _report['totalEarnings'] ?? _wallet['lifetimeCredit'],
+    final DateTime now = DateTime.now();
+    final DateTime todayDate = _dateOnly(now);
+    final DateTime weekStart = todayDate.subtract(Duration(days: now.weekday - 1));
+    final DateTime monthStart = DateTime(now.year, now.month, 1);
+
+    final int fallbackTotal = _toInt(
+      _wallet['lifetimeCredit'] ?? _report['totalEarnings'],
     );
-    final int thisMonth = _toInt(
-      _report['thisMonthEarnings'] ?? _report['monthEarnings'],
-    );
-    final int thisWeek = _toInt(
-      _report['thisWeekEarnings'] ?? _report['weekEarnings'],
-    );
-    final int today = _toInt(_report['todayEarnings']);
+    final int totalEarnings =
+        _allBookings.isEmpty ? fallbackTotal : _nonRejectedRevenue();
+    final int thisMonth = _allBookings.isEmpty
+        ? _toInt(_report['thisMonthEarnings'] ?? _report['monthEarnings'])
+        : _nonRejectedRevenue(from: monthStart, to: todayDate);
+    final int thisWeek = _allBookings.isEmpty
+        ? _toInt(_report['thisWeekEarnings'] ?? _report['weekEarnings'])
+        : _nonRejectedRevenue(from: weekStart, to: todayDate);
+    final int today = _allBookings.isEmpty
+        ? _toInt(_report['todayEarnings'])
+        : _nonRejectedRevenue(from: todayDate, to: todayDate);
 
     final int totalBookings = _toInt(
       _bookingSummary['totalBookings'] ?? _report['totalBookings'],

@@ -3,6 +3,7 @@ import 'package:ground_wale/core/widgets/app_text_field.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import 'box_cricket_booking_details_screen.dart';
 
 class BoxCricketManageSlotsScreen extends StatefulWidget {
   const BoxCricketManageSlotsScreen({
@@ -910,7 +911,36 @@ class _BoxCricketManageSlotsScreenState
       _load();
     }
   }
+Future<void> _unblockSlot(Map<String, dynamic> slot) async {
+  final String slotId = _slotId(slot);
+  if (slotId.isEmpty) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to unblock slot.')),
+      );
+    }
+    return;
+  }
 
+  try {
+    await GroundWaleApi.instance.unblockSlot(
+      slotId,
+      date: slot['date']?.toString(),
+    );
+
+    if (!mounted) return;
+    _load();
+  } catch (error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error.toString().replaceFirst('Exception: ', ''),
+        ),
+      ),
+    );
+  }
+}
   Future<void> _confirmBlock(Map<String, dynamic> slot) async {
     final bool? ok = await showDialog<bool>(
       context: context,
@@ -1366,23 +1396,7 @@ class _BoxCricketManageSlotsScreenState
         final List<Map<String, dynamic>> sectionSlots =
             _sectionSlots(daySlots, section);
         if (sectionSlots.isEmpty) continue;
-        ui.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 8),
-            child: Text(
-              section == 'Morning'
-                  ? 'Morning (5 AM - 12 PM)'
-                  : section == 'Afternoon'
-                  ? 'Afternoon (12 PM - 5 PM)'
-                  : 'Evening (4 PM - 7 PM)',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        );
+
         for (final Map<String, dynamic> slot in sectionSlots) {
           ui.add(
             Padding(
@@ -1418,7 +1432,7 @@ class _BoxCricketManageSlotsScreenState
   Widget _slotCard(Map<String, dynamic> slot) {
     final String status = slot['status']?.toString() ?? 'available';
     final Map<String, dynamic>? booking = _bookingForSlot(slot);
-
+    final String? bookingId = booking?['_id']?.toString();
     final bool isBooked = status == 'booked';
     final bool isBlocked = status == 'blocked';
 
@@ -1493,38 +1507,66 @@ class _BoxCricketManageSlotsScreenState
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _actionBtn(
-                  'Edit',
-                  const Color(0x1F08B36A),
-                  const Color(0xFF08B36A),
-                  status == 'available' ? () => _showEditSheet(slot) : null,
-                ),
+if (isBlocked)
+  SizedBox(
+    width: double.infinity,
+    child: _actionBtn(
+      'Unblock',
+      const Color(0x1F08B36A),
+      const Color(0xFF08B36A),
+      () => _unblockSlot(slot),
+    ),
+  )
+else if (isBooked)
+  SizedBox(
+    width: double.infinity,
+    child: _actionBtn(
+      'Booked',
+      const Color(0x1F08B36A),
+      Colors.white,
+      () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+              builder: (_) => BoxCricketBookingDetailsScreen(
+                bookingId: bookingId,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _actionBtn(
-                  'Block',
-                  const Color(0x1FF59E0B),
-                  const Color(0xFFF59E0B),
-                  status == 'available' ? () => _confirmBlock(slot) : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _actionBtn(
-                  status == 'booked' ? 'Booked' : 'Delete',
-                  status == 'booked'
-                      ? const Color(0x1F08B36A)
-                      : const Color(0x1FE3220D),
-                  status == 'booked' ? Colors.white : const Color(0xFFE3220D),
-                  status == 'available' ? () => _confirmDelete(slot) : null,
-                ),
-              ),
-            ],
-          ),
+            ),
+        );
+      },
+    ),
+
+    )
+else
+  Row(
+    children: <Widget>[
+      Expanded(
+        child: _actionBtn(
+          'Edit',
+          const Color(0x1F08B36A),
+          const Color(0xFF08B36A),
+          () => _showEditSheet(slot),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: _actionBtn(
+          'Block',
+          const Color(0x1FF59E0B),
+          const Color(0xFFF59E0B),
+          () => _confirmBlock(slot),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: _actionBtn(
+          'Delete',
+          const Color(0x1FE3220D),
+          const Color(0xFFE3220D),
+          () => _confirmDelete(slot),
+        ),
+      ),
+    ],
+  ),
         ],
       ),
     );

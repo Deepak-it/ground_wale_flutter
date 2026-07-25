@@ -624,7 +624,17 @@ class GroundWaleApi {
       throw _mapError(error);
     }
   }
-
+  Future<void> unblockSlot(
+    String slotId, {
+    String? date,
+  }) async {
+    await _dio.patch(
+      '/slots/$slotId/unblock',
+      data: {
+        if (date != null) 'date': date,
+      },
+    );
+  }
   Future<void> deleteSlot(String slotId, {String? date}) async {
     try {
       await _dio.delete<dynamic>(

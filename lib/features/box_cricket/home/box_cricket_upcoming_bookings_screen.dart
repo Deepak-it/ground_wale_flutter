@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import 'box_cricket_booking_details_screen.dart';
-
+import 'box_cricket_add_booking_screen.dart';
 class BoxCricketUpcomingBookingsScreen extends StatefulWidget {
   const BoxCricketUpcomingBookingsScreen({
     super.key,
@@ -32,6 +32,72 @@ class _BoxCricketUpcomingBookingsScreenState
       <int, List<Map<String, dynamic>>>{};
   final Map<int, Map<String, dynamic>> _cachedSummaries =
       <int, Map<String, dynamic>>{};
+
+  String _bookingStatus(Map<String, dynamic> booking) {
+    return (booking['bookingStatus']?.toString() ?? '').trim().toLowerCase();
+  }
+
+  int _summaryInt(Map<String, dynamic> summary, String key) {
+    final dynamic value = summary[key];
+    if (value is int) {
+      return value;
+    }
+    if (value is double) {
+      return value.round();
+    }
+    if (value is String) {
+      return int.tryParse(value) ?? 0;
+    }
+    return 0;
+  }
+
+  Map<String, dynamic> _mergeSummary(
+    Map<String, dynamic> first,
+    Map<String, dynamic> second,
+  ) {
+    return <String, dynamic>{
+      'totalBookings':
+          _summaryInt(first, 'totalBookings') +
+          _summaryInt(second, 'totalBookings'),
+      'totalRevenue':
+          _summaryInt(first, 'totalRevenue') + _summaryInt(second, 'totalRevenue'),
+    };
+  }
+
+  List<Map<String, dynamic>> _dedupeByBookingId(
+    List<Map<String, dynamic>> input,
+  ) {
+    final Map<String, Map<String, dynamic>> byId =
+        <String, Map<String, dynamic>>{};
+    final List<Map<String, dynamic>> withoutId = <Map<String, dynamic>>[];
+    for (final Map<String, dynamic> booking in input) {
+      final String id = booking['_id']?.toString() ?? '';
+      if (id.isEmpty) {
+        withoutId.add(booking);
+        continue;
+      }
+      byId[id] = booking;
+    }
+    return <Map<String, dynamic>>[...byId.values, ...withoutId];
+  }
+
+  List<Map<String, dynamic>> _sanitizeForTab(
+    int tab,
+    List<Map<String, dynamic>> source,
+  ) {
+    return source.where((Map<String, dynamic> booking) {
+      final String status = _bookingStatus(booking);
+      if (tab == 0) {
+        return status != 'cancelled' &&
+            status != 'rejected' &&
+            status != 'completed';
+      }
+      if (tab == 1) {
+        return status == 'completed';
+      }
+      return status == 'cancelled' || status == 'rejected';
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -116,15 +182,23 @@ class _BoxCricketUpcomingBookingsScreenState
       }
     }
 
-    // Fetch all three tab statuses in parallel – single round-trip cost.
-    const List<String> statuses = <String>['upcoming', 'completed', 'rejected'];
+    // Fetch all tab statuses in parallel – includes both rejected/cancelled
+    // so queue transitions are reflected immediately after actions.
+    const List<String> statuses = <String>[
+      'upcoming',
+      'completed',
+      'rejected',
+      'cancelled',
+    ];
     final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
       safely(() => GroundWaleApi.instance.listBookings(groundId, status: statuses[0])),
       safely(() => GroundWaleApi.instance.listBookings(groundId, status: statuses[1])),
       safely(() => GroundWaleApi.instance.listBookings(groundId, status: statuses[2])),
+      safely(() => GroundWaleApi.instance.listBookings(groundId, status: statuses[3])),
       safely(() => GroundWaleApi.instance.getBookingSummary(groundId, status: statuses[0])),
       safely(() => GroundWaleApi.instance.getBookingSummary(groundId, status: statuses[1])),
       safely(() => GroundWaleApi.instance.getBookingSummary(groundId, status: statuses[2])),
+      safely(() => GroundWaleApi.instance.getBookingSummary(groundId, status: statuses[3])),
     ]);
 
     if (!mounted) {
@@ -132,12 +206,38 @@ class _BoxCricketUpcomingBookingsScreenState
     }
 
     final bool anyError = results.every((dynamic r) => r == null);
-    for (int i = 0; i < 3; i++) {
-      _cachedBookings[i] =
-          (results[i] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
-      _cachedSummaries[i] =
-          (results[i + 3] as Map<String, dynamic>?) ?? <String, dynamic>{};
-    }
+    final List<Map<String, dynamic>> upcoming =
+      (results[0] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> completed =
+      (results[1] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> rejected =
+      (results[2] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> cancelled =
+      (results[3] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
+
+    final Map<String, dynamic> upcomingSummary =
+      (results[4] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final Map<String, dynamic> completedSummary =
+      (results[5] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final Map<String, dynamic> rejectedSummary =
+      (results[6] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final Map<String, dynamic> cancelledSummary =
+      (results[7] as Map<String, dynamic>?) ?? <String, dynamic>{};
+
+    final List<Map<String, dynamic>> rejectedCombined = _dedupeByBookingId(
+      <Map<String, dynamic>>[...rejected, ...cancelled],
+    );
+    final Map<String, dynamic> rejectedCombinedSummary = _mergeSummary(
+      rejectedSummary,
+      cancelledSummary,
+    );
+
+    _cachedBookings[0] = _sanitizeForTab(0, upcoming);
+    _cachedBookings[1] = _sanitizeForTab(1, completed);
+    _cachedBookings[2] = _sanitizeForTab(2, rejectedCombined);
+    _cachedSummaries[0] = upcomingSummary;
+    _cachedSummaries[1] = completedSummary;
+    _cachedSummaries[2] = rejectedCombinedSummary;
 
     setState(() {
       _bookings = _cachedBookings[_tabIndex] ?? <Map<String, dynamic>>[];
@@ -237,6 +337,40 @@ class _BoxCricketUpcomingBookingsScreenState
                       Expanded(child: _tabChip('Reject', 2)),
                     ],
                   ),
+Padding(
+  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+  child: SizedBox(
+    width: double.infinity,
+    height: 52,
+    child: ElevatedButton.icon(
+      onPressed: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const BoxCricketAddBookingScreen(),
+          ),
+        );
+
+        // Refresh bookings after returning
+        _load(); // Replace with your refresh method
+      },
+      icon: const Icon(Icons.add),
+      label: const Text(
+        'Add Booking',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF08B36A),
+        foregroundColor: const Color(0xFF1C333B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    ),
+  ),
+),                  
                   const SizedBox(height: 12),
                   Container(
                     height: 72,

@@ -266,11 +266,20 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
     switch (_walletTabIndex) {
       case 1:
         return _transactions
-            .where((Map<String, dynamic> item) => item['type'] == 'credit')
+            .where(
+              (Map<String, dynamic> item) =>
+                  (item['type']?.toString() ?? '').toLowerCase() == 'credit',
+            )
             .toList();
       case 2:
         return _transactions
-            .where((Map<String, dynamic> item) => item['type'] == 'withdrawal')
+            .where((Map<String, dynamic> item) {
+              final String type =
+                  (item['type']?.toString() ?? '').toLowerCase();
+              return type == 'withdrawal' ||
+                  type == 'debit' ||
+                  type == 'refund';
+            })
             .toList();
       default:
         return _transactions;
@@ -665,8 +674,8 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
   }
 
   Widget _transactionCard(Map<String, dynamic> item) {
-    final bool isCredit =
-        (item['type']?.toString() ?? '').toLowerCase() == 'credit';
+    final String type = (item['type']?.toString() ?? '').toLowerCase();
+    final bool isCredit = type == 'credit';
     final int amount = _toInt(item['amount']);
     final String amountText = isCredit ? '+Rs $amount' : '-Rs $amount';
     final String status = item['status']?.toString() ?? 'success';
