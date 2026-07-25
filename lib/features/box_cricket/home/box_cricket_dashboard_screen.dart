@@ -38,12 +38,13 @@ class BoxCricketDashboardScreen extends StatefulWidget {
 
 class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   bool _isLoading = true;
-    final Map<String, Uint8List> _imageCache = {};
-    Uint8List _decodedImage(String source) {
-      return _imageCache.putIfAbsent(source, () {
-        return base64Decode(_normalizeBase64(source));
-      });
-    }
+  final Map<String, Uint8List> _imageCache = {};
+  Uint8List _decodedImage(String source) {
+    return _imageCache.putIfAbsent(source, () {
+      return base64Decode(_normalizeBase64(source));
+    });
+  }
+
   Map<String, dynamic> _dashboard = <String, dynamic>{};
   bool _isCalendarLoading = false;
   bool _isGroundDataLoading = false;
@@ -721,6 +722,18 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     _loadCalendarSlots();
   }
 
+  void _handleCalendarMonthSwipe(DragEndDetails details) {
+    final double velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 200) {
+      return;
+    }
+    if (velocity < 0) {
+      _goToNextMonth();
+      return;
+    }
+    _goToPreviousMonth();
+  }
+
   void _openBookings() {
     if (!widget.showBottomNav && widget.onOpenBookings != null) {
       widget.onOpenBookings!.call();
@@ -1283,232 +1296,236 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
       'Su',
     ];
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1FFFFFFF)),
-        color: const Color(0x08FFFFFF),
-      ),
-      child: Column(
-        children: <Widget>[
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: <Widget>[
-              _calendarLegendItem(
-                color: const Color(0xFF10B981),
-                label: 'Available',
-              ),
-              _calendarLegendItem(
-                color: const Color(0xFF0B84FF),
-                label: 'Booked',
-              ),
-              _calendarLegendItem(
-                color: const Color(0xFFEF4444),
-                label: 'Blocked',
-              ),
-              _calendarLegendItem(
-                color: const Color(0xFFF59E0B),
-                label: 'Maintenance',
-              ),
-              _calendarLegendItem(
-                color: const Color(0xFF9CA3AF),
-                label: 'No Booking',
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: week
-                .map(
-                  (String label) => Expanded(
-                    child: Center(
-                      child: Text(
-                        label,
-                        style: const TextStyle(
-                          color: Color(0xFF9CA3AF),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragEnd: _handleCalendarMonthSwipe,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x1FFFFFFF)),
+          color: const Color(0x08FFFFFF),
+        ),
+        child: Column(
+          children: <Widget>[
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: <Widget>[
+                _calendarLegendItem(
+                  color: const Color(0xFF10B981),
+                  label: 'Available',
+                ),
+                _calendarLegendItem(
+                  color: const Color(0xFF0B84FF),
+                  label: 'Booked',
+                ),
+                _calendarLegendItem(
+                  color: const Color(0xFFEF4444),
+                  label: 'Blocked',
+                ),
+                _calendarLegendItem(
+                  color: const Color(0xFFF59E0B),
+                  label: 'Maintenance',
+                ),
+                _calendarLegendItem(
+                  color: const Color(0xFF9CA3AF),
+                  label: 'No Booking',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: week
+                  .map(
+                    (String label) => Expanded(
+                      child: Center(
+                        child: Text(
+                          label,
+                          style: const TextStyle(
+                            color: Color(0xFF9CA3AF),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 8),
-          GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            shrinkWrap: true,
-            itemCount: days.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 0.9,
+                  )
+                  .toList(),
             ),
-            itemBuilder: (_, int index) {
-              final DateTime day = days[index];
-              final bool inMonth = day.month == _visibleMonth.month;
-              final bool isToday = _isSameDay(day, today);
-              final bool isSelected = _isSameDay(day, _selectedDate);
-              final bool isPast = day.isBefore(today);
-              final Map<String, int> stats =
-                  _slotStatsByDate[_dayKey(day)] ??
-                  <String, int>{
-                    'total': 0,
-                    'booked': 0,
-                    'blocked': 0,
-                    'available': 0,
-                    'maintenance': 0,
-                  };
-              final int total = stats['total'] ?? 0;
-              final int booked = stats['booked'] ?? 0;
-              final int blocked = stats['blocked'] ?? 0;
-              final int available = stats['available'] ?? 0;
-              final int maintenance = stats['maintenance'] ?? 0;
+            const SizedBox(height: 8),
+            GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              itemCount: days.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.9,
+              ),
+              itemBuilder: (_, int index) {
+                final DateTime day = days[index];
+                final bool inMonth = day.month == _visibleMonth.month;
+                final bool isToday = _isSameDay(day, today);
+                final bool isSelected = _isSameDay(day, _selectedDate);
+                final bool isPast = day.isBefore(today);
+                final Map<String, int> stats =
+                    _slotStatsByDate[_dayKey(day)] ??
+                    <String, int>{
+                      'total': 0,
+                      'booked': 0,
+                      'blocked': 0,
+                      'available': 0,
+                      'maintenance': 0,
+                    };
+                final int total = stats['total'] ?? 0;
+                final int booked = stats['booked'] ?? 0;
+                final int blocked = stats['blocked'] ?? 0;
+                final int available = stats['available'] ?? 0;
+                final int maintenance = stats['maintenance'] ?? 0;
 
-              Color bg;
-              Color border;
-              Color text;
-              String? sub;
-              Color subColor = const Color(0xFF10B981);
+                Color bg;
+                Color border;
+                Color text;
+                String? sub;
+                Color subColor = const Color(0xFF10B981);
 
-              if (!inMonth) {
-                bg = const Color(0x089CA3AF);
-                border = const Color(0x1A9CA3AF);
-                text = const Color(0x669CA3AF);
-              } else if (isSelected) {
-                bg = const Color(0x1410B981);
-                border = const Color(0xFFDDF730);
-                text = Colors.white;
-                if (maintenance >= total && total > 0) {
-                  sub = 'Maintenance';
+                if (!inMonth) {
+                  bg = const Color(0x089CA3AF);
+                  border = const Color(0x1A9CA3AF);
+                  text = const Color(0x669CA3AF);
+                } else if (isSelected) {
+                  bg = const Color(0x1410B981);
+                  border = const Color(0xFFDDF730);
+                  text = Colors.white;
+                  if (maintenance >= total && total > 0) {
+                    sub = 'Maintenance';
+                    subColor = const Color(0xFFF59E0B);
+                  } else if (blocked >= total && total > 0) {
+                    sub = 'Blocked';
+                    subColor = const Color(0xFFEF4444);
+                  } else if (booked > 0) {
+                    sub = '$booked/$total';
+                    subColor = const Color(0xFF0B84FF);
+                  } else if (available > 0) {
+                    sub = 'Open';
+                    subColor = const Color(0xFF10B981);
+                  } else {
+                    sub = 'No Slots';
+                    subColor = const Color(0xFF9CA3AF);
+                  }
+                } else if (isPast) {
+                  bg = const Color(0x0D9CA3AF);
+                  border = const Color(0x1A9CA3AF);
+                  text = const Color(0xFF9CA3AF);
+                  sub = 'Past';
+                  subColor = const Color(0xFF9CA3AF);
+                } else if (total > 0 && maintenance >= total) {
+                  bg = const Color(0x14F59E0B);
+                  border = const Color(0x33F59E0B);
+                  text = Colors.white;
+                  sub = 'Maint.';
                   subColor = const Color(0xFFF59E0B);
-                } else if (blocked >= total && total > 0) {
+                } else if (total > 0 && blocked >= total) {
+                  bg = const Color(0x14EF4444);
+                  border = const Color(0x33EF4444);
+                  text = Colors.white;
                   sub = 'Blocked';
                   subColor = const Color(0xFFEF4444);
-                } else if (booked > 0) {
+                } else if (total > 0 && booked > 0) {
+                  bg = const Color(0x140B84FF);
+                  border = const Color(0x330B84FF);
+                  text = Colors.white;
                   sub = '$booked/$total';
                   subColor = const Color(0xFF0B84FF);
-                } else if (available > 0) {
+                } else if (total > 0 && available > 0) {
+                  bg = const Color(0x1410B981);
+                  border = const Color(0x3310B981);
+                  text = Colors.white;
                   sub = 'Open';
                   subColor = const Color(0xFF10B981);
                 } else {
-                  sub = 'No Slots';
-                  subColor = const Color(0xFF9CA3AF);
+                  bg = const Color(0x0AFFFFFF);
+                  border = const Color(0x1FFFFFFF);
+                  text = Colors.white;
                 }
-              } else if (isPast) {
-                bg = const Color(0x0D9CA3AF);
-                border = const Color(0x1A9CA3AF);
-                text = const Color(0xFF9CA3AF);
-                sub = 'Past';
-                subColor = const Color(0xFF9CA3AF);
-              } else if (total > 0 && maintenance >= total) {
-                bg = const Color(0x14F59E0B);
-                border = const Color(0x33F59E0B);
-                text = Colors.white;
-                sub = 'Maint.';
-                subColor = const Color(0xFFF59E0B);
-              } else if (total > 0 && blocked >= total) {
-                bg = const Color(0x14EF4444);
-                border = const Color(0x33EF4444);
-                text = Colors.white;
-                sub = 'Blocked';
-                subColor = const Color(0xFFEF4444);
-              } else if (total > 0 && booked > 0) {
-                bg = const Color(0x140B84FF);
-                border = const Color(0x330B84FF);
-                text = Colors.white;
-                sub = '$booked/$total';
-                subColor = const Color(0xFF0B84FF);
-              } else if (total > 0 && available > 0) {
-                bg = const Color(0x1410B981);
-                border = const Color(0x3310B981);
-                text = Colors.white;
-                sub = 'Open';
-                subColor = const Color(0xFF10B981);
-              } else {
-                bg = const Color(0x0AFFFFFF);
-                border = const Color(0x1FFFFFFF);
-                text = Colors.white;
-              }
 
-              return InkWell(
-                onTap: inMonth
-                    ? () => setState(() => _selectedDate = day)
-                    : null,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: border,
-                      width: isSelected ? 1.6 : 1,
-                    ),
-                    color: bg,
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        '${day.day}',
-                        style: TextStyle(
-                          color: text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                return InkWell(
+                  onTap: inMonth
+                      ? () => setState(() => _selectedDate = day)
+                      : null,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: border,
+                        width: isSelected ? 1.6 : 1,
                       ),
-                      if (sub != null) ...<Widget>[
-                        const SizedBox(height: 3),
+                      color: bg,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
                         Text(
-                          sub,
+                          '${day.day}',
                           style: TextStyle(
-                            color: subColor,
-                            fontSize: 8.8,
+                            color: text,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                      if (isToday && !isSelected) ...<Widget>[
-                        const SizedBox(height: 3),
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF3B82F6),
-                            shape: BoxShape.circle,
+                        if (sub != null) ...<Widget>[
+                          const SizedBox(height: 3),
+                          Text(
+                            sub,
+                            style: TextStyle(
+                              color: subColor,
+                              fontSize: 8.8,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
+                        ],
+                        if (isToday && !isSelected) ...<Widget>[
+                          const SizedBox(height: 3),
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF3B82F6),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-          if (_isCalendarLoading) ...<Widget>[
-            const SizedBox(height: 8),
-            const LinearProgressIndicator(
-              minHeight: 2,
-              color: Color(0xFFDDF730),
-              backgroundColor: Color(0x1FFFFFFF),
+                );
+              },
+            ),
+            if (_isCalendarLoading) ...<Widget>[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(
+                minHeight: 2,
+                color: Color(0xFFDDF730),
+                backgroundColor: Color(0x1FFFFFFF),
+              ),
+            ],
+            const SizedBox(height: 10),
+            const Text(
+              'Tap on a date to view bookings and details',
+              style: TextStyle(
+                color: Color(0xFF9CA3AF),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
-          const SizedBox(height: 10),
-          const Text(
-            'Tap on a date to view bookings and details',
-            style: TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

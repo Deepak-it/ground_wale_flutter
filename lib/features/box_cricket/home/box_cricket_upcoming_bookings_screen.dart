@@ -338,7 +338,7 @@ class _BoxCricketUpcomingBookingsScreenState
                     ],
                   ),
 Padding(
-  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+  padding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
   child: SizedBox(
     width: double.infinity,
     height: 52,

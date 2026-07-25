@@ -292,11 +292,6 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   children: <Widget>[
-                    _GroundCard(
-                      groundName: groundName,
-                      subtitle: groundSubtitle,
-                      onEditTap: _openEditGround,
-                    ),
                     const SizedBox(height: 12),
                     const _SectionTitle(text: 'Earning & Payout'),
                     _GroupCard(
@@ -335,19 +330,6 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
                     _GroupCard(
                       outlined: true,
                       children: <Widget>[
-                        _MenuTile(
-                          title: 'Manage Slots',
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => BoxCricketManageSlotsScreen(
-                                  showBottomNav: widget.showBottomNav,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        _line(),
                         _MenuTile(
                           title: 'Pricing & Charges',
                           onTap: () {
@@ -482,92 +464,7 @@ class _BoxCricketProfileScreenState extends State<BoxCricketProfileScreen> {
   }
 }
 
-class _GroundCard extends StatelessWidget {
-  const _GroundCard({
-    required this.groundName,
-    required this.subtitle,
-    required this.onEditTap,
-  });
 
-  final String groundName;
-  final String subtitle;
-  final VoidCallback onEditTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x1F08B36A)),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x17000000),
-            blurRadius: 12,
-            offset: Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    groundName,
-                    style: const TextStyle(
-                      color: Color(0xFF242424),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      height: 1.4,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF242424),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          InkWell(
-            onTap: onEditTap,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: const Color(0x1F08B36A),
-              ),
-              child: const Text(
-                'Edit',
-                style: TextStyle(
-                  color: Color(0xFF08B36A),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.text});

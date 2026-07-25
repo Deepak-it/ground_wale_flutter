@@ -54,6 +54,10 @@ class _BoxCricketManageSlotsScreenState
     switch (_dayFilterIndex) {
       case 1:
         return _today.add(const Duration(days: 1));
+      case 2:
+        return _today;
+      case 3:
+        return DateTime(_today.year, _today.month, 1);
       default:
         return _today;
     }
@@ -67,9 +71,15 @@ class _BoxCricketManageSlotsScreenState
     switch (_dayFilterIndex) {
       case 2:
         return _today.add(const Duration(days: 6));
+      case 3:
+        return DateTime(_today.year, _today.month + 1, 0);
       default:
         return _rangeStart;
     }
+  }
+
+  bool _isWeekend(DateTime day) {
+    return day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
   }
 
   String _dateKey(DateTime date) {
@@ -124,6 +134,90 @@ class _BoxCricketManageSlotsScreenState
     return 0;
   }
 
+  TimeOfDay? _parseTimeOfDay(String text) {
+    final RegExpMatch? match = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$',
+    ).firstMatch(text.trim());
+    if (match == null) {
+      return null;
+    }
+
+    int hour = int.tryParse(match.group(1) ?? '') ?? -1;
+    final int minute = int.tryParse(match.group(2) ?? '') ?? -1;
+    final String period = (match.group(3) ?? '').toUpperCase();
+    if (hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+      return null;
+    }
+    if (period == 'PM' && hour < 12) {
+      hour += 12;
+    }
+    if (period == 'AM' && hour == 12) {
+      hour = 0;
+    }
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  int? _timeInMinutes(String text) {
+    final TimeOfDay? parsed = _parseTimeOfDay(text);
+    if (parsed == null) {
+      return null;
+    }
+    return parsed.hour * 60 + parsed.minute;
+  }
+
+  bool _slotExistsOnDay(Map<String, dynamic> slot, DateTime day) {
+    final String dayKey = _dateKey(day);
+    final bool isRangeSlot = slot['dateFrom'] != null && slot['dateTo'] != null;
+    if (isRangeSlot) {
+      final DateTime from = _parseDate(slot['dateFrom']);
+      final DateTime to = _parseDate(slot['dateTo']);
+      if (day.isBefore(from) || day.isAfter(to)) {
+        return false;
+      }
+      return !_dayKeysFrom(slot['deletedDates']).contains(dayKey);
+    }
+    return _dateKey(_parseDate(slot['date'])) == dayKey;
+  }
+
+  DateTime? _findOverlapDate(
+    List<Map<String, dynamic>> slots,
+    DateTime rangeStart,
+    DateTime rangeEnd,
+    String startTime,
+    String endTime,
+  ) {
+    final int? candidateStart = _timeInMinutes(startTime);
+    final int? candidateEnd = _timeInMinutes(endTime);
+    if (candidateStart == null || candidateEnd == null) {
+      return null;
+    }
+
+    DateTime cursor = rangeStart;
+    while (!cursor.isAfter(rangeEnd)) {
+      for (final Map<String, dynamic> slot in slots) {
+        if (!_slotExistsOnDay(slot, cursor)) {
+          continue;
+        }
+
+        final int? existingStart = _timeInMinutes(
+          slot['startTime']?.toString() ?? '',
+        );
+        final int? existingEnd = _timeInMinutes(
+          slot['endTime']?.toString() ?? '',
+        );
+        if (existingStart == null || existingEnd == null) {
+          continue;
+        }
+
+        if (candidateStart < existingEnd && existingStart < candidateEnd) {
+          return cursor;
+        }
+      }
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return null;
+  }
+
   String _groundId(Map<String, dynamic> ground) {
     return ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
   }
@@ -152,6 +246,7 @@ class _BoxCricketManageSlotsScreenState
 
     setState(() {
       _selectedDate = DateTime(picked.year, picked.month, picked.day);
+      _dayFilterIndex = 4; // Calendar chip selected
     });
 
     _load();
@@ -253,6 +348,12 @@ class _BoxCricketManageSlotsScreenState
   List<Map<String, dynamic>> get _filteredSlots {
     // Uses the pre-expanded cache – avoids re-expanding on every setState.
     return _cachedExpanded.where((Map<String, dynamic> slot) {
+      if (_dayFilterIndex == 3) {
+        final DateTime date = _parseDate(slot['date']);
+        if (!_isWeekend(date)) {
+          return false;
+        }
+      }
       if (_statusFilter == 'all') {
         return true;
       }
@@ -390,307 +491,344 @@ class _BoxCricketManageSlotsScreenState
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder:
-              (
-                BuildContext context,
-                void Function(void Function()) setModalState,
-              ) {
-                return Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1B1F1B),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(24),
+          builder: (BuildContext context, void Function(void Function()) setModalState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF1B1F1B),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Center(
+                      child: Text(
+                        'Create New Availability',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                  child: SafeArea(
-                    top: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Select Date Range',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
                       children: <Widget>[
-                        const Center(
-                          child: Text(
-                            'Create New Availability',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final DateTime? picked = await showDatePicker(
+                                context: context,
+                                initialDate: rangeStartDate,
+                                firstDate: _today,
+                                lastDate: _today.add(const Duration(days: 365)),
+                              );
+                              if (picked == null) {
+                                return;
+                              }
+                              if (!mounted) {
+                                return;
+                              }
+                              setModalState(() {
+                                rangeStartDate = DateTime(
+                                  picked.year,
+                                  picked.month,
+                                  picked.day,
+                                );
+                                if (rangeEndDate.isBefore(rangeStartDate)) {
+                                  rangeEndDate = rangeStartDate;
+                                }
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              height: 56,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0x3DFFFFFF),
+                                ),
+                                color: const Color(0x08FFFFFF),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: <Widget>[
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      const Text(
+                                        'From',
+                                        style: TextStyle(
+                                          color: Color(0x99FFFFFF),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Text(
+                                        _shortDateLabel(rangeStartDate),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Icon(
+                                    Icons.calendar_today,
+                                    size: 18,
+                                    color: Color(0xFF08B36A),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Select Date Range',
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final DateTime? picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: rangeStartDate,
-                                    firstDate: _today,
-                                    lastDate: _today.add(
-                                      const Duration(days: 365),
-                                    ),
-                                  );
-                                  if (picked == null) {
-                                    return;
-                                  }
-                                  if (!mounted) {
-                                    return;
-                                  }
-                                  setModalState(() {
-                                    rangeStartDate = DateTime(
-                                      picked.year,
-                                      picked.month,
-                                      picked.day,
-                                    );
-                                    if (rangeEndDate.isBefore(rangeStartDate)) {
-                                      rangeEndDate = rangeStartDate;
-                                    }
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  height: 56,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0x3DFFFFFF),
-                                    ),
-                                    color: const Color(0x08FFFFFF),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: <Widget>[
-                                      Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          const Text(
-                                            'From',
-                                            style: TextStyle(
-                                              color: Color(0x99FFFFFF),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          Text(
-                                            _shortDateLabel(rangeStartDate),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const Icon(
-                                        Icons.calendar_today,
-                                        size: 18,
-                                        color: Color(0xFF08B36A),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () async {
-                                  final DateTime initialDate =
-                                      rangeEndDate.isBefore(rangeStartDate)
-                                      ? rangeStartDate
-                                      : rangeEndDate;
-                                  final DateTime? picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: initialDate,
-                                    firstDate: rangeStartDate,
-                                    lastDate: _today.add(
-                                      const Duration(days: 365),
-                                    ),
-                                  );
-                                  if (picked == null) {
-                                    return;
-                                  }
-                                  if (!mounted) {
-                                    return;
-                                  }
-                                  setModalState(() {
-                                    rangeEndDate = DateTime(
-                                      picked.year,
-                                      picked.month,
-                                      picked.day,
-                                    );
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  height: 56,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0x3DFFFFFF),
-                                    ),
-                                    color: const Color(0x08FFFFFF),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: <Widget>[
-                                      Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          const Text(
-                                            'To',
-                                            style: TextStyle(
-                                              color: Color(0x99FFFFFF),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          Text(
-                                            _shortDateLabel(rangeEndDate),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const Icon(
-                                        Icons.calendar_today,
-                                        size: 18,
-                                        color: Color(0xFF08B36A),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: _fieldCard('Start Time', startCtrl),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(child: _fieldCard('End Time', endCtrl)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _fieldCard('Add New Slot', priceCtrl, prefix: 'Rs '),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              final String? groundId = await _resolveGroundId();
-                              if (groundId == null || groundId.isEmpty) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(
-                                    this.context,
-                                  ).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Ground not found. Unable to create slot.',
-                                      ),
-                                    ),
-                                  );
-                                }
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final DateTime initialDate =
+                                  rangeEndDate.isBefore(rangeStartDate)
+                                  ? rangeStartDate
+                                  : rangeEndDate;
+                              final DateTime? picked = await showDatePicker(
+                                context: context,
+                                initialDate: initialDate,
+                                firstDate: rangeStartDate,
+                                lastDate: _today.add(const Duration(days: 365)),
+                              );
+                              if (picked == null) {
                                 return;
                               }
-
-                              if (startCtrl.text.trim().isEmpty ||
-                                  endCtrl.text.trim().isEmpty) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(
-                                    this.context,
-                                  ).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Start time and end time are required.',
-                                      ),
-                                    ),
-                                  );
-                                }
+                              if (!mounted) {
                                 return;
                               }
-
-                              try {
-                                await GroundWaleApi.instance
-                                    .createSlot(groundId, <String, dynamic>{
-                                      'dateFrom': _dateKey(rangeStartDate),
-                                      'dateTo': _dateKey(rangeEndDate),
-                                      'startTime': startCtrl.text.trim(),
-                                      'endTime': endCtrl.text.trim(),
-                                      'price': _toInt(priceCtrl.text.trim()),
-                                      'status': 'available',
-                                    });
-                                if (mounted) {
-                                  Navigator.of(this.context).pop();
-                                  _load();
-                                }
-                              } catch (error) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(
-                                    this.context,
-                                  ).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        error.toString().replaceFirst(
-                                          'Exception: ',
-                                          '',
+                              setModalState(() {
+                                rangeEndDate = DateTime(
+                                  picked.year,
+                                  picked.month,
+                                  picked.day,
+                                );
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              height: 56,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0x3DFFFFFF),
+                                ),
+                                color: const Color(0x08FFFFFF),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: <Widget>[
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      const Text(
+                                        'To',
+                                        style: TextStyle(
+                                          color: Color(0x99FFFFFF),
+                                          fontSize: 12,
                                         ),
                                       ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF08B36A),
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              'Add New Slot',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                                      Text(
+                                        _shortDateLabel(rangeEndDate),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Icon(
+                                    Icons.calendar_today,
+                                    size: 18,
+                                    color: Color(0xFF08B36A),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                );
-              },
+                    const SizedBox(height: 16),
+                    Row(
+                      children: <Widget>[
+                        Expanded(child: _fieldCard('Start Time', startCtrl)),
+                        const SizedBox(width: 16),
+                        Expanded(child: _fieldCard('End Time', endCtrl)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _fieldCard('Add New Slot', priceCtrl, prefix: 'Rs '),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final String? groundId = await _resolveGroundId();
+                          if (groundId == null || groundId.isEmpty) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Ground not found. Unable to create slot.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+
+                          if (startCtrl.text.trim().isEmpty ||
+                              endCtrl.text.trim().isEmpty) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Start time and end time are required.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+
+                          final int? startMinutes = _timeInMinutes(
+                            startCtrl.text.trim(),
+                          );
+                          final int? endMinutes = _timeInMinutes(
+                            endCtrl.text.trim(),
+                          );
+                          if (startMinutes == null || endMinutes == null) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Enter valid start and end times in hh:mm AM/PM format.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+                          if (startMinutes >= endMinutes) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'End time must be after start time.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+
+                          try {
+                            final List<Map<String, dynamic>> existingSlots =
+                                await GroundWaleApi.instance.listSlots(
+                                  groundId,
+                                  from: _dateKey(rangeStartDate),
+                                  to: _dateKey(rangeEndDate),
+                                );
+                            final DateTime? overlapDate = _findOverlapDate(
+                              existingSlots,
+                              rangeStartDate,
+                              rangeEndDate,
+                              startCtrl.text.trim(),
+                              endCtrl.text.trim(),
+                            );
+                            if (overlapDate != null) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Slot overlaps an existing slot on ${_shortDateLabel(overlapDate)}.',
+                                    ),
+                                  ),
+                                );
+                              }
+                              return;
+                            }
+
+                            await GroundWaleApi.instance
+                                .createSlot(groundId, <String, dynamic>{
+                                  'dateFrom': _dateKey(rangeStartDate),
+                                  'dateTo': _dateKey(rangeEndDate),
+                                  'startTime': startCtrl.text.trim(),
+                                  'endTime': endCtrl.text.trim(),
+                                  'price': _toInt(priceCtrl.text.trim()),
+                                  'status': 'available',
+                                });
+                            if (mounted) {
+                              Navigator.of(this.context).pop();
+                              _load();
+                            }
+                          } catch (error) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    error.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF08B36A),
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Add New Slot',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -1148,6 +1286,27 @@ class _BoxCricketManageSlotsScreenState
     }).toList();
   }
 
+  Widget _calendarChip() {
+    final bool selected = _dayFilterIndex == 4;
+
+    return InkWell(
+      onTap: _pickDate,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 48,
+        width: 40,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: selected ? const Color(0xFF08B36A) : const Color(0x08FFFFFF),
+          border: selected ? null : Border.all(color: const Color(0x1FFFFFFF)),
+        ),
+        child: const Center(
+          child: Icon(Icons.calendar_month, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> slots = _filteredSlots;
@@ -1237,51 +1396,21 @@ class _BoxCricketManageSlotsScreenState
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _dayFilterIndex = 0;
-                                _selectedDate = null;
-                              });
-                              _load();
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: _dayChip('Today', 0),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(child: _dayChip('Tomorrow', 1)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _dayChip('This Week', 2)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: InkWell(
-                            onTap: _pickDate,
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              height: 48,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                color: _selectedDate != null
-                                    ? const Color(0xFF08B36A)
-                                    : const Color(0x08FFFFFF),
-                                border: _selectedDate == null
-                                    ? Border.all(color: const Color(0x1FFFFFFF))
-                                    : null,
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.calendar_month,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: <Widget>[
+                          _dayChip('Today', 0),
+                          const SizedBox(width: 8),
+                          _dayChip('Tomorrow', 1),
+                          const SizedBox(width: 8),
+                          _dayChip('This Week', 2),
+                          const SizedBox(width: 8),
+                          _dayChip('Month Weekends', 3),
+                          const SizedBox(width: 8),
+                          _calendarChip(),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     SingleChildScrollView(
@@ -1377,13 +1506,21 @@ class _BoxCricketManageSlotsScreenState
   Widget _dayChip(String label, int index) {
     final bool selected = _dayFilterIndex == index;
     return InkWell(
-      onTap: () {
-        setState(() => _dayFilterIndex = index);
-        _load();
+      onTap: () async {
+        if (index == 4) {
+          await _pickDate();
+        } else {
+          setState(() {
+            _dayFilterIndex = index;
+            _selectedDate = null; // Clear custom date
+          });
+          _load();
+        }
       },
       borderRadius: BorderRadius.circular(10),
       child: Container(
         height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           color: selected ? const Color(0xFF08B36A) : const Color(0x08FFFFFF),
