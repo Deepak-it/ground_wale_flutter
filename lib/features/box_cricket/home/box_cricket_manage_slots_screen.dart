@@ -30,7 +30,7 @@ class _BoxCricketManageSlotsScreenState
   String? _selectedGroundId;
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _bookings = <Map<String, dynamic>>[];
-
+  DateTime? _selectedDate;
   // Pre-expanded slot list – recomputed once after each load, not on every
   // build / status-filter change.
   List<Map<String, dynamic>> _cachedExpanded = <Map<String, dynamic>>[];
@@ -47,17 +47,29 @@ class _BoxCricketManageSlotsScreenState
   }
 
   DateTime get _rangeStart {
-    if (_dayFilterIndex == 1) {
-      return _today.add(const Duration(days: 1));
+    if (_selectedDate != null) {
+      return _selectedDate!;
     }
-    return _today;
+
+    switch (_dayFilterIndex) {
+      case 1:
+        return _today.add(const Duration(days: 1));
+      default:
+        return _today;
+    }
   }
 
   DateTime get _rangeEnd {
-    if (_dayFilterIndex == 2) {
-      return _today.add(const Duration(days: 6));
+    if (_selectedDate != null) {
+      return _selectedDate!;
     }
-    return _rangeStart;
+
+    switch (_dayFilterIndex) {
+      case 2:
+        return _today.add(const Duration(days: 6));
+      default:
+        return _rangeStart;
+    }
   }
 
   String _dateKey(DateTime date) {
@@ -128,6 +140,23 @@ class _BoxCricketManageSlotsScreenState
     return slot['_id']?.toString() ?? slot['id']?.toString() ?? '';
   }
 
+  Future<void> _pickDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _today.add(const Duration(days: 7)),
+      firstDate: _today,
+      lastDate: _today.add(const Duration(days: 365)),
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      _selectedDate = DateTime(picked.year, picked.month, picked.day);
+    });
+
+    _load();
+  }
+
   Future<String?> _resolveGroundId() async {
     if (_selectedGroundId != null && _selectedGroundId!.isNotEmpty) {
       return _selectedGroundId;
@@ -188,10 +217,11 @@ class _BoxCricketManageSlotsScreenState
       final String from = _dateKey(_rangeStart);
       final String to = _dateKey(_rangeEnd);
       // Fetch slots and bookings in parallel – they are independent.
-      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
-        GroundWaleApi.instance.listSlots(groundId, from: from, to: to),
-        GroundWaleApi.instance.listBookings(groundId),
-      ]);
+      final List<dynamic> results =
+          await Future.wait<dynamic>(<Future<dynamic>>[
+            GroundWaleApi.instance.listSlots(groundId, from: from, to: to),
+            GroundWaleApi.instance.listBookings(groundId),
+          ]);
       final List<Map<String, dynamic>> slots =
           results[0] as List<Map<String, dynamic>>;
       final List<Map<String, dynamic>> bookings =
@@ -232,21 +262,19 @@ class _BoxCricketManageSlotsScreenState
 
   Set<String> _dayKeysFrom(dynamic raw) {
     final List<dynamic> values = raw as List<dynamic>? ?? <dynamic>[];
-    return values
-        .map((dynamic item) {
-          if (item is String &&
-              RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').hasMatch(item.trim())) {
-            return item.trim();
-          }
-          final DateTime parsed = _parseDate(item);
-          return _dateKey(parsed);
-        })
-        .toSet();
+    return values.map((dynamic item) {
+      if (item is String &&
+          RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').hasMatch(item.trim())) {
+        return item.trim();
+      }
+      final DateTime parsed = _parseDate(item);
+      return _dateKey(parsed);
+    }).toSet();
   }
 
   String _statusForDay(Map<String, dynamic> slot, DateTime day) {
-    final String baseStatus =
-        (slot['status']?.toString() ?? 'available').toLowerCase();
+    final String baseStatus = (slot['status']?.toString() ?? 'available')
+        .toLowerCase();
     if (baseStatus == 'blocked') {
       return 'blocked';
     }
@@ -275,7 +303,8 @@ class _BoxCricketManageSlotsScreenState
     final List<Map<String, dynamic>> expanded = <Map<String, dynamic>>[];
 
     for (final Map<String, dynamic> slot in _slots) {
-      final bool isRangeSlot = slot['dateFrom'] != null && slot['dateTo'] != null;
+      final bool isRangeSlot =
+          slot['dateFrom'] != null && slot['dateTo'] != null;
       if (!isRangeSlot) {
         expanded.add(Map<String, dynamic>.from(slot));
         continue;
@@ -724,7 +753,9 @@ class _BoxCricketManageSlotsScreenState
                       try {
                         final String slotId = _slotId(slot);
                         if (slotId.isEmpty) {
-                          throw Exception('Unable to update slot: missing slot id.');
+                          throw Exception(
+                            'Unable to update slot: missing slot id.',
+                          );
                         }
                         await GroundWaleApi.instance.updateSlot(
                           slotId,
@@ -735,7 +766,8 @@ class _BoxCricketManageSlotsScreenState
                             'status': slot['status']?.toString() ?? 'available',
                             // For range slots, scope the price update to the
                             // specific day being edited.
-                            if (slot['dateFrom'] != null && slot['dateTo'] != null &&
+                            if (slot['dateFrom'] != null &&
+                                slot['dateTo'] != null &&
                                 slot['date'] != null)
                               'date': slot['date'].toString(),
                           },
@@ -755,10 +787,7 @@ class _BoxCricketManageSlotsScreenState
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              error.toString().replaceFirst(
-                                'Exception: ',
-                                '',
-                              ),
+                              error.toString().replaceFirst('Exception: ', ''),
                             ),
                           ),
                         );
@@ -894,7 +923,9 @@ class _BoxCricketManageSlotsScreenState
       if (slotId.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Unable to delete slot: missing slot id.')),
+            const SnackBar(
+              content: Text('Unable to delete slot: missing slot id.'),
+            ),
           );
         }
         return;
@@ -902,8 +933,7 @@ class _BoxCricketManageSlotsScreenState
       // For range slots, pass the specific day so only that day is removed.
       final bool isRangeSlot =
           slot['dateFrom'] != null && slot['dateTo'] != null;
-      final String? deleteDate =
-          isRangeSlot ? slot['date']?.toString() : null;
+      final String? deleteDate = isRangeSlot ? slot['date']?.toString() : null;
       await GroundWaleApi.instance.deleteSlot(slotId, date: deleteDate);
       if (!mounted) {
         return;
@@ -911,36 +941,36 @@ class _BoxCricketManageSlotsScreenState
       _load();
     }
   }
-Future<void> _unblockSlot(Map<String, dynamic> slot) async {
-  final String slotId = _slotId(slot);
-  if (slotId.isEmpty) {
-    if (mounted) {
+
+  Future<void> _unblockSlot(Map<String, dynamic> slot) async {
+    final String slotId = _slotId(slot);
+    if (slotId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to unblock slot.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      await GroundWaleApi.instance.unblockSlot(
+        slotId,
+        date: slot['date']?.toString(),
+      );
+
+      if (!mounted) return;
+      _load();
+    } catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to unblock slot.')),
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
       );
     }
-    return;
   }
 
-  try {
-    await GroundWaleApi.instance.unblockSlot(
-      slotId,
-      date: slot['date']?.toString(),
-    );
-
-    if (!mounted) return;
-    _load();
-  } catch (error) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          error.toString().replaceFirst('Exception: ', ''),
-        ),
-      ),
-    );
-  }
-}
   Future<void> _confirmBlock(Map<String, dynamic> slot) async {
     final bool? ok = await showDialog<bool>(
       context: context,
@@ -1050,7 +1080,9 @@ Future<void> _unblockSlot(Map<String, dynamic> slot) async {
       if (slotId.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Unable to block slot: missing slot id.')),
+            const SnackBar(
+              content: Text('Unable to block slot: missing slot id.'),
+            ),
           );
         }
         return;
@@ -1207,11 +1239,48 @@ Future<void> _unblockSlot(Map<String, dynamic> slot) async {
                     const SizedBox(height: 16),
                     Row(
                       children: <Widget>[
-                        Expanded(child: _dayChip('Today', 0)),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                _dayFilterIndex = 0;
+                                _selectedDate = null;
+                              });
+                              _load();
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: _dayChip('Today', 0),
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         Expanded(child: _dayChip('Tomorrow', 1)),
                         const SizedBox(width: 12),
                         Expanded(child: _dayChip('This Week', 2)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: InkWell(
+                            onTap: _pickDate,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: _selectedDate != null
+                                    ? const Color(0xFF08B36A)
+                                    : const Color(0x08FFFFFF),
+                                border: _selectedDate == null
+                                    ? Border.all(color: const Color(0x1FFFFFFF))
+                                    : null,
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.calendar_month,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -1249,6 +1318,52 @@ Future<void> _unblockSlot(Map<String, dynamic> slot) async {
                         ],
                       ),
                     ),
+
+                    if (_selectedDate != null) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16, top: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0x1F08B36A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF08B36A)),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.calendar_today,
+                              color: Color(0xFF08B36A),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Showing slots for ${_shortDateLabel(_selectedDate!)}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedDate = null;
+                                  _dayFilterIndex = 0;
+                                });
+                                _load();
+                              },
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 16),
                     ..._buildDaySections(slots),
                   ],
@@ -1393,8 +1508,10 @@ Future<void> _unblockSlot(Map<String, dynamic> slot) async {
         'Afternoon',
         'Evening',
       ]) {
-        final List<Map<String, dynamic>> sectionSlots =
-            _sectionSlots(daySlots, section);
+        final List<Map<String, dynamic>> sectionSlots = _sectionSlots(
+          daySlots,
+          section,
+        );
         if (sectionSlots.isEmpty) continue;
 
         for (final Map<String, dynamic> slot in sectionSlots) {
@@ -1507,66 +1624,64 @@ Future<void> _unblockSlot(Map<String, dynamic> slot) async {
             ],
           ),
           const SizedBox(height: 12),
-if (isBlocked)
-  SizedBox(
-    width: double.infinity,
-    child: _actionBtn(
-      'Unblock',
-      const Color(0x1F08B36A),
-      const Color(0xFF08B36A),
-      () => _unblockSlot(slot),
-    ),
-  )
-else if (isBooked)
-  SizedBox(
-    width: double.infinity,
-    child: _actionBtn(
-      'Booked',
-      const Color(0x1F08B36A),
-      Colors.white,
-      () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-              builder: (_) => BoxCricketBookingDetailsScreen(
-                bookingId: bookingId,
+          if (isBlocked)
+            SizedBox(
+              width: double.infinity,
+              child: _actionBtn(
+                'Unblock',
+                const Color(0x1F08B36A),
+                const Color(0xFF08B36A),
+                () => _unblockSlot(slot),
               ),
+            )
+          else if (isBooked)
+            SizedBox(
+              width: double.infinity,
+              child: _actionBtn(
+                'Booked',
+                const Color(0x1F08B36A),
+                Colors.white,
+                () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          BoxCricketBookingDetailsScreen(bookingId: bookingId),
+                    ),
+                  );
+                },
+              ),
+            )
+          else
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: _actionBtn(
+                    'Edit',
+                    const Color(0x1F08B36A),
+                    const Color(0xFF08B36A),
+                    () => _showEditSheet(slot),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _actionBtn(
+                    'Block',
+                    const Color(0x1FF59E0B),
+                    const Color(0xFFF59E0B),
+                    () => _confirmBlock(slot),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _actionBtn(
+                    'Delete',
+                    const Color(0x1FE3220D),
+                    const Color(0xFFE3220D),
+                    () => _confirmDelete(slot),
+                  ),
+                ),
+              ],
             ),
-        );
-      },
-    ),
-
-    )
-else
-  Row(
-    children: <Widget>[
-      Expanded(
-        child: _actionBtn(
-          'Edit',
-          const Color(0x1F08B36A),
-          const Color(0xFF08B36A),
-          () => _showEditSheet(slot),
-        ),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: _actionBtn(
-          'Block',
-          const Color(0x1FF59E0B),
-          const Color(0xFFF59E0B),
-          () => _confirmBlock(slot),
-        ),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: _actionBtn(
-          'Delete',
-          const Color(0x1FE3220D),
-          const Color(0xFFE3220D),
-          () => _confirmDelete(slot),
-        ),
-      ),
-    ],
-  ),
         ],
       ),
     );
@@ -1700,5 +1815,3 @@ else
     );
   }
 }
-
-
