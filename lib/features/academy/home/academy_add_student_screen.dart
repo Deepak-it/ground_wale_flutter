@@ -24,6 +24,7 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
   late final TextEditingController _feesController;
   late final TextEditingController _joiningController;
   late final TextEditingController _paidNowController;
+  late final TextEditingController _dobController;
 
   String? _photoBase64;
   bool _isSaving = false;
@@ -84,10 +85,30 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     _batchController = TextEditingController(text: 'Morning batch');
     _feesController = TextEditingController();
     _joiningController = TextEditingController(text: 'Today');
+    _dobController = TextEditingController();
     _paidNowController = TextEditingController();
     _loadAcademiesAndBatches();
   }
+  Future<void> _pickDob() async {
+    final DateTime now = DateTime.now();
 
+    final DateTime initial =
+        DateTime.tryParse(_dobController.text) ??
+        DateTime(now.year - 10);
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1950),
+      lastDate: now,
+    );
+
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _dobController.text = picked.toIso8601String().split('T').first;
+    });
+  }
   Future<void> _pickPhoto() async {
     final ImagePicker picker = ImagePicker();
     final XFile? file = await picker.pickImage(
@@ -263,7 +284,12 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
       ).showSnackBar(const SnackBar(content: Text('Student name is required')));
       return;
     }
-
+    if (_dobController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Date of birth is required')),
+      );
+      return;
+    }
     final Map<String, dynamic>? selectedBatch = _batches
         .where(
           (Map<String, dynamic> batch) => _batchId(batch) == _selectedBatchId,
@@ -273,6 +299,21 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
           (Map<String, dynamic>? _) => true,
           orElse: () => _batches.isEmpty ? null : _batches.first,
         );
+
+    // Prevent adding students to inactive batches
+    final bool isBatchActive =
+        (selectedBatch?['status']?.toString().toLowerCase() ?? 'active') == 'active';
+
+    if (!isBatchActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot add students to an inactive batch.',
+          ),
+        ),
+      );
+      return;
+    }
 
     final double monthlyFee = _feePlans.isNotEmpty
         ? _planPrice(
@@ -307,6 +348,7 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
             'joinDate': _dateOnlyString(joinDateOnly),
             'monthlyFee': monthlyFee,
             'status': 'active',
+            'dob': _dobController.text.trim(),
             if (_photoBase64 != null && _photoBase64!.isNotEmpty)
               'photoBase64': _photoBase64,
           });
@@ -402,6 +444,7 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
     _feesController.dispose();
     _joiningController.dispose();
     _paidNowController.dispose();
+    _dobController.dispose();
     super.dispose();
   }
 
@@ -503,6 +546,17 @@ class _AcademyAddStudentScreenState extends State<AcademyAddStudentScreen> {
                 hint: '+91   Enter mobile number',
                 keyboardType: TextInputType.phone,
               ),
+
+              const SizedBox(height: 24),
+              const _FieldLabel('Date of Birth'),
+              const SizedBox(height: 12),
+              _DarkPickerField(
+                controller: _dobController,
+                trailingIcon: Icons.cake_outlined,
+                readOnly: true,
+                onTap: _pickDob,
+              ),
+
               const SizedBox(height: 24),
               const _FieldLabel('Select Academy'),
               const SizedBox(height: 12),

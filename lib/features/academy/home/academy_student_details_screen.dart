@@ -7,6 +7,7 @@ import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/base64_image.dart';
 import 'academy_edit_student_screen.dart';
 import 'academy_view_all_attendance_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AcademyStudentDetailsScreen extends StatefulWidget {
   const AcademyStudentDetailsScreen({
@@ -16,6 +17,7 @@ class AcademyStudentDetailsScreen extends StatefulWidget {
     required this.batchName,
     required this.attendanceStatus,
     required this.feeStatus,
+    required this.dob,
   });
 
   final String studentId;
@@ -23,6 +25,8 @@ class AcademyStudentDetailsScreen extends StatefulWidget {
   final String batchName;
   final String attendanceStatus;
   final String feeStatus;
+    final String dob;          // <-- ADD THIS
+
 
   @override
   State<AcademyStudentDetailsScreen> createState() =>
@@ -41,7 +45,41 @@ class _AcademyStudentDetailsScreenState extends State<AcademyStudentDetailsScree
     super.initState();
     _load();
   }
+  Future<void> _callPhone() async {
+    final String phone =
+        (_student['phone']?.toString() ?? '').replaceAll(RegExp(r'\s+'), '');
 
+    if (phone.isEmpty) return;
+
+    final Uri uri = Uri(scheme: 'tel', path: phone);
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _openWhatsApp() async {
+    String phone = _student['phone']?.toString() ?? '';
+
+    // Remove everything except digits
+    phone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // If it's an Indian 10-digit number, prepend country code
+    if (phone.length == 10) {
+      phone = '91$phone';
+    }
+
+    if (phone.isEmpty) return;
+
+    final Uri uri = Uri.parse('https://wa.me/$phone');
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+    }
+  }
   Future<void> _load() async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
@@ -243,7 +281,46 @@ class _AcademyStudentDetailsScreenState extends State<AcademyStudentDetailsScree
                                 ),
                               ),
                             ),
-                            _CircleButton(icon: Icons.more_horiz_rounded, onTap: () {}),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                InkWell(
+                                  onTap: _callPhone,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      color: const Color(0x0800C9A7),
+                                    ),
+                                    child: const Icon(
+                                      Icons.phone,
+                                      color: Color(0xFF00C9A7),
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                InkWell(
+                                  onTap: _openWhatsApp,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      color: const Color(0x081ED760),
+                                    ),
+                                    child: const Icon(
+                                      Icons.chat,
+                                      color: Color(0xFF25D366),
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -449,6 +526,7 @@ class _AcademyStudentDetailsScreenState extends State<AcademyStudentDetailsScree
                                       paymentMode: _fees.isNotEmpty
                                           ? _fees.first['paymentMode']?.toString() ?? 'UPI'
                                           : 'UPI',
+                                      dob: _student['dob']?.toString() ?? '',
                                     ),
                                   ),
                                 );

@@ -485,22 +485,21 @@ class _SportsNeoLoginOptionsScreen extends StatelessWidget {
                     child: Image.asset(
                       'assets/images/1st-slide.png',
                       fit: BoxFit.cover,
-                      errorBuilder:
-                          (
-                            BuildContext context,
-                            Object error,
-                            StackTrace? stackTrace,
-                          ) {
-                            return Container(
-                              color: const Color(0xFF141B33),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.image_not_supported_outlined,
-                                color: Colors.white70,
-                                size: 40,
-                              ),
-                            );
-                          },
+                      errorBuilder: (
+                        BuildContext context,
+                        Object error,
+                        StackTrace? stackTrace,
+                      ) {
+                        return Container(
+                          color: const Color(0xFF141B33),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Colors.white70,
+                            size: 40,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -592,6 +591,26 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final GroundWaleApi _api = GroundWaleApi.instance;
   bool _isSubmitting = false;
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _phoneFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneFocusNode.addListener(() {
+      if (_phoneFocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
+  }
 
   String _normalizedIndianPhone(String input) {
     final String digitsOnly = input.replaceAll(RegExp(r'\D'), '');
@@ -608,6 +627,8 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
   @override
   void dispose() {
     _phoneController.dispose();
+    _scrollController.dispose();
+    _phoneFocusNode.dispose();
     super.dispose();
   }
 
@@ -683,7 +704,8 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: <Widget>[
@@ -757,6 +779,7 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
                       ),
                       child: AppTextField(
                         controller: _phoneController,
+                        focusNode: _phoneFocusNode,
                         keyboardType: TextInputType.phone,
                         inputFormatters: <TextInputFormatter>[
                           FilteringTextInputFormatter.digitsOnly,
@@ -871,6 +894,7 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -896,25 +920,32 @@ class SportsNeoOtpScreen extends StatefulWidget {
 }
 
 class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
+  final ScrollController _scrollController = ScrollController();
   late final List<TextEditingController> _otpControllers;
   late final List<FocusNode> _otpFocusNodes;
+  bool _isSubmitting = false;
   final GroundWaleApi _api = GroundWaleApi.instance;
-  bool _isVerifying = false;
+
+  String get _otpValue =>
+      _otpControllers.map((TextEditingController c) => c.text).join();
 
   @override
   void initState() {
     super.initState();
+
     _otpControllers = List<TextEditingController>.generate(
       4,
       (_) => TextEditingController(),
     );
-    _otpFocusNodes = List<FocusNode>.generate(4, (_) => FocusNode());
+
+    _otpFocusNodes = List.generate(4, (_) => FocusNode());
   }
 
   @override
   void dispose() {
-    for (final TextEditingController controller in _otpControllers) {
-      controller.dispose();
+    _scrollController.dispose();
+    for (final TextEditingController c in _otpControllers) {
+      c.dispose();
     }
     for (final FocusNode node in _otpFocusNodes) {
       node.dispose();
@@ -922,18 +953,60 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
     super.dispose();
   }
 
-  String get _otpValue => _otpControllers
-      .map((TextEditingController controller) => controller.text)
-      .join();
+  Future<void> _verifyOtp() async {
+    if (_otpValue.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter 4 digit OTP')),
+      );
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    try {
+      final Map<String, dynamic> response = await _api.verifyOtp(
+        contactNumber: widget.contactNumber,
+        otp: _otpValue,
+      );
+      final Map<String, dynamic> user = _extractUser(response);
+      ApiSession.instance.updateFromAuth(user);
+      final bool routed = widget.isExistingUser
+          ? await _routeExistingUserToDashboard(context, _api)
+          : false;
+      if (routed || !context.mounted) {
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SportsNeoCompleteProfileScreen(
+            prefillEmail: user['email']?.toString(),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               const SizedBox(height: 16),
               Row(
@@ -942,60 +1015,58 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
                 ],
               ),
               const SizedBox(height: 58),
-              const _SportsNeoWordmark(large: true),
-              const SizedBox(height: 44),
-              const Text(
-                'Enter Verification Code',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'We\'ve sent a verification code to',
-                style: TextStyle(
-                  color: Color(0xCCFFFFFF),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              if (widget.apiOtp != null &&
-                  widget.apiOtp!.trim().isNotEmpty) ...<Widget>[
-                const SizedBox(height: 6),
-                Text(
-                  'OTP: ${widget.apiOtp}',
-                  style: const TextStyle(
-                    color: Color(0xFF6593F9),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
+Center(
+  child: Column(
+    children: <Widget>[
+      const _SportsNeoWordmark(large: true),
+      const SizedBox(height: 42),
+      const Text(
+        'Enter Verification Code',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'We sent a verification code to +91 ${widget.contactNumber}',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Color(0xCCFFFFFF),
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    ],
+  ),
+),
+              const SizedBox(height: 32),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List<Widget>.generate(4, (int index) {
                   return Container(
-                    width: 44,
-                    height: 44,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 56,
+                    height: 56,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white),
+                      border: Border.all(color: const Color(0x1FFFFFFF)),
+                      color: const Color(0x0AFFFFFF),
                     ),
                     child: AppTextField(
                       controller: _otpControllers[index],
                       focusNode: _otpFocusNodes[index],
                       textAlign: TextAlign.center,
                       keyboardType: TextInputType.number,
+                      maxLength: 1,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontFamily: 'Lato',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontFamily: 'Montserrat',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 1.26,
                       ),
                       decoration: const InputDecoration(
@@ -1003,7 +1074,6 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
                         counterText: '',
                         isDense: true,
                       ),
-                      maxLength: 1,
                       onChanged: (String value) {
                         if (value.isNotEmpty && index < 3) {
                           _otpFocusNodes[index + 1].requestFocus();
@@ -1015,110 +1085,27 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
                   );
                 }),
               ),
-              const SizedBox(height: 24),
+              if (widget.apiOtp != null) ...<Widget>[
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                    'OTP: ${widget.apiOtp}',
+                    style: const TextStyle(
+                      color: Color(0xFF4ADE80),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 32),
               _PrimaryActionButton(
                 icon: null,
-                text: 'Verify & Continue',
-                loading: _isVerifying,
-                onPressed: _isVerifying
-                    ? () {}
-                    : () async {
-                        if (_otpValue.length != 4) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter 4 digit OTP'),
-                            ),
-                          );
-                          return;
-                        }
-
-                        setState(() => _isVerifying = true);
-                        try {
-                          final Map<String, dynamic> response = await _api
-                              .verifyOtp(
-                                contactNumber: widget.contactNumber,
-                                otp: _otpValue,
-                              );
-                          final Map<String, dynamic> user = _extractUser(
-                            response,
-                          );
-                          ApiSession.instance.updateFromAuth(user);
-                          final bool routed = widget.isExistingUser
-                              ? await _routeExistingUserToDashboard(
-                                  context,
-                                  _api,
-                                )
-                              : false;
-                          if (routed || !context.mounted) {
-                            return;
-                          }
-                          if (!context.mounted) {
-                            return;
-                          }
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => SportsNeoCompleteProfileScreen(
-                                prefillEmail: user['email']?.toString(),
-                              ),
-                            ),
-                          );
-                        } catch (error) {
-                          if (!context.mounted) {
-                            return;
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                error.toString().replaceFirst(
-                                  'Exception: ',
-                                  '',
-                                ),
-                              ),
-                            ),
-                          );
-                        } finally {
-                          if (mounted) {
-                            setState(() => _isVerifying = false);
-                          }
-                        }
-                      },
+                text: 'Verify OTP',
+                loading: _isSubmitting,
+                onPressed: _isSubmitting ? () {} : _verifyOtp,
               ),
-              const SizedBox(height: 20),
-              const Text.rich(
-                TextSpan(
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Montserrat',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  children: <InlineSpan>[
-                    TextSpan(text: 'Didn\'t receive code? '),
-                    TextSpan(
-                      text: 'Resend',
-                      style: TextStyle(color: Color(0xFF6593F9)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text.rich(
-                TextSpan(
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Montserrat',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  children: <InlineSpan>[
-                    TextSpan(text: 'Code expires in '),
-                    TextSpan(
-                      text: '03:00',
-                      style: TextStyle(color: Color(0xFF6593F9)),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -2076,13 +2063,15 @@ class _AddPhotoCircle extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
       );
     } else if (hasImage) {
-      circleChild = buildBase64OrNetworkImage(
-        value: imageBase64,
-        fit: BoxFit.cover,
-        fallback: const Icon(
-          Icons.person_outline_rounded,
-          color: Color(0x66FFFFFF),
-          size: 36,
+      circleChild = SizedBox.expand(
+        child: buildBase64OrNetworkImage(
+          value: imageBase64,
+          fit: BoxFit.cover,
+          fallback: const Icon(
+            Icons.person_outline_rounded,
+            color: Color(0x66FFFFFF),
+            size: 36,
+          ),
         ),
       );
     } else {

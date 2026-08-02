@@ -7,7 +7,6 @@ import 'box_cricket_bank_account_screen.dart';
 import 'box_cricket_earning_screen.dart';
 import 'box_cricket_edit_ground_screen.dart';
 import 'box_cricket_help_support_screen.dart';
-import 'box_cricket_manage_slots_screen.dart';
 import 'box_cricket_notification_screen.dart';
 import 'box_cricket_payment_settings_screen.dart';
 import 'box_cricket_pricing_charges_screen.dart';

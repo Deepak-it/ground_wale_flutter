@@ -341,25 +341,65 @@ class _AcademyBatchTimingsScreenState extends State<AcademyBatchTimingsScreen> {
                                     ],
                                   ),
                                 ),
-                                Row(
-                                  children: <Widget>[
-                                    IconButton(
-                                      onPressed: () =>
-                                          _openEditor(batch: batch),
-                                      icon: const Icon(
-                                        Icons.edit_outlined,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      onPressed: () => _deleteBatch(batch),
-                                      icon: const Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: Color(0xFFE3220D),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+Column(
+  crossAxisAlignment: CrossAxisAlignment.end,
+  children: <Widget>[
+    Builder(
+      builder: (_) {
+        final bool active =
+            (batch['status']?.toString().toLowerCase() ?? 'active') == 'active';
+
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: active
+                ? const Color(0x2608B36A)
+                : const Color(0x26F97316),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: active
+                  ? const Color(0xFF08B36A)
+                  : const Color(0xFFF97316),
+            ),
+          ),
+          child: Text(
+            active ? 'Active' : 'Inactive',
+            style: TextStyle(
+              color: active
+                  ? const Color(0xFF08B36A)
+                  : const Color(0xFFF97316),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
+      },
+    ),
+    const SizedBox(height: 8),
+    Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        IconButton(
+          onPressed: () => _openEditor(batch: batch),
+          icon: const Icon(
+            Icons.edit_outlined,
+            color: Colors.white,
+          ),
+        ),
+        IconButton(
+          onPressed: () => _deleteBatch(batch),
+          icon: const Icon(
+            Icons.delete_outline_rounded,
+            color: Color(0xFFE3220D),
+          ),
+        ),
+      ],
+    ),
+  ],
+),
                               ],
                             ),
                             if (days.isNotEmpty) ...<Widget>[

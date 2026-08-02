@@ -20,8 +20,8 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
   bool _isSendingBulkReminder = false;
   String _status = 'All';
   List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
-  String? _selectedAcademyId;
-  String? _selectedBatchId;
+  final Set<String> _selectedAcademyIds = <String>{};
+  final Set<String> _selectedBatchIds = <String>{};
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -136,76 +136,113 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
     return '-';
   }
 
-  Future<void> _load() async {
-    final String? ownerId = _ownerId;
-    if (ownerId == null || ownerId.isEmpty) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
-          .listAcademies(ownerId);
-      String? academyId = _selectedAcademyId;
-      if (academyId == null ||
-          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
-        academyId = ApiSession.instance.selectedAcademyId;
-      }
-      if (academyId == null ||
-          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
-        academyId = academies.isEmpty ? null : _academyId(academies.first);
-      }
-
-      final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
-          .listAcademyBatches(ownerId, academyId: academyId);
-      final Map<String, dynamic> studentsResponse = await GroundWaleApi.instance
-          .listAcademyStudents(ownerId, limit: 500, academyId: academyId);
-      final List<dynamic> studentItems =
-          studentsResponse['items'] as List<dynamic>? ?? <dynamic>[];
-      final List<Map<String, dynamic>> students = studentItems
-          .whereType<Map>()
-          .map((Map item) => _safeStringMap(item))
-          .toList();
-      final List<Map<String, dynamic>> fees = await GroundWaleApi.instance
-          .listAcademyFees(ownerId, academyId: academyId);
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _academies = academies;
-        _selectedAcademyId = academyId;
-        _batches = batches;
-        if (_selectedBatchId == null && _batches.isNotEmpty) {
-          _selectedBatchId = _batchId(_batches.first);
-        }
-        _students = students;
-        _allFees = fees;
-        _selectedReminderFeeIds.removeWhere((String id) {
-          return !_allFees.any((Map<String, dynamic> fee) => _feeId(fee) == id);
-        });
-        _isLoading = false;
-      });
-      ApiSession.instance.setSelectedAcademy(academyId: academyId);
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
+Future<void> _load() async {
+  final String? ownerId = _ownerId;
+  if (ownerId == null || ownerId.isEmpty) {
+    if (mounted) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
     }
+    return;
   }
 
+  setState(() => _isLoading = true);
+
+  try {
+    // Academies
+    final List<Map<String, dynamic>> academies =
+        await GroundWaleApi.instance.listAcademies(ownerId);
+
+    academies.insert(0, {
+      '_id': 'ALL',
+      'name': 'All Academies',
+    });
+
+    if (_selectedAcademyIds.isEmpty) {
+      _selectedAcademyIds.addAll(
+        academies
+            .where((e) => _academyId(e) != 'ALL')
+            .map(_academyId),
+      );
+    }
+
+    // Batches
+    final List<Map<String, dynamic>> batches = [];
+
+    for (final academyId in _selectedAcademyIds) {
+      final result = await GroundWaleApi.instance.listAcademyBatches(
+        ownerId,
+        academyId: academyId,
+      );
+
+      batches.addAll(result);
+    }
+
+    if (_selectedBatchIds.isEmpty) {
+      _selectedBatchIds.addAll(
+        batches.map(_batchId),
+      );
+    }
+
+    // Students
+    final List<Map<String, dynamic>> students = [];
+
+    for (final academyId in _selectedAcademyIds) {
+      final response = await GroundWaleApi.instance.listAcademyStudents(
+        ownerId,
+        academyId: academyId,
+        limit: 500,
+      );
+
+      students.addAll(
+        (response['items'] as List<dynamic>? ?? [])
+            .whereType<Map>()
+            .map(_safeStringMap),
+      );
+    }
+
+    // Fees
+    final List<Map<String, dynamic>> fees = [];
+
+    for (final academyId in _selectedAcademyIds) {
+      final result = await GroundWaleApi.instance.listAcademyFees(
+        ownerId,
+        academyId: academyId,
+      );
+
+      fees.addAll(result);
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _academies = academies;
+      _batches = batches;
+      _students = students;
+      _allFees = fees;
+
+      _selectedReminderFeeIds.removeWhere(
+        (id) => !_allFees.any((fee) => _feeId(fee) == id),
+      );
+
+      _isLoading = false;
+    });
+  } catch (error) {
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error.toString().replaceFirst('Exception: ', ''),
+        ),
+      ),
+    );
+  }
+}
+
   List<Map<String, dynamic>> _batchScopedFees() {
-    if (_selectedBatchId == null || _selectedBatchId!.isEmpty) {
+    if (_selectedBatchIds.isEmpty) {
       return List<Map<String, dynamic>>.from(_allFees);
     }
 
@@ -215,7 +252,7 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
               student['batchId']?.toString() ??
               student['batch']?.toString() ??
               '';
-          return batchId == _selectedBatchId;
+          return _selectedBatchIds.contains(batchId);
         })
         .map(_studentId)
         .where((String id) => id.isNotEmpty)
@@ -233,7 +270,9 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
       final String status = _feeStatus(fee);
       final bool matchesStatus = _status == 'All'
           ? true
-          : status == _status.toLowerCase();
+          : _status == 'Pending'
+              ? (status == 'pending' || status == 'partial')
+              : status == _status.toLowerCase();
       if (!matchesStatus) {
         return false;
       }
@@ -334,10 +373,11 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
     final String previewStudentName = _studentName(previewStudent);
     final String previewStudentId = _studentIdFromFee(previewFee);
     final String previewBatch = _studentBatchName(previewStudentId);
-    final String message =
-        'Hi $previewStudentName, your fee of ${_currency(_amount(previewFee))} '
-        'for $previewBatch batch is pending. Please pay at the earliest.';
 
+    final String message =
+        'Hi $previewStudentName, your pending fee of '
+        '${_currency((_amount(previewFee) - _paidAmount(previewFee)).clamp(0, double.infinity))} '
+        'for $previewBatch batch is pending. Please pay at the earliest.';
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1009,8 +1049,14 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedAcademyId,
+                    DropdownButtonFormField<String>(
+                      value: null,
+                      hint: Text(
+                        _selectedAcademyIds.isEmpty
+                            ? 'Select Academies'
+                            : '${_selectedAcademyIds.length} Academies Selected',
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     icon: const Icon(
                       Icons.keyboard_arrow_down_rounded,
                       color: Color(0x99FFFFFF),
@@ -1049,17 +1095,27 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
                         ),
                       );
                     }).toList(),
-                    onChanged: (String? value) {
-                      if (value == null || value == _selectedAcademyId) {
-                        return;
+                    onChanged: (String? value) async {
+                      if (value == null) return;
+
+                      if (value == 'ALL') {
+                        _selectedAcademyIds
+                          ..clear()
+                          ..addAll(
+                            _academies
+                                .where((e) => _academyId(e) != 'ALL')
+                                .map(_academyId),
+                          );
+                      } else {
+                        _selectedAcademyIds
+                          ..clear()
+                          ..add(value);
                       }
-                      setState(() {
-                        _selectedAcademyId = value;
-                        _selectedBatchId = null;
-                        _selectedReminderFeeIds.clear();
-                      });
-                      ApiSession.instance.setSelectedAcademy(academyId: value);
-                      _load();
+
+                      _selectedBatchIds.clear();
+                      _selectedReminderFeeIds.clear();
+
+                      await _load();
                     },
                   ),
                   const SizedBox(height: 12),
@@ -1073,15 +1129,19 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
                         itemBuilder: (BuildContext context, int index) {
                           final Map<String, dynamic> batch = _batches[index];
                           final String batchId = _batchId(batch);
-                          final bool selected = batchId == _selectedBatchId;
+                          final bool selected = _selectedBatchIds.contains(batchId);
                           return InkWell(
                             borderRadius: BorderRadius.circular(12),
                             onTap: () {
-                              if (batchId.isEmpty || selected) {
-                                return;
-                              }
+                              if (batchId.isEmpty) return;
+
                               setState(() {
-                                _selectedBatchId = batchId;
+                                if (selected) {
+                                  _selectedBatchIds.remove(batchId);
+                                } else {
+                                  _selectedBatchIds.add(batchId);
+                                }
+
                                 _selectedReminderFeeIds.clear();
                               });
                             },

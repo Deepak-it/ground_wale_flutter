@@ -689,15 +689,6 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const _DarkLabel('Monthly Fees (quick)'),
-              const SizedBox(height: 12),
-              _DarkInputField(
-                controller: _monthlyFeeController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                hintText: '₹2000',
-              ),
               const SizedBox(height: 16),
               // ── Fee Structure (multi-plan) ──────────────────────────────
               Row(

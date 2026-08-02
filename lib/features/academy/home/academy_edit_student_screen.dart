@@ -20,6 +20,7 @@ class AcademyEditStudentScreen extends StatefulWidget {
     required this.feesAmount,
     required this.joiningDate,
     required this.paymentMode,
+    required this.dob,
   });
 
   final String studentId;
@@ -30,7 +31,7 @@ class AcademyEditStudentScreen extends StatefulWidget {
   final String feesAmount;
   final String joiningDate;
   final String paymentMode;
-
+  final String dob;
   @override
   State<AcademyEditStudentScreen> createState() =>
       _AcademyEditStudentScreenState();
@@ -42,7 +43,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
   late final TextEditingController _batchController;
   late final TextEditingController _feesController;
   late final TextEditingController _joiningDateController;
-
+  late final TextEditingController _dobController;
   late String _feeStatus;
   late String _paymentMode;
   bool _isSaving = false;
@@ -68,6 +69,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
     _batchController = TextEditingController(text: widget.batchName);
     _feesController = TextEditingController(text: widget.feesAmount);
     _joiningDateController = TextEditingController(text: widget.joiningDate);
+    _dobController = TextEditingController(text: widget.dob);
     _feeStatus = widget.feeStatus == 'Pending' ? 'Pending' : 'Paid';
     _paymentMode = widget.paymentMode;
     _loadAcademiesAndBatches();
@@ -112,6 +114,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
         _selectedAcademyId = selectedAcademyId;
         _batches = batches;
         _photoBase64 = student['photoBase64']?.toString();
+        _dobController.text = student['dob']?.toString() ?? widget.dob;
         final String? studentBatchId = student['batchId']?.toString();
         final Map<String, dynamic> matched = batches.firstWhere(
           (Map<String, dynamic> item) =>
@@ -140,7 +143,26 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
       });
     } catch (_) {}
   }
+  Future<void> _pickDob() async {
+    final DateTime now = DateTime.now();
 
+    final DateTime initial =
+        DateTime.tryParse(_dobController.text.trim()) ??
+        DateTime(now.year - 15);
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1950),
+      lastDate: now,
+    );
+
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _dobController.text = _dateOnlyString(picked);
+    });
+  }
   Future<void> _pickPhoto() async {
     final ImagePicker picker = ImagePicker();
     final XFile? file = await picker.pickImage(
@@ -255,6 +277,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
     _batchController.dispose();
     _feesController.dispose();
     _joiningDateController.dispose();
+    _dobController.dispose();
     super.dispose();
   }
 
@@ -362,6 +385,21 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
                     _FieldLabel(label: 'Phone number'),
                     const SizedBox(height: 12),
                     _TextFieldBox(controller: _phoneController),
+
+                    const SizedBox(height: 24),
+                    const _FieldLabel(label: 'Date of Birth'),
+                    const SizedBox(height: 12),
+                    _TextFieldBox(
+                      controller: _dobController,
+                      readOnly: true,
+                      onTap: _pickDob,
+                      trailing: const Icon(
+                        Icons.cake_outlined,
+                        color: Color(0x99FFFFFF),
+                        size: 18,
+                      ),
+                    ),
+
                     const SizedBox(height: 24),
                     _FieldLabel(label: 'Select Academy'),
                     const SizedBox(height: 12),
@@ -636,6 +674,7 @@ class _AcademyEditStudentScreenState extends State<AcademyEditStudentScreen> {
               'batchId': _selectedBatchId,
             'joinDate': _dateOnlyString(joinDateOnly),
             'monthlyFee': amount,
+            'dob': _dobController.text.trim(),
             if (_photoBase64 != null && _photoBase64!.isNotEmpty)
               'photoBase64': _photoBase64,
           });

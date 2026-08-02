@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
@@ -216,6 +217,7 @@ class _AcademyManageStudentsScreenState
                   '-',
               joiningDate: _shortDateLabel(student['joinDate']),
               paymentMode: latestPaymentModeByStudent[studentId] ?? '-',
+              dob: _shortDateLabel(student['dob']),
               photoBase64: student['photoBase64']?.toString(),
             );
           })
@@ -475,6 +477,7 @@ class _AcademyManageStudentsScreenState
           batchName: item.batch,
           attendanceStatus: item.attendance,
           feeStatus: item.fee,
+          dob: item.dob,
         ),
       ),
     );
@@ -493,6 +496,7 @@ class _AcademyManageStudentsScreenState
               feesAmount: item.feesAmount,
               joiningDate: item.joiningDate,
               paymentMode: item.paymentMode,
+              dob: item.dob,
             ),
           ),
         )
@@ -517,12 +521,12 @@ class _AcademyManageStudentsScreenState
       );
     } catch (_) {}
 
-    final Map<String, dynamic> _foundFee = fees.firstWhere(
+    final Map<String, dynamic> foundFee = fees.firstWhere(
       (Map<String, dynamic> f) =>
           (f['status']?.toString() ?? 'pending') != 'paid',
       orElse: () => <String, dynamic>{},
     );
-    final Map<String, dynamic>? fee = _foundFee.isEmpty ? null : _foundFee;
+    final Map<String, dynamic>? fee = foundFee.isEmpty ? null : foundFee;
 
     if (!mounted) {
       return;
@@ -1056,6 +1060,7 @@ class _StudentItem {
     required this.feesAmount,
     required this.joiningDate,
     required this.paymentMode,
+    required this.dob,
     this.photoBase64,
   });
 
@@ -1069,6 +1074,7 @@ class _StudentItem {
   final String feesAmount;
   final String joiningDate;
   final String paymentMode;
+  final String dob;
   final String? photoBase64;
 }
 
@@ -1083,6 +1089,19 @@ class _StudentCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onMoreTap;
 
+  Future<void> _callPhone() async {
+    final Uri uri = Uri(scheme: 'tel', path: item.phone);
+    await launchUrl(uri);
+  }
+
+  Future<void> _openWhatsApp() async {
+    final String phone = item.phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final Uri uri = Uri.parse('https://wa.me/$phone');
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final String attendance = item.attendance;
@@ -1138,47 +1157,104 @@ class _StudentCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: <Widget>[
-                      _Badge(
-                        label: attendance,
-                        textColor: present
-                            ? const Color(0xFF00C9A7)
-                            : absent
-                            ? const Color(0xFFE3220D)
-                            : const Color(0xFFF59E0B),
-                        background: present
-                            ? const Color(0x1F00C9A7)
-                            : absent
-                            ? const Color(0x1FE3220D)
-                            : const Color(0x1FF59E0B),
-                      ),
+                    _Badge(
+                      icon: present
+                          ? Icons.check_circle
+                          : absent
+                              ? Icons.cancel
+                              : Icons.event_busy,
+                      label: attendance,
+                      textColor: present
+                          ? const Color(0xFF00C9A7)
+                          : absent
+                              ? const Color(0xFFE3220D)
+                              : const Color(0xFFF59E0B),
+                      background: present
+                          ? const Color(0x1F00C9A7)
+                          : absent
+                              ? const Color(0x1FE3220D)
+                              : const Color(0x1FF59E0B),
+                    ),
                       const SizedBox(width: 6),
-                      _Badge(
-                        label: item.fee,
-                        textColor: paid
-                            ? const Color(0xFF08B36A)
-                            : const Color(0xFFF59E0B),
-                        background: paid
-                            ? const Color(0x1F08B36A)
-                            : const Color(0x1FF59E0B),
-                      ),
+                    _Badge(
+                      icon: paid
+                          ? Icons.currency_rupee
+                          : Icons.payments_outlined,
+                      label: item.fee,
+                      textColor: paid
+                          ? const Color(0xFF08B36A)
+                          : const Color(0xFFF59E0B),
+                      background: paid
+                          ? const Color(0x1F08B36A)
+                          : const Color(0x1FF59E0B),
+                    ),
                     ],
                   ),
                 ],
               ),
             ),
-            InkWell(
-              onTap: onMoreTap,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: const Color(0x08FFFFFF),
-                ),
-                child: const Icon(Icons.more_vert_rounded, color: Colors.white),
+
+            SizedBox(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                    InkWell(
+                      onTap: _callPhone,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: const Color(0x0800C9A7),
+                        ),
+                        child: const Icon(
+                          Icons.phone,
+                          color: Color(0xFF00C9A7),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: _openWhatsApp,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0x081ED760),
+                      ),
+                      child: const Icon(
+                        Icons.chat,
+                        color: Color(0xFF25D366),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+
+    const SizedBox(height: 8), // <-- Add this
+
+                  InkWell(
+                    onTap: onMoreTap,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0x08FFFFFF),
+                      ),
+                      child: const Icon(
+                        Icons.more_vert_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
+            )
           ],
         ),
       ),
@@ -1219,27 +1295,42 @@ class _Badge extends StatelessWidget {
     required this.label,
     required this.textColor,
     required this.background,
+    this.icon,
   });
 
   final String label;
   final Color textColor;
   final Color background;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: background,
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 15,
+              color: textColor,
+            ),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

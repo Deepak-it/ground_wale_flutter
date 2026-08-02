@@ -916,7 +916,6 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
           // Name
           Container(
             height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0x1FFFFFFF)),
@@ -924,10 +923,25 @@ class _AddCustomSlotsScreenState extends State<AddCustomSlotsScreen> {
             ),
             child: TextField(
               controller: _nameCtrl,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: const InputDecoration.collapsed(
+              textAlignVertical: TextAlignVertical.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                height: 1.0,
+              ),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
                 hintText: 'Duration name (e.g. Summer, Weekend)',
-                hintStyle: TextStyle(color: Color(0x66FFFFFF), fontSize: 12),
+                hintStyle: TextStyle(
+                  color: Color(0x66FFFFFF),
+                  fontSize: 12,
+                  height: 1.0,
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                isCollapsed: true,
               ),
             ),
           ),

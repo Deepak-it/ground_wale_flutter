@@ -64,11 +64,15 @@ class _AcademyMarkAttendanceScreenState
           .listAcademies(ownerId);
       String? academyId = _selectedAcademyId;
       if (academyId == null ||
-          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+          !academies.any(
+            (Map<String, dynamic> item) => _academyId(item) == academyId,
+          )) {
         academyId = ApiSession.instance.selectedAcademyId;
       }
       if (academyId == null ||
-          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+          !academies.any(
+            (Map<String, dynamic> item) => _academyId(item) == academyId,
+          )) {
         academyId = academies.isEmpty ? null : _academyId(academies.first);
       }
       final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
@@ -367,7 +371,9 @@ class _AcademyMarkAttendanceScreenState
                                 ),
                               ),
                             ),
-                            items: _academies.map((Map<String, dynamic> academy) {
+                            items: _academies.map((
+                              Map<String, dynamic> academy,
+                            ) {
                               final String id = _academyId(academy);
                               final String name =
                                   academy['name']?.toString() ?? 'Academy';
@@ -380,7 +386,8 @@ class _AcademyMarkAttendanceScreenState
                               );
                             }).toList(),
                             onChanged: (String? value) async {
-                              if (value == null || value == _selectedAcademyId) {
+                              if (value == null ||
+                                  value == _selectedAcademyId) {
                                 return;
                               }
                               setState(() {
@@ -798,95 +805,133 @@ class _StudentAttendanceTile extends StatelessWidget {
     final bool present = student.status == _AttendanceStatus.present;
     final bool absent = student.status == _AttendanceStatus.absent;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(26),
-                color: const Color(0x1AFFFFFF),
+    return Dismissible(
+      key: ValueKey(student.id),
+      direction: DismissDirection.horizontal,
+
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Swipe Right
+          onStatusChanged(_AttendanceStatus.present);
+        } else if (direction == DismissDirection.endToStart) {
+          // Swipe Left
+          onStatusChanged(_AttendanceStatus.absent);
+        }
+
+        // Prevent the tile from disappearing.
+        return false;
+      },
+
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.check, color: Colors.white),
+      ),
+
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.close, color: Colors.white),
+      ),
+
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  color: const Color(0x1AFFFFFF),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _initials(student.name),
+                  style: const TextStyle(
+                    color: Color(0xFFE6F7F4),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                _initials(student.name),
+              const SizedBox(width: 12),
+              Text(
+                student.name,
                 style: const TextStyle(
                   color: Color(0xFFE6F7F4),
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              student.name,
-              style: const TextStyle(
-                color: Color(0xFFE6F7F4),
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        Row(
-          children: <Widget>[
-            GestureDetector(
-              onTap: () => onStatusChanged(_AttendanceStatus.present),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: present
-                      ? const Color(0x1F08B36A)
-                      : const Color(0x08FFFFFF),
-                ),
-                child: Text(
-                  'Present',
-                  style: TextStyle(
+            ],
+          ),
+          Row(
+            children: <Widget>[
+              GestureDetector(
+                onTap: () => onStatusChanged(_AttendanceStatus.present),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
                     color: present
-                        ? const Color(0xFF08B36A)
-                        : const Color(0x99FFFFFF),
-                    fontSize: 14,
-                    fontWeight: present ? FontWeight.w500 : FontWeight.w400,
+                        ? const Color(0x1F08B36A)
+                        : const Color(0x08FFFFFF),
+                  ),
+                  child: Text(
+                    'Present',
+                    style: TextStyle(
+                      color: present
+                          ? const Color(0xFF08B36A)
+                          : const Color(0x99FFFFFF),
+                      fontSize: 14,
+                      fontWeight: present ? FontWeight.w500 : FontWeight.w400,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: () => onStatusChanged(_AttendanceStatus.absent),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: absent
-                      ? const Color(0x1FE3220D)
-                      : const Color(0x08FFFFFF),
-                ),
-                child: Text(
-                  'Absent',
-                  style: TextStyle(
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => onStatusChanged(_AttendanceStatus.absent),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
                     color: absent
-                        ? const Color(0xFFE3220D)
-                        : const Color(0x99FFFFFF),
-                    fontSize: 14,
-                    fontWeight: absent ? FontWeight.w500 : FontWeight.w400,
+                        ? const Color(0x1FE3220D)
+                        : const Color(0x08FFFFFF),
+                  ),
+                  child: Text(
+                    'Absent',
+                    style: TextStyle(
+                      color: absent
+                          ? const Color(0xFFE3220D)
+                          : const Color(0x99FFFFFF),
+                      fontSize: 14,
+                      fontWeight: absent ? FontWeight.w500 : FontWeight.w400,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
