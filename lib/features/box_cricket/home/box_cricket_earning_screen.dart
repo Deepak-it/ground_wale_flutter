@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import 'box_cricket_bank_account_screen.dart';
+import 'box_cricket_booking_collection_screen.dart';
 
 class BoxCricketEarningScreen extends StatefulWidget {
   const BoxCricketEarningScreen({super.key});
@@ -70,10 +71,10 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
     final String todayStr = _formatDate(now);
     final DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
     final String weekStartStr = _formatDate(startOfWeek);
-    final String monthStartStr =
-        _formatDate(DateTime(now.year, now.month, 1));
-    final String monthEndStr =
-        _formatDate(DateTime(now.year, now.month + 1, 0));
+    final String monthStartStr = _formatDate(DateTime(now.year, now.month, 1));
+    final String monthEndStr = _formatDate(
+      DateTime(now.year, now.month + 1, 0),
+    );
 
     try {
       final List<dynamic> results = await Future.wait(<Future<dynamic>>[
@@ -104,8 +105,7 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
         return;
       }
 
-      final Map<String, dynamic> bankResp =
-          results[2] as Map<String, dynamic>;
+      final Map<String, dynamic> bankResp = results[2] as Map<String, dynamic>;
       final Map<String, dynamic> bank = Map<String, dynamic>.from(
         bankResp['bankAccount'] as Map? ?? bankResp,
       );
@@ -226,8 +226,7 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
   }
 
   bool get _hasBankAccount {
-    final String account =
-        _bankAccount['accountNumber']?.toString() ?? '';
+    final String account = _bankAccount['accountNumber']?.toString() ?? '';
     return account.isNotEmpty;
   }
 
@@ -272,15 +271,10 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
             )
             .toList();
       case 2:
-        return _transactions
-            .where((Map<String, dynamic> item) {
-              final String type =
-                  (item['type']?.toString() ?? '').toLowerCase();
-              return type == 'withdrawal' ||
-                  type == 'debit' ||
-                  type == 'refund';
-            })
-            .toList();
+        return _transactions.where((Map<String, dynamic> item) {
+          final String type = (item['type']?.toString() ?? '').toLowerCase();
+          return type == 'withdrawal' || type == 'debit' || type == 'refund';
+        }).toList();
       default:
         return _transactions;
     }
@@ -420,7 +414,10 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   Text(
-                                    _bankAccount['bankName']?.toString().isNotEmpty == true
+                                    _bankAccount['bankName']
+                                                ?.toString()
+                                                .isNotEmpty ==
+                                            true
                                         ? _bankAccount['bankName'].toString()
                                         : 'Bank Account',
                                     style: const TextStyle(
@@ -432,7 +429,9 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     _maskedAccount(
-                                      _bankAccount['accountNumber']?.toString() ?? '',
+                                      _bankAccount['accountNumber']
+                                              ?.toString() ??
+                                          '',
                                     ),
                                     style: const TextStyle(
                                       color: Color(0x99FFFFFF),
@@ -469,7 +468,9 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          _hasBankAccount ? 'Manage Bank Account' : 'Add Bank Account',
+                          _hasBankAccount
+                              ? 'Manage Bank Account'
+                              : 'Add Bank Account',
                           style: const TextStyle(
                             color: Color(0xFF08B36A),
                             fontSize: 16,
@@ -503,6 +504,44 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                         child: _summaryCard('This Month', 'Rs $_earningsMonth'),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              const BoxCricketBookingCollectionScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: _cardBorder(),
+                      child: Row(
+                        children: const <Widget>[
+                          Icon(
+                            Icons.receipt_long_outlined,
+                            color: Color(0xFF00C9A7),
+                          ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Booking Collection',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: Color(0x99FFFFFF),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   const Text(
@@ -562,8 +601,9 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF08B36A),
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                            const Color(0xFF08B36A).withValues(alpha: 0.5),
+                        disabledBackgroundColor: const Color(
+                          0xFF08B36A,
+                        ).withValues(alpha: 0.5),
                         elevation: 0,
                       ),
                       child: _isWithdrawing
@@ -684,17 +724,25 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
 
     // Parse occurredAt / createdAt for the date label
     final String rawDate =
-        item['occurredAt']?.toString() ??
-        item['createdAt']?.toString() ??
-        '';
+        item['occurredAt']?.toString() ?? item['createdAt']?.toString() ?? '';
     String dateText = '';
     if (rawDate.isNotEmpty) {
       final DateTime? dt = DateTime.tryParse(rawDate);
       if (dt != null) {
         final DateTime local = dt.toLocal();
         const List<String> months = <String>[
-          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
         ];
         dateText = '${local.day} ${months[local.month - 1]} ${local.year}';
       }
@@ -759,8 +807,8 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                   color: status == 'failed'
                       ? const Color(0x26E3220D)
                       : status == 'pending'
-                          ? const Color(0x26F59E0B)
-                          : const Color(0x2608B36A),
+                      ? const Color(0x26F59E0B)
+                      : const Color(0x2608B36A),
                 ),
                 child: Text(
                   status[0].toUpperCase() + status.substring(1),
@@ -768,8 +816,8 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                     color: status == 'failed'
                         ? const Color(0xFFE3220D)
                         : status == 'pending'
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFF08B36A),
+                        ? const Color(0xFFF59E0B)
+                        : const Color(0xFF08B36A),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),

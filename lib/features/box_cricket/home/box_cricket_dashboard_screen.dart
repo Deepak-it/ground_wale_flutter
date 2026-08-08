@@ -614,6 +614,37 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     return total;
   }
 
+  List<_WeeklyCollection> _weeklyCollectionsForMonth(
+    DateTime month,
+    List<Map<String, dynamic>> bookings,
+  ) {
+    final List<int> totals = List<int>.filled(5, 0);
+
+    for (final Map<String, dynamic> booking in bookings) {
+      final DateTime? date = _extractBookingDate(booking);
+      if (date == null) {
+        continue;
+      }
+      if (date.year != month.year || date.month != month.month) {
+        continue;
+      }
+      final String bookingStatus = (booking['bookingStatus']?.toString() ?? '')
+          .toLowerCase();
+      if (bookingStatus == 'cancelled') {
+        continue;
+      }
+
+      final int weekIndex = ((date.day - 1) ~/ 7).clamp(0, 4);
+      totals[weekIndex] += _toInt(booking['amount']);
+    }
+
+    return List<_WeeklyCollection>.generate(
+      5,
+      (int index) =>
+          _WeeklyCollection(label: 'Week ${index + 1}', total: totals[index]),
+    );
+  }
+
   String _apiDate(DateTime date) {
     final String month = date.month.toString().padLeft(2, '0');
     final String day = date.day.toString().padLeft(2, '0');
@@ -948,6 +979,8 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     final int thisMonthEarnings = _selectedGroundId == null
         ? fallbackMonthEarnings
         : _visibleMonthEarnings;
+    final List<_WeeklyCollection> weeklyCollections =
+        _weeklyCollectionsForMonth(_visibleMonth, _selectedGroundAllBookings);
     final Map<String, int> selectedDayStats =
         _slotStatsByDate[_dayKey(_selectedDate)] ?? <String, int>{};
     final int availableSlots = _selectedGroundId == null
@@ -1108,53 +1141,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const BoxCricketEarningScreen(),
-                        ),
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0x333B82F6)),
-                          color: const Color(0x143B82F6),
-                        ),
-                        child: Row(
-                          children: <Widget>[
-                            SizedBox(
-                              width: 112,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    'Rs $thisMonthEarnings',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Earnings This Month',
-                                    style: TextStyle(
-                                      color: Color(0xFF9CA3AF),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(child: _MiniWeeklyGraph()),
-                          ],
-                        ),
-                      ),
                     ),
                     const SizedBox(height: 12),
                     Container(
@@ -1319,6 +1305,59 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
                         ),
                       ],
                     ),
+
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const BoxCricketEarningScreen(),
+                        ),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0x333B82F6)),
+                          color: const Color(0x143B82F6),
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            SizedBox(
+                              width: 112,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    'Rs $thisMonthEarnings',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Earnings This Month',
+                                    style: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _MiniWeeklyGraph(
+                                weeklyCollections: weeklyCollections,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                     const SizedBox(height: 20),
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -2652,11 +2691,44 @@ class _GroundImageCarouselState extends State<_GroundImageCarousel> {
 }
 
 class _MiniWeeklyGraph extends StatelessWidget {
-  const _MiniWeeklyGraph();
+  const _MiniWeeklyGraph({required this.weeklyCollections});
+
+  final List<_WeeklyCollection> weeklyCollections;
+
+  String _compactAmount(int amount) {
+    if (amount >= 100000) {
+      final double value = amount / 100000;
+      final String pretty = value % 1 == 0
+          ? value.toStringAsFixed(0)
+          : value.toStringAsFixed(1);
+      return 'Rs ${pretty}L';
+    }
+    if (amount >= 1000) {
+      final double value = amount / 1000;
+      final String pretty = value % 1 == 0
+          ? value.toStringAsFixed(0)
+          : value.toStringAsFixed(1);
+      return 'Rs ${pretty}k';
+    }
+    return 'Rs $amount';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<double> bars = <double>[0.40, 0.52, 0.60, 0.72, 0.86];
+    final List<_WeeklyCollection> points = weeklyCollections.isEmpty
+        ? List<_WeeklyCollection>.generate(
+            5,
+            (int index) =>
+                _WeeklyCollection(label: 'Week ${index + 1}', total: 0),
+          )
+        : weeklyCollections;
+    int maxTotal = 0;
+    for (final _WeeklyCollection point in points) {
+      if (point.total > maxTotal) {
+        maxTotal = point.total;
+      }
+    }
+
     final List<Color> colors = <Color>[
       const Color(0xFFFBB831),
       const Color(0xFFFB569C),
@@ -2666,27 +2738,56 @@ class _MiniWeeklyGraph extends StatelessWidget {
     ];
 
     return SizedBox(
-      height: 74,
+      height: 108,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          for (int i = 0; i < bars.length; i++)
+          for (int i = 0; i < points.length; i++)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Container(
-                  height: 58 * bars[i],
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: <Color>[
-                        colors[i].withValues(alpha: 0.95),
-                        colors[i],
-                      ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    Text(
+                      _compactAmount(points[i].total),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: maxTotal <= 0
+                          ? 8
+                          : (8 + (48 * (points[i].total / maxTotal))),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: <Color>[
+                            colors[i % colors.length].withValues(alpha: 0.95),
+                            colors[i % colors.length],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      points[i].label,
+                      style: const TextStyle(
+                        color: Color(0xCCFFFFFF),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -2694,4 +2795,11 @@ class _MiniWeeklyGraph extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WeeklyCollection {
+  const _WeeklyCollection({required this.label, required this.total});
+
+  final String label;
+  final int total;
 }

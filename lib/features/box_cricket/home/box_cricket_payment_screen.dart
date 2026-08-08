@@ -122,7 +122,8 @@ class _BoxCricketPaymentScreenState extends State<BoxCricketPaymentScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: <String>['upi', 'cod', 'cash', 'netbanking'].map((String method) {
+                  // children: <String>['upi', 'cod', 'cash', 'netbanking'].map((String method) {
+                  children: <String>[ 'cod', 'cash'].map((String method) {
                     final bool selected = _paymentMethod == method;
                     return GestureDetector(
                       onTap: () => setState(() => _paymentMethod = method),

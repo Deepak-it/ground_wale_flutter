@@ -624,17 +624,14 @@ class GroundWaleApi {
       throw _mapError(error);
     }
   }
-  Future<void> unblockSlot(
-    String slotId, {
-    String? date,
-  }) async {
+
+  Future<void> unblockSlot(String slotId, {String? date}) async {
     await _dio.patch(
       '/slots/$slotId/unblock',
-      data: {
-        if (date != null) 'date': date,
-      },
+      data: {if (date != null) 'date': date},
     );
   }
+
   Future<void> deleteSlot(String slotId, {String? date}) async {
     try {
       await _dio.delete<dynamic>(
@@ -745,6 +742,21 @@ class GroundWaleApi {
     }
   }
 
+  Future<Map<String, dynamic>> updateBookingStatus(
+    String bookingId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.patch<dynamic>(
+        '/bookings/$bookingId/status',
+        data: payload,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<Map<String, dynamic>> getWallet(String groundId) async {
     try {
       final Response<dynamic> response = await _dio.get<dynamic>(
@@ -798,7 +810,9 @@ class GroundWaleApi {
     }
   }
 
-  Future<Map<String, dynamic>> sportsNeoGetPendingLedger(String groundId) async {
+  Future<Map<String, dynamic>> sportsNeoGetPendingLedger(
+    String groundId,
+  ) async {
     try {
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/grounds/$groundId/sports-neo/ledger/pending',
@@ -809,7 +823,9 @@ class GroundWaleApi {
     }
   }
 
-  Future<Map<String, dynamic>> sportsNeoGetAdvanceLedger(String groundId) async {
+  Future<Map<String, dynamic>> sportsNeoGetAdvanceLedger(
+    String groundId,
+  ) async {
     try {
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/grounds/$groundId/sports-neo/ledger/advance',
@@ -820,7 +836,9 @@ class GroundWaleApi {
     }
   }
 
-  Future<Map<String, dynamic>> sportsNeoGetSarpanchLedger(String groundId) async {
+  Future<Map<String, dynamic>> sportsNeoGetSarpanchLedger(
+    String groundId,
+  ) async {
     try {
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/grounds/$groundId/sports-neo/ledger/sarpanch',
@@ -864,7 +882,9 @@ class GroundWaleApi {
     }
   }
 
-  Future<Map<String, dynamic>> sportsNeoSendPendingReminder(String groundId) async {
+  Future<Map<String, dynamic>> sportsNeoSendPendingReminder(
+    String groundId,
+  ) async {
     try {
       final Response<dynamic> response = await _dio.post<dynamic>(
         '/grounds/$groundId/sports-neo/ledger/pending/reminder',
@@ -875,7 +895,9 @@ class GroundWaleApi {
     }
   }
 
-  Future<Map<String, dynamic>> sportsNeoSendAdvanceUpdate(String groundId) async {
+  Future<Map<String, dynamic>> sportsNeoSendAdvanceUpdate(
+    String groundId,
+  ) async {
     try {
       final Response<dynamic> response = await _dio.post<dynamic>(
         '/grounds/$groundId/sports-neo/ledger/advance/update',
@@ -964,7 +986,8 @@ class GroundWaleApi {
     String? monthKey,
   }) async {
     try {
-      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
+      final String? scopedAcademyId =
+          academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/dashboard',
         queryParameters: <String, dynamic>{
@@ -990,7 +1013,8 @@ class GroundWaleApi {
     int? limit,
   }) async {
     try {
-      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
+      final String? scopedAcademyId =
+          academyId ?? ApiSession.instance.selectedAcademyId;
       final Map<String, dynamic> queryParameters = <String, dynamic>{
         if (scopedAcademyId != null && scopedAcademyId.isNotEmpty)
           'academyId': scopedAcademyId,
@@ -1084,7 +1108,8 @@ class GroundWaleApi {
     String? academyId,
   }) async {
     try {
-      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
+      final String? scopedAcademyId =
+          academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/batches',
         queryParameters: <String, dynamic>{
@@ -1185,7 +1210,8 @@ class GroundWaleApi {
     String? academyId,
   }) async {
     try {
-      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
+      final String? scopedAcademyId =
+          academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/attendance',
         queryParameters: <String, dynamic>{
@@ -1232,7 +1258,8 @@ class GroundWaleApi {
     String? academyId,
   }) async {
     try {
-      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
+      final String? scopedAcademyId =
+          academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/fees',
         queryParameters: <String, dynamic>{
@@ -1312,7 +1339,8 @@ class GroundWaleApi {
     String? academyId,
   }) async {
     try {
-      final String? scopedAcademyId = academyId ?? ApiSession.instance.selectedAcademyId;
+      final String? scopedAcademyId =
+          academyId ?? ApiSession.instance.selectedAcademyId;
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/academy/$ownerId/announcements',
         queryParameters: <String, dynamic>{
@@ -1404,7 +1432,9 @@ class GroundWaleApi {
 
   Future<void> submitAcademyForReview(String ownerId, String academyId) async {
     try {
-      await _dio.post<dynamic>('/academy/$ownerId/academies/$academyId/submit-review');
+      await _dio.post<dynamic>(
+        '/academy/$ownerId/academies/$academyId/submit-review',
+      );
     } catch (error) {
       throw _mapError(error);
     }
