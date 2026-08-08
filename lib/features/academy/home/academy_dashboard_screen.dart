@@ -28,12 +28,14 @@ class AcademyDashboardScreen extends StatefulWidget {
 
 class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   bool _isLoading = true;
-    final Map<String, Uint8List> _imageCache = {};
-    Uint8List _decodedImage(String source) {
-      return _imageCache.putIfAbsent(source, () {
-        return base64Decode(_normalizeBase64(source));
-      });
-    }
+  final Map<String, Uint8List> _imageCache = {};
+
+  Uint8List _decodedImage(String source) {
+    return _imageCache.putIfAbsent(source, () {
+      return base64Decode(_normalizeBase64(source));
+    });
+  }
+
   Map<String, dynamic> _dashboard = <String, dynamic>{};
   List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
   String? _selectedAcademyId;
@@ -41,9 +43,55 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   String _selectedBatchFilter = 'All';
   DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
-  String _academyId(Map<String, dynamic> academy) {
-    return academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
+  // ─────────────────────────────────────────────────────────────
+  //  QUARTERLY GRAPH HELPERS
+  // ─────────────────────────────────────────────────────────────
+
+  /// Builds 4-month data ending at [_selectedMonth].
+  /// Only the current month carries real API values; the others show 0
+  /// until a quarterly endpoint is available.
+  List<Map<String, dynamic>> _buildQuarterlyData(
+    int collectedAmount,
+    int pendingAmount,
+    int paidStudents,
+    int pendingStudents,
+  ) {
+    final List<Map<String, dynamic>> result = <Map<String, dynamic>>[];
+
+    for (int i = 3; i >= 0; i--) {
+      final DateTime month = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month - i,
+      );
+      final bool isCurrent = i == 0;
+
+      result.add(<String, dynamic>{
+        'month': month,
+        'label': _shortMonthLabel(month),
+        'paid': isCurrent ? collectedAmount : 0,
+        'pending': isCurrent ? pendingAmount : 0,
+        'total': isCurrent ? (collectedAmount + pendingAmount) : 0,
+      });
+    }
+
+    return result;
   }
+
+  String _shortMonthLabel(DateTime date) {
+    const List<String> months = <String>[
+      'Jan', 'Feb', 'Mar', 'Apr',
+      'May', 'Jun', 'Jul', 'Aug',
+      'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return months[date.month - 1];
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  ACADEMY HELPERS
+  // ─────────────────────────────────────────────────────────────
+
+  String _academyId(Map<String, dynamic> academy) =>
+      academy['_id']?.toString() ?? academy['id']?.toString() ?? '';
 
   String _academyName(Map<String, dynamic> academy) {
     final String name = academy['name']?.toString().trim() ?? '';
@@ -51,18 +99,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   }
 
   String? _academyImageUrl(Map<String, dynamic> academy) {
-    final List<String> keys = <String>[
-      'imageUrl',
-      'coverImage',
-      'bannerImage',
-      'photoUrl',
-      'image',
-    ];
-    for (final String key in keys) {
+    for (final String key in <String>[
+      'imageUrl', 'coverImage', 'bannerImage', 'photoUrl', 'image',
+    ]) {
       final String value = academy[key]?.toString().trim() ?? '';
-      if (value.isNotEmpty) {
-        return value;
-      }
+      if (value.isNotEmpty) return value;
     }
     return null;
   }
@@ -72,9 +113,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
     void addIfValid(dynamic raw) {
       final String value = raw?.toString().trim() ?? '';
-      if (value.isNotEmpty && !values.contains(value)) {
-        values.add(value);
-      }
+      if (value.isNotEmpty && !values.contains(value)) values.add(value);
     }
 
     addIfValid(academy['image']);
@@ -83,90 +122,33 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     addIfValid(academy['bannerImage']);
     addIfValid(academy['photoUrl']);
 
-    final dynamic imageUrls = academy['imageUrls'];
-    if (imageUrls is List) {
-      for (final dynamic item in imageUrls) {
-        addIfValid(item);
-      }
-    }
-
-    final dynamic academyImages = academy['academyImages'];
-    if (academyImages is List) {
-      for (final dynamic item in academyImages) {
-        addIfValid(item);
-      }
-    }
-
-    final dynamic images = academy['images'];
-    if (images is List) {
-      for (final dynamic item in images) {
-        addIfValid(item);
+    for (final String key in <String>['imageUrls', 'academyImages', 'images']) {
+      final dynamic list = academy[key];
+      if (list is List) {
+        for (final dynamic item in list) addIfValid(item);
       }
     }
 
     return values;
   }
 
-  String _monthKey(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}';
-  }
+  String _monthKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}';
 
   String _monthLabel(DateTime date) {
     const List<String> months = <String>[
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
+      'January', 'February', 'March', 'April',
+      'May', 'June', 'July', 'August',
+      'September', 'October', 'November', 'December',
     ];
     return '${months[date.month - 1]} ${date.year}';
-  }
-
-  List<int> _buildWeeklySeries(
-    int monthEarnings,
-    int paidStudents,
-    int pendingStudents,
-  ) {
-    final int base = math.max(monthEarnings, 1);
-    final int weeklyBase = math.max((base / 5).round(), 1);
-    final int momentum = (paidStudents - pendingStudents).clamp(-5, 5);
-    final List<int> values = <int>[
-      weeklyBase + momentum,
-      (weeklyBase * 2) + momentum,
-      (weeklyBase * 3) + momentum,
-      (weeklyBase * 4) + momentum,
-      base + momentum,
-    ];
-    return values.map((int value) => math.max(value, 1)).toList();
-  }
-
-  String _ordinalLabel(int index) {
-    switch (index) {
-      case 0:
-        return '1st';
-      case 1:
-        return '2nd';
-      case 2:
-        return '3rd';
-      case 3:
-        return '4th';
-      default:
-        return '5th';
-    }
   }
 
   List<String> _academyFacilities(Map<String, dynamic> academy) {
     final List<dynamic> raw =
         (academy['facilities'] as List<dynamic>?) ??
-        (academy['amenities'] as List<dynamic>?) ??
-        (academy['features'] as List<dynamic>?) ??
+        (academy['amenities']  as List<dynamic>?) ??
+        (academy['features']   as List<dynamic>?) ??
         <dynamic>[];
 
     final List<String> values = raw
@@ -174,45 +156,23 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         .where((String item) => item.isNotEmpty)
         .toList();
 
-    if (values.isNotEmpty) {
-      return values;
-    }
-
-    return <String>[
-      'Parking',
-      'Washroom',
-      'Water',
-      'Lighting',
-      'Ball Machine',
-      'Hard Court',
-    ];
+    return values.isNotEmpty
+        ? values
+        : <String>['Parking', 'Washroom', 'Water', 'Lighting', 'Ball Machine', 'Hard Court'];
   }
 
   String _facilityLabel(String value) {
     final String key = value.trim().toLowerCase();
-    if (key.contains('park')) {
-      return '🅿️ Parking';
-    }
-    if (key.contains('wash')) {
-      return '🚻 Washroom';
-    }
-    if (key.contains('water')) {
-      return '💧 Water';
-    }
-    if (key.contains('light')) {
-      return '💡 Lighting';
-    }
-    if (key.contains('ball')) {
-      return '🎾 Ball Machine';
-    }
-    if (key.contains('court')) {
-      return '🎾 Hard Court';
-    }
+    if (key.contains('park'))  return '🅿️ Parking';
+    if (key.contains('wash'))  return '🚻 Washroom';
+    if (key.contains('water')) return '💧 Water';
+    if (key.contains('light')) return '💡 Lighting';
+    if (key.contains('ball'))  return '🎾 Ball Machine';
+    if (key.contains('court')) return '🎾 Hard Court';
     return value;
   }
 
   int _academyMonthlyFee(Map<String, dynamic> academy) {
-    // Prefer Monthly plan from feePlans inside batch
     final dynamic batchRaw = academy['batch'];
     if (batchRaw is Map) {
       final List<dynamic> plans =
@@ -224,15 +184,13 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           if (dur == 'monthly') {
             return int.tryParse(
                   plan['price']?.toString().replaceAll(',', '') ?? '',
-                ) ??
-                0;
+                ) ?? 0;
           }
         }
       }
     }
-    // Fallback to root monthlyFee field
     final dynamic direct = academy['monthlyFee'] ?? academy['monthlyFees'];
-    if (direct is int) return direct;
+    if (direct is int)    return direct;
     if (direct is double) return direct.round();
     if (direct is String) return int.tryParse(direct) ?? 0;
     return 0;
@@ -252,34 +210,27 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     return <Map<String, String>>[];
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  IMAGE HELPERS
+  // ─────────────────────────────────────────────────────────────
+
   Widget _academyImageWidget(String? imageValue) {
     if (imageValue == null || imageValue.trim().isEmpty) {
       return Container(
         color: const Color(0xFF1B2F38),
         alignment: Alignment.center,
-        child: const Icon(
-          Icons.school_outlined,
-          color: Color(0xFF9FB9B3),
-          size: 30,
-        ),
+        child: const Icon(Icons.school_outlined, color: Color(0xFF9FB9B3), size: 30),
       );
     }
 
     final String source = imageValue.trim();
 
-    // Accept values like: data:image/png;base64,AAAA...
     if (source.startsWith('data:image')) {
       final int commaIndex = source.indexOf(',');
       if (commaIndex > -1 && commaIndex < source.length - 1) {
         try {
-          final String encoded = _normalizeBase64(
-            source.substring(commaIndex + 1),
-          );
-          return Image.memory(
-            _decodedImage(encoded),
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-          );
+          final String encoded = _normalizeBase64(source.substring(commaIndex + 1));
+          return Image.memory(_decodedImage(encoded), fit: BoxFit.cover, gaplessPlayback: true);
         } catch (_) {
           return _academyImageFallback();
         }
@@ -291,19 +242,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       return Image.network(
         source,
         fit: BoxFit.cover,
-        errorBuilder: (_, error, stackTrace) => _academyImageFallback(),
+        errorBuilder: (_, __, ___) => _academyImageFallback(),
         gaplessPlayback: true,
       );
     }
 
-    // Also support plain base64 payloads.
     try {
       final String encoded = _normalizeBase64(source);
-      return Image.memory(
-          _decodedImage(encoded),
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-        );
+      return Image.memory(_decodedImage(encoded), fit: BoxFit.cover, gaplessPlayback: true);
     } catch (_) {
       return _academyImageFallback();
     }
@@ -311,20 +257,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
   String _normalizeBase64(String input) {
     String normalized = input.trim().replaceAll(RegExp(r'\s+'), '');
-    if (normalized.isEmpty) {
-      return '';
-    }
-
+    if (normalized.isEmpty) return '';
     normalized = normalized.replaceAll('-', '+').replaceAll('_', '/');
-
     final int remainder = normalized.length % 4;
     if (remainder != 0) {
-      normalized = normalized.padRight(
-        normalized.length + (4 - remainder),
-        '=',
-      );
+      normalized = normalized.padRight(normalized.length + (4 - remainder), '=');
     }
-
     return normalized;
   }
 
@@ -332,13 +270,13 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     return Container(
       color: const Color(0xFF1B2F38),
       alignment: Alignment.center,
-      child: const Icon(
-        Icons.broken_image_outlined,
-        color: Color(0xFF9FB9B3),
-        size: 28,
-      ),
+      child: const Icon(Icons.broken_image_outlined, color: Color(0xFF9FB9B3), size: 28),
     );
   }
+
+  // ─────────────────────────────────────────────────────────────
+  //  LIFECYCLE
+  // ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -346,50 +284,53 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     _load();
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  DATA LOADING
+  // ─────────────────────────────────────────────────────────────
+
   Future<void> _load() async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     try {
-      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
-          .listAcademies(ownerId);
+      final List<Map<String, dynamic>> academies =
+          await GroundWaleApi.instance.listAcademies(ownerId);
+
       final String? preferredAcademyId =
           ApiSession.instance.selectedAcademyId?.trim().isNotEmpty == true
-          ? ApiSession.instance.selectedAcademyId
-          : null;
+              ? ApiSession.instance.selectedAcademyId
+              : null;
+
       String? selectedAcademyId;
       if (preferredAcademyId != null &&
-          academies.any(
-            (Map<String, dynamic> item) =>
-                _academyId(item) == preferredAcademyId,
-          )) {
+          academies.any((Map<String, dynamic> item) =>
+              _academyId(item) == preferredAcademyId)) {
         selectedAcademyId = preferredAcademyId;
       } else if (academies.isNotEmpty) {
         selectedAcademyId = _academyId(academies.first);
       }
 
-      final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
-          .listAcademyBatches(ownerId, academyId: selectedAcademyId);
+      final List<Map<String, dynamic>> batches =
+          await GroundWaleApi.instance
+              .listAcademyBatches(ownerId, academyId: selectedAcademyId);
+
       final String selectedFilter = _normalizeSelectedFilter(batches);
-      final String? selectedBatchId = _batchIdByFilterLabel(
-        selectedFilter,
-        batches,
+      final String? selectedBatchId =
+          _batchIdByFilterLabel(selectedFilter, batches);
+
+      final Map<String, dynamic> dashboard =
+          await GroundWaleApi.instance.getAcademyDashboard(
+        ownerId,
+        batchId: selectedBatchId,
+        academyId: selectedAcademyId,
+        monthKey: _monthKey(_selectedMonth),
       );
-      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
-          .getAcademyDashboard(
-            ownerId,
-            batchId: selectedBatchId,
-            academyId: selectedAcademyId,
-            monthKey: _monthKey(_selectedMonth),
-          );
-      if (!mounted) {
-        return;
-      }
+
+      if (!mounted) return;
+
       setState(() {
         _academies = academies;
         _selectedAcademyId = selectedAcademyId;
@@ -398,21 +339,18 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         _selectedBatchFilter = selectedFilter;
         _isLoading = false;
       });
+
       final Map<String, dynamic>? selectedAcademy = academies
-          .where(
-            (Map<String, dynamic> item) =>
-                _academyId(item) == _selectedAcademyId,
-          )
+          .where((Map<String, dynamic> item) =>
+              _academyId(item) == _selectedAcademyId)
           .cast<Map<String, dynamic>?>()
-          .firstWhere(
-            (Map<String, dynamic>? _) => true,
-            orElse: () => academies.isEmpty ? null : academies.first,
-          );
+          .firstWhere((_) => true,
+              orElse: () => academies.isEmpty ? null : academies.first);
+
       ApiSession.instance.setSelectedAcademy(
         academyId: _selectedAcademyId,
-        academyName: selectedAcademy == null
-            ? null
-            : _academyName(selectedAcademy),
+        academyName:
+            selectedAcademy == null ? null : _academyName(selectedAcademy),
       );
     } catch (error) {
       if (mounted) {
@@ -429,8 +367,6 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   Future<void> _createAcademy() async {
     if (ApiSession.instance.ownerId == null) return;
 
-    // Launch the full registration flow starting at Academy Details,
-    // skipping ownership verification for subsequent academies.
     final GroundFlowController flowController = GroundFlowController();
     flowController.data.offerType = OfferType.academyCoaching;
     flowController.data.ownerName = ApiSession.instance.ownerName ?? '';
@@ -443,18 +379,15 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       MaterialPageRoute<void>(
         builder: (_) => RegisterGroundFlowScreen(
           initialController: flowController,
-          initialStep: 13, // Start at Academy Details
+          initialStep: 13,
           onFinish: () {
-            Navigator.of(context, rootNavigator: true).pop(); // back to dashboard
+            Navigator.of(context, rootNavigator: true).pop();
             _load();
           },
         ),
       ),
     );
-    // Also reload in case user navigated back without finishing
-    if (mounted) {
-      await _load();
-    }
+    if (mounted) await _load();
   }
 
   Future<void> _addFacilityToAcademy(
@@ -488,7 +421,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 return Container(
                   decoration: const BoxDecoration(
                     color: Color(0xFF0F2027),
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(16)),
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Column(
@@ -525,17 +459,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                 final bool isSel = selected.contains(f);
                                 return GestureDetector(
                                   onTap: () => setSheetState(() {
-                                    if (isSel) {
-                                      selected.remove(f);
-                                    } else {
-                                      selected.add(f);
-                                    }
+                                    isSel
+                                        ? selected.remove(f)
+                                        : selected.add(f);
                                   }),
                                   child: Container(
                                     height: 42,
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                    ),
+                                        horizontal: 14),
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(10),
@@ -595,17 +526,15 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  FILTER / BATCH HELPERS
+  // ─────────────────────────────────────────────────────────────
+
   String _normalizeSelectedFilter(List<Map<String, dynamic>> batches) {
-    if (_selectedBatchFilter == 'All') {
-      return 'All';
-    }
+    if (_selectedBatchFilter == 'All') return 'All';
     final String selectedKey = _selectedBatchFilter.trim().toLowerCase();
-    final bool exists = batches.any((Map<String, dynamic> batch) {
-      final String name = (batch['name']?.toString() ?? '')
-          .trim()
-          .toLowerCase();
-      return name == selectedKey;
-    });
+    final bool exists = batches.any((Map<String, dynamic> batch) =>
+        (batch['name']?.toString() ?? '').trim().toLowerCase() == selectedKey);
     return exists ? _selectedBatchFilter : 'All';
   }
 
@@ -613,9 +542,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     String label,
     List<Map<String, dynamic>> batches,
   ) {
-    if (label == 'All') {
-      return null;
-    }
+    if (label == 'All') return null;
     final String query = label.trim().toLowerCase();
     final Map<String, dynamic> found = batches.firstWhere(
       (Map<String, dynamic> batch) =>
@@ -627,41 +554,31 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   }
 
   Future<void> _onBatchFilterTap(String label) async {
-    if (label == _selectedBatchFilter) {
-      return;
-    }
-
+    if (label == _selectedBatchFilter) return;
     final String? ownerId = ApiSession.instance.ownerId;
-    if (ownerId == null || ownerId.isEmpty) {
-      return;
-    }
+    if (ownerId == null || ownerId.isEmpty) return;
 
     final String? batchId = _batchIdByFilterLabel(label, _batches);
-
     setState(() {
       _selectedBatchFilter = label;
       _isLoading = true;
     });
 
     try {
-      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
-          .getAcademyDashboard(
-            ownerId,
-            batchId: batchId,
-            academyId: _selectedAcademyId,
-            monthKey: _monthKey(_selectedMonth),
-          );
-      if (!mounted) {
-        return;
-      }
+      final Map<String, dynamic> dashboard =
+          await GroundWaleApi.instance.getAcademyDashboard(
+        ownerId,
+        batchId: batchId,
+        academyId: _selectedAcademyId,
+        monthKey: _monthKey(_selectedMonth),
+      );
+      if (!mounted) return;
       setState(() {
         _dashboard = dashboard;
         _isLoading = false;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -672,14 +589,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   }
 
   Future<void> _onAcademyFilterTap(String academyId) async {
-    if (_selectedAcademyId == academyId) {
-      return;
-    }
-
+    if (_selectedAcademyId == academyId) return;
     final String? ownerId = ApiSession.instance.ownerId;
-    if (ownerId == null || ownerId.isEmpty) {
-      return;
-    }
+    if (ownerId == null || ownerId.isEmpty) return;
 
     setState(() {
       _selectedAcademyId = academyId;
@@ -688,24 +600,22 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     });
 
     try {
-      final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
-          .listAcademyBatches(ownerId, academyId: academyId);
+      final List<Map<String, dynamic>> batches =
+          await GroundWaleApi.instance
+              .listAcademyBatches(ownerId, academyId: academyId);
       final String selectedFilter = _normalizeSelectedFilter(batches);
-      final String? selectedBatchId = _batchIdByFilterLabel(
-        selectedFilter,
-        batches,
+      final String? selectedBatchId =
+          _batchIdByFilterLabel(selectedFilter, batches);
+      final Map<String, dynamic> dashboard =
+          await GroundWaleApi.instance.getAcademyDashboard(
+        ownerId,
+        batchId: selectedBatchId,
+        academyId: academyId,
+        monthKey: _monthKey(_selectedMonth),
       );
-      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
-          .getAcademyDashboard(
-            ownerId,
-            batchId: selectedBatchId,
-            academyId: academyId,
-            monthKey: _monthKey(_selectedMonth),
-          );
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
+
       final Map<String, dynamic> selectedAcademy = _academies.firstWhere(
         (Map<String, dynamic> item) => _academyId(item) == academyId,
         orElse: () => <String, dynamic>{},
@@ -714,6 +624,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         academyId: academyId,
         academyName: _academyName(selectedAcademy),
       );
+
       setState(() {
         _dashboard = dashboard;
         _batches = batches;
@@ -721,9 +632,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         _isLoading = false;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -735,18 +644,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
   Future<void> _changeMonth(int delta) async {
     final String? ownerId = ApiSession.instance.ownerId;
-    if (ownerId == null || ownerId.isEmpty || _isLoading) {
-      return;
-    }
+    if (ownerId == null || ownerId.isEmpty || _isLoading) return;
 
-    final DateTime next = DateTime(
-      _selectedMonth.year,
-      _selectedMonth.month + delta,
-    );
-    final String? selectedBatchId = _batchIdByFilterLabel(
-      _selectedBatchFilter,
-      _batches,
-    );
+    final DateTime next =
+        DateTime(_selectedMonth.year, _selectedMonth.month + delta);
+    final String? selectedBatchId =
+        _batchIdByFilterLabel(_selectedBatchFilter, _batches);
 
     setState(() {
       _selectedMonth = next;
@@ -754,24 +657,20 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     });
 
     try {
-      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
-          .getAcademyDashboard(
-            ownerId,
-            batchId: selectedBatchId,
-            academyId: _selectedAcademyId,
-            monthKey: _monthKey(next),
-          );
-      if (!mounted) {
-        return;
-      }
+      final Map<String, dynamic> dashboard =
+          await GroundWaleApi.instance.getAcademyDashboard(
+        ownerId,
+        batchId: selectedBatchId,
+        academyId: _selectedAcademyId,
+        monthKey: _monthKey(next),
+      );
+      if (!mounted) return;
       setState(() {
         _dashboard = dashboard;
         _isLoading = false;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -781,74 +680,54 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  MISC HELPERS
+  // ─────────────────────────────────────────────────────────────
+
   int _toInt(dynamic value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is double) {
-      return value.round();
-    }
-    if (value is String) {
-      return int.tryParse(value) ?? 0;
-    }
+    if (value is int)    return value;
+    if (value is double) return value.round();
+    if (value is String) return int.tryParse(value) ?? 0;
     return 0;
   }
 
   String _batchDays(Map<String, dynamic> batch) {
     final List<dynamic> daysRaw =
         batch['days'] as List<dynamic>? ?? <dynamic>[];
-    if (daysRaw.isEmpty) {
-      return 'Mon - Sat';
-    }
-    final List<String> days = daysRaw.map((dynamic d) => d.toString()).toList();
-    if (days.length == 1) {
-      return days.first;
-    }
-    return '${days.first} - ${days.last}';
+    if (daysRaw.isEmpty) return 'Mon - Sat';
+    final List<String> days =
+        daysRaw.map((dynamic d) => d.toString()).toList();
+    return days.length == 1 ? days.first : '${days.first} - ${days.last}';
   }
 
   List<Map<String, dynamic>> _filteredBatches() {
-    if (_selectedBatchFilter == 'All') {
-      return _batches;
-    }
+    if (_selectedBatchFilter == 'All') return _batches;
     final String query = _selectedBatchFilter.trim().toLowerCase();
-    return _batches.where((Map<String, dynamic> batch) {
-      final String name = (batch['name']?.toString() ?? '')
-          .trim()
-          .toLowerCase();
-      return name == query;
-    }).toList();
+    return _batches
+        .where((Map<String, dynamic> batch) =>
+            (batch['name']?.toString() ?? '').trim().toLowerCase() == query)
+        .toList();
   }
 
   List<String> _batchFilterLabels() {
     final Set<String> seen = <String>{};
     final List<String> labels = <String>['All'];
-
     for (final Map<String, dynamic> batch in _batches) {
       final String name = (batch['name']?.toString() ?? '').trim();
-      if (name.isEmpty) {
-        continue;
-      }
+      if (name.isEmpty) continue;
       final String key = name.toLowerCase();
-      if (seen.contains(key)) {
-        continue;
-      }
+      if (seen.contains(key)) continue;
       seen.add(key);
       labels.add(name);
     }
-
     return labels;
   }
 
   List<Map<String, dynamic>> _orderedAcademies(
-    List<Map<String, dynamic>> input,
-  ) {
-    if (_selectedAcademyId == null || _selectedAcademyId!.isEmpty) {
-      return input;
-    }
-
+      List<Map<String, dynamic>> input) {
+    if (_selectedAcademyId == null || _selectedAcademyId!.isEmpty) return input;
     final List<Map<String, dynamic>> selected = <Map<String, dynamic>>[];
-    final List<Map<String, dynamic>> others = <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> others  = <Map<String, dynamic>>[];
     for (final Map<String, dynamic> academy in input) {
       if (_academyId(academy) == _selectedAcademyId) {
         selected.add(academy);
@@ -859,9 +738,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     return <Map<String, dynamic>>[...selected, ...others];
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  BUILD
+  // ─────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-
     final Map<String, dynamic> students = Map<String, dynamic>.from(
       _dashboard['students'] as Map? ?? <String, dynamic>{},
     );
@@ -872,29 +754,27 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       _dashboard['attendanceToday'] as Map? ?? <String, dynamic>{},
     );
 
-    final int totalStudents = _toInt(students['total']);
-    final int presentToday = _toInt(attendance['present']);
-    final int absentToday = attendance.containsKey('absent')
+    final int totalStudents  = _toInt(students['total']);
+    final int presentToday   = _toInt(attendance['present']);
+    final int absentToday    = attendance.containsKey('absent')
         ? _toInt(attendance['absent'])
         : (totalStudents - presentToday).clamp(0, 1000000);
 
-    final int pendingAmount = _toInt(fees['pendingAmount']);
-    final int paidStudents = _toInt(fees['paidStudents']);
+    final int collectedAmount = _toInt(fees['collectedAmount'] ?? 0);
+    final int pendingAmount   = _toInt(fees['pendingAmount']);
+    final int paidStudents    = _toInt(fees['paidStudents']);
     final int pendingStudents = _toInt(fees['pendingStudents']);
-    final int monthEarnings = _toInt(
-      (fees['collectedAmount'] ?? 0) + (fees['pendingAmount'] ?? 0) ??
-          _dashboard['thisMonthEarnings'] ??
-          0,
-    );
-    final List<int> weeklySeries = _buildWeeklySeries(
-      monthEarnings,
+    final int monthEarnings   = _toInt(collectedAmount + pendingAmount);
+
+    final List<Map<String, dynamic>> quarterlyData = _buildQuarterlyData(
+      collectedAmount,
+      pendingAmount,
       paidStudents,
       pendingStudents,
     );
-    final List<Map<String, dynamic>> orderedAcademies = _orderedAcademies(
-      _academies,
-    );
 
+    final List<Map<String, dynamic>> orderedAcademies =
+        _orderedAcademies(_academies);
     final List<Map<String, dynamic>> filteredBatches = _filteredBatches();
     final List<String> batchFilterLabels = _batchFilterLabels();
 
@@ -903,7 +783,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       body: SafeArea(
         child: _isLoading
             ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF00C9A7)),
+                child:
+                    CircularProgressIndicator(color: Color(0xFF00C9A7)),
               )
             : RefreshIndicator(
                 onRefresh: _load,
@@ -912,6 +793,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                   children: <Widget>[
+                    // ── Loading bar ────────────────────────────────
                     if (_isLoading) ...<Widget>[
                       const SizedBox(height: 8),
                       const LinearProgressIndicator(
@@ -921,6 +803,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ),
                     ],
                     const SizedBox(height: 12),
+
+                    // ── Slide hint ─────────────────────────────────
                     if (_academies.isNotEmpty)
                       const Row(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -942,6 +826,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         ],
                       ),
                     if (_academies.isNotEmpty) const SizedBox(height: 8),
+
+                    // ── Academy carousel ───────────────────────────
                     if (_academies.isNotEmpty)
                       SizedBox(
                         height: 336,
@@ -956,15 +842,16 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             }
                             final Map<String, dynamic> academy =
                                 orderedAcademies[index];
-                            final String academyId = _academyId(academy);
                             return _academyCard(
                               academy,
-                              selected: academyId == _selectedAcademyId,
+                              selected: _academyId(academy) == _selectedAcademyId,
                             );
                           },
                         ),
                       ),
                     if (_academies.isNotEmpty) const SizedBox(height: 12),
+
+                    // ── Empty state ────────────────────────────────
                     if (_academies.isEmpty)
                       Container(
                         width: double.infinity,
@@ -989,9 +876,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             const Text(
                               'Create an academy to see dashboard data for this tab.',
                               style: TextStyle(
-                                color: Color(0xCCFFFFFF),
-                                fontSize: 14,
-                              ),
+                                  color: Color(0xCCFFFFFF), fontSize: 14),
                             ),
                             const SizedBox(height: 12),
                             ElevatedButton(
@@ -1000,30 +885,30 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                 backgroundColor: const Color(0xFF00C9A7),
                                 foregroundColor: const Color(0xFF06271F),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                                    borderRadius: BorderRadius.circular(10)),
                               ),
                               child: const Text('Add Academy'),
                             ),
                           ],
                         ),
                       )
+
+                    // ── Batch filter chips ─────────────────────────
                     else
                       SizedBox(
                         height: 44,
                         child: ListView(
                           scrollDirection: Axis.horizontal,
                           children: batchFilterLabels.map((String label) {
-                            final bool selected = _selectedBatchFilter == label;
+                            final bool selected =
+                                _selectedBatchFilter == label;
                             return Padding(
                               padding: const EdgeInsets.only(right: 12),
                               child: GestureDetector(
                                 onTap: () => _onBatchFilterTap(label),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
+                                      horizontal: 16, vertical: 12),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
@@ -1051,7 +936,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           }).toList(),
                         ),
                       ),
+
                     const SizedBox(height: 12),
+
+                    // ── Month navigator ────────────────────────────
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: <Widget>[
@@ -1067,10 +955,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                   color: const Color(0x0DFFFFFF),
                                 ),
-                                child: const Icon(
-                                  Icons.chevron_left,
-                                  color: Colors.white,
-                                ),
+                                child: const Icon(Icons.chevron_left,
+                                    color: Colors.white),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -1093,10 +979,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                   color: const Color(0x0DFFFFFF),
                                 ),
-                                child: const Icon(
-                                  Icons.chevron_right,
-                                  color: Colors.white,
-                                ),
+                                child: const Icon(Icons.chevron_right,
+                                    color: Colors.white),
                               ),
                             ),
                           ],
@@ -1104,159 +988,18 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0x333B82F6)),
-                        color: const Color(0x143B82F6),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: <Widget>[
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    'Rs $monthEarnings',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${_monthLabel(_selectedMonth)} Earning',
-                                    style: const TextStyle(
-                                      color: Color(0xFF9CA3AF),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Text(
-                                'Weekly Graph',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            height: 94,
-                            child: LayoutBuilder(
-                              builder:
-                                  (
-                                    BuildContext context,
-                                    BoxConstraints constraints,
-                                  ) {
-                                    final List<Color> barColors = <Color>[
-                                      const Color(0xFFFBB831),
-                                      const Color(0xFFFB569C),
-                                      const Color(0xFFE850E0),
-                                      const Color(0xFF8225E2),
-                                      const Color(0xFF9C27B0),
-                                    ];
-                                    final int maxValue = weeklySeries.reduce(
-                                      math.max,
-                                    );
-                                    return Stack(
-                                      children: <Widget>[
-                                        Positioned(
-                                          left: 0,
-                                          right: 0,
-                                          top: 2,
-                                          bottom: 22,
-                                          child: CustomPaint(
-                                            painter: _WeeklyTrendPainter(
-                                              values: weeklySeries,
-                                              maxValue: maxValue,
-                                              lineColor: const Color(
-                                                0xFFBDBDBD,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          left: 0,
-                                          right: 0,
-                                          bottom: 22,
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.end,
-                                            children: List<Widget>.generate(
-                                              weeklySeries.length,
-                                              (int index) {
-                                                final double ratio =
-                                                    weeklySeries[index] /
-                                                    maxValue;
-                                                final double height =
-                                                    14 + (ratio * 44);
-                                                return Container(
-                                                  width: 28,
-                                                  height: height,
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        const BorderRadius.vertical(
-                                                          top: Radius.circular(
-                                                            6,
-                                                          ),
-                                                        ),
-                                                    color:
-                                                        barColors[index %
-                                                            barColors.length],
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          left: 0,
-                                          right: 0,
-                                          bottom: 0,
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: List<Widget>.generate(
-                                              weeklySeries.length,
-                                              (int index) {
-                                                return SizedBox(
-                                                  width: 28,
-                                                  child: Text(
-                                                    _ordinalLabel(index),
-                                                    textAlign: TextAlign.center,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                            ),
-                          ),
-                        ],
-                      ),
+
+                    // ══════════════════════════════════════════════
+                    //  QUARTERLY GRAPH CARD
+                    // ══════════════════════════════════════════════
+                    _buildQuarterlyGraph(
+                      quarterlyData: quarterlyData,
+                      monthEarnings: monthEarnings,
                     ),
+
                     const SizedBox(height: 8),
+
+                    // ── Paid / Pending summary row ─────────────────
                     Row(
                       children: <Widget>[
                         Text(
@@ -1268,10 +1011,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
-                          '•',
-                          style: TextStyle(color: Color(0x66FFFFFF)),
-                        ),
+                        const Text('•',
+                            style: TextStyle(color: Color(0x66FFFFFF))),
                         const SizedBox(width: 8),
                         Text(
                           '$pendingStudents Pending',
@@ -1284,6 +1025,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // ── Action tiles ───────────────────────────────
                     GridView.count(
                       crossAxisCount: 2,
                       shrinkWrap: true,
@@ -1295,61 +1038,45 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         _actionTile(
                           icon: Icons.person_add_alt_1_rounded,
                           label: 'Add Student',
-                          onTap: () {
-                            Navigator.of(context)
-                                .push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const AcademyAddStudentScreen(),
-                                  ),
-                                )
-                                .then((_) => _load());
-                          },
                           highlighted: true,
+                          onTap: () => Navigator.of(context)
+                              .push(MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const AcademyAddStudentScreen()))
+                              .then((_) => _load()),
                         ),
                         _actionTile(
                           icon: Icons.group_add_rounded,
                           label: 'Add Batch',
-                          onTap: () {
-                            Navigator.of(context)
-                                .push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyBatchTimingsScreen(),
-                                  ),
-                                )
-                                .then((_) => _load());
-                          },
+                          onTap: () => Navigator.of(context)
+                              .push(MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const AcademyBatchTimingsScreen()))
+                              .then((_) => _load()),
                         ),
                         _actionTile(
                           icon: Icons.manage_accounts_outlined,
                           label: 'Manage Student',
-                          onTap: () {
-                            Navigator.of(context)
-                                .push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyManageStudentsScreen(),
-                                  ),
-                                )
-                                .then((_) => _load());
-                          },
+                          onTap: () => Navigator.of(context)
+                              .push(MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const AcademyManageStudentsScreen()))
+                              .then((_) => _load()),
                         ),
                         _actionTile(
                           icon: Icons.notifications_active_outlined,
                           label: 'Fees Reminder',
-                          onTap: () {
-                            Navigator.of(context)
-                                .push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const AcademyFeeDetailsScreen(),
-                                  ),
-                                )
-                                .then((_) => _load());
-                          },
+                          onTap: () => Navigator.of(context)
+                              .push(MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const AcademyFeeDetailsScreen()))
+                              .then((_) => _load()),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // ── Total Students card ────────────────────────
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: _overlayCardDecoration(),
@@ -1380,16 +1107,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               Text(
                                 'Present Today: $presentToday',
                                 style: const TextStyle(
-                                  color: Color(0xFF9FB9B3),
-                                  fontSize: 14,
-                                ),
+                                    color: Color(0xFF9FB9B3), fontSize: 14),
                               ),
                               Text(
                                 'Absent Today: $absentToday',
                                 style: const TextStyle(
-                                  color: Color(0xFF9FB9B3),
-                                  fontSize: 14,
-                                ),
+                                    color: Color(0xFF9FB9B3), fontSize: 14),
                               ),
                             ],
                           ),
@@ -1401,16 +1124,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                 Expanded(
                                   flex: presentToday == 0 ? 1 : presentToday,
                                   child: Container(
-                                    height: 8,
-                                    color: const Color(0xFF22C55E),
-                                  ),
+                                      height: 8,
+                                      color: const Color(0xFF22C55E)),
                                 ),
                                 Expanded(
                                   flex: absentToday == 0 ? 1 : absentToday,
                                   child: Container(
-                                    height: 8,
-                                    color: const Color(0xFFEF4444),
-                                  ),
+                                      height: 8,
+                                      color: const Color(0xFFEF4444)),
                                 ),
                               ],
                             ),
@@ -1419,6 +1140,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
+
+                    // ── Attendance card ────────────────────────────
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: _overlayCardDecoration(),
@@ -1452,8 +1175,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   : presentToday / totalStudents,
                               backgroundColor: const Color(0xFF12252B),
                               valueColor: const AlwaysStoppedAnimation<Color>(
-                                Color(0xFF22C55E),
-                              ),
+                                  Color(0xFF22C55E)),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -1461,16 +1183,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             width: double.infinity,
                             height: 40,
                             child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.of(context)
-                                    .push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) =>
-                                            const AcademyMarkAttendanceScreen(),
-                                      ),
-                                    )
-                                    .then((_) => _load());
-                              },
+                              onPressed: () => Navigator.of(context)
+                                  .push(MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const AcademyMarkAttendanceScreen()))
+                                  .then((_) => _load()),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF00C9A7),
                                 foregroundColor: const Color(0xFF052017),
@@ -1479,9 +1196,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               child: const Text(
                                 'Mark Attendance',
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                ),
+                                    fontWeight: FontWeight.w600, fontSize: 15),
                               ),
                             ),
                           ),
@@ -1489,6 +1204,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
+
+                    // ── Fees Overview card ─────────────────────────
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: _overlayCardDecoration(),
@@ -1507,14 +1224,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
+                                horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: const Color(0x33F97316),
-                              ),
+                                  color: const Color(0x33F97316)),
                               color: const Color(0x1AF97316),
                             ),
                             child: Text(
@@ -1531,16 +1245,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             width: double.infinity,
                             height: 40,
                             child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.of(context)
-                                    .push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) =>
-                                            const AcademyFeeDetailsScreen(),
-                                      ),
-                                    )
-                                    .then((_) => _load());
-                              },
+                              onPressed: () => Navigator.of(context)
+                                  .push(MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const AcademyFeeDetailsScreen()))
+                                  .then((_) => _load()),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF203A43),
                                 foregroundColor: const Color(0xFFDFF7F0),
@@ -1549,9 +1258,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               child: const Text(
                                 'View Details',
                                 style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                    fontSize: 15, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ),
@@ -1559,6 +1266,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
+
+                    // ── Manage Batches header ──────────────────────
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: <Widget>[
@@ -1571,16 +1280,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () {
-                            Navigator.of(context)
-                                .push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AcademyBatchTimingsScreen(),
-                                  ),
-                                )
-                                .then((_) => _load());
-                          },
+                          onTap: () => Navigator.of(context)
+                              .push(MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const AcademyBatchTimingsScreen()))
+                              .then((_) => _load()),
                           child: const Text(
                             'View All',
                             style: TextStyle(
@@ -1593,6 +1297,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // ── Batch cards carousel ───────────────────────
                     SizedBox(
                       height: 246,
                       child: ListView.separated(
@@ -1612,8 +1318,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           final String coach =
                               batch['coachName']?.toString() ?? 'Coach';
                           final int studentsCount = _toInt(
-                            batch['capacity'] ?? batch['studentsCount'],
-                          );
+                              batch['capacity'] ?? batch['studentsCount']);
                           final String status =
                               (batch['status']?.toString() ?? 'active')
                                   .toLowerCase();
@@ -1643,11 +1348,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
+                                          horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(4),
+                                        borderRadius:
+                                            BorderRadius.circular(4),
                                         color: status == 'active'
                                             ? const Color(0x1A22C55E)
                                             : const Color(0x33F97316),
@@ -1668,61 +1372,47 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                _batchMeta(
-                                  Icons.schedule_rounded,
-                                  '$start - $end',
-                                ),
+                                _batchMeta(Icons.schedule_rounded,
+                                    '$start - $end'),
                                 const SizedBox(height: 10),
-                                _batchMeta(
-                                  Icons.calendar_month_outlined,
-                                  _batchDays(batch),
-                                ),
+                                _batchMeta(Icons.calendar_month_outlined,
+                                    _batchDays(batch)),
                                 const SizedBox(height: 10),
-                                _batchMeta(
-                                  Icons.person_outline_rounded,
-                                  'Coach: $coach',
-                                ),
+                                _batchMeta(Icons.person_outline_rounded,
+                                    'Coach: $coach'),
                                 const SizedBox(height: 10),
-                                _batchMeta(
-                                  Icons.groups_outlined,
-                                  'Students: $studentsCount',
-                                ),
+                                _batchMeta(Icons.groups_outlined,
+                                    'Students: $studentsCount'),
                                 const Spacer(),
                                 Row(
                                   children: <Widget>[
                                     Expanded(
-                                      child: _darkActionButton(
-                                        'View Batch',
-                                        () {
-                                          Navigator.of(context)
-                                              .push(
-                                                MaterialPageRoute<void>(
-                                                  builder: (_) =>
-                                                      AcademyViewBatchScreen(
-                                                    batchId:
-                                                        batch['_id']
-                                                            ?.toString() ??
-                                                        batch['id']?.toString(),
-                                                    batchName: name,
-                                                    coachName: coach,
-                                                    time: '$start - $end',
-                                                    days: _batchDays(batch),
-                                                  ),
-                                            ),
-                                          ).then((_) => _load());
-                                        },
-                                      ),
+                                      child: _darkActionButton('View Batch',
+                                          () {
+                                        Navigator.of(context)
+                                            .push(MaterialPageRoute<void>(
+                                                builder: (_) =>
+                                                    AcademyViewBatchScreen(
+                                                      batchId: batch['_id']
+                                                              ?.toString() ??
+                                                          batch['id']
+                                                              ?.toString(),
+                                                      batchName: name,
+                                                      coachName: coach,
+                                                      time: '$start - $end',
+                                                      days: _batchDays(batch),
+                                                    )))
+                                            .then((_) => _load());
+                                      }),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: _darkActionButton('Edit', () {
                                         Navigator.of(context)
-                                            .push(
-                                              MaterialPageRoute<void>(
+                                            .push(MaterialPageRoute<void>(
                                                 builder: (_) =>
                                                     AcademyEditBatchScreen(
-                                                      batchId:
-                                                          batch['_id']
+                                                      batchId: batch['_id']
                                                               ?.toString() ??
                                                           batch['id']
                                                               ?.toString(),
@@ -1730,59 +1420,47 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                                       coachName: coach,
                                                       startTime: start,
                                                       endTime: end,
-                                                      days:
-                                                          (batch['days']
+                                                      days: (batch['days']
                                                                       as List<
-                                                                        dynamic
-                                                                      >? ??
+                                                                          dynamic>? ??
                                                                   <dynamic>[])
-                                                              .map(
-                                                                (
-                                                                  dynamic value,
-                                                                ) => value
-                                                                    .toString(),
-                                                              )
+                                                              .map((dynamic v) =>
+                                                                  v.toString())
                                                               .toList(),
                                                       capacity: _toInt(
-                                                        batch['capacity'],
-                                                      ),
-                                                      status:
-                                                          batch['status']
+                                                          batch['capacity']),
+                                                      status: batch['status']
                                                               ?.toString() ??
                                                           'active',
-                                                      monthlyFee:
-                                                          (batch['monthlyFee']
+                                                      monthlyFee: (batch[
+                                                                      'monthlyFee']
                                                                   as num?)
                                                               ?.toDouble() ??
                                                           0,
                                                       feePlans: (batch['feePlans']
-                                                                  as List<dynamic>? ??
-                                                              <dynamic>[])
+                                                                      as List<
+                                                                          dynamic>? ??
+                                                                  <dynamic>[])
                                                           .whereType<Map>()
-                                                          .map(
-                                                            (Map p) =>
-                                                                <String, String>{
-                                                                  'duration': p[
-                                                                              'duration']
-                                                                          ?.toString() ??
-                                                                      'Monthly',
-                                                                  'price': p[
-                                                                              'price']
-                                                                          ?.toString() ??
-                                                                      '0',
-                                                                },
-                                                          )
+                                                          .map((Map p) =>
+                                                              <String, String>{
+                                                                'duration': p[
+                                                                            'duration']
+                                                                        ?.toString() ??
+                                                                    'Monthly',
+                                                                'price': p[
+                                                                            'price']
+                                                                        ?.toString() ??
+                                                                    '0',
+                                                              })
                                                           .toList(),
                                                       coachExperience: _toInt(
-                                                        batch['coachExperience'],
-                                                      ),
+                                                          batch[
+                                                              'coachExperience']),
                                                       enrolledStudents: _toInt(
-                                                        batch['studentsCount'] ??
-                                                            batch['capacity'],
-                                                      ),
-                                                    ),
-                                              ),
-                                            )
+                                                          batch['studentsCount'] ??
+                                                              batch['capacity']),
+                                                    )))
                                             .then((_) => _load());
                                       }),
                                     ),
@@ -1802,12 +1480,243 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  QUARTERLY GRAPH WIDGET
+  // ─────────────────────────────────────────────────────────────
+
+  Widget _buildQuarterlyGraph({
+    required List<Map<String, dynamic>> quarterlyData,
+    required int monthEarnings,
+  }) {
+    // Max total across all 4 months (at least 1 to avoid ÷ 0)
+    final int maxTotal = quarterlyData
+        .map((Map<String, dynamic> m) => m['total'] as int)
+        .fold(1, (int a, int b) => a > b ? a : b);
+
+    const double maxBarHeight  = 80.0;
+    const double amountHeight  = 20.0;
+    const double labelHeight   = 18.0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x333B82F6)),
+        color: const Color(0x143B82F6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          // ── Header ──────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Rs $monthEarnings',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_monthLabel(_selectedMonth)} Earning',
+                    style: const TextStyle(
+                      color: Color(0xFF9CA3AF),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const Text(
+                'Quarterly Graph',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Legend ──────────────────────────────────────────
+          Row(
+            children: <Widget>[
+              _legendDot(const Color(0xFF22C55E)),
+              const SizedBox(width: 4),
+              const Text('Paid',
+                  style: TextStyle(
+                      color: Color(0xFF9CA3AF), fontSize: 11)),
+              const SizedBox(width: 14),
+              _legendDot(const Color(0xFFF97316)),
+              const SizedBox(width: 4),
+              const Text('Pending',
+                  style: TextStyle(
+                      color: Color(0xFF9CA3AF), fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // ── Bars ────────────────────────────────────────────
+          SizedBox(
+            height: amountHeight + maxBarHeight + 8 + labelHeight,
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final double barWidth =
+                    (constraints.maxWidth - 48) / 4;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: quarterlyData
+                      .map((Map<String, dynamic> data) {
+                    final int paid    = data['paid']    as int;
+                    final int pending = data['pending'] as int;
+                    final int total   = data['total']   as int;
+                    final String label = data['label']  as String;
+
+                    final bool isCurrent =
+                        (data['month'] as DateTime).month ==
+                            _selectedMonth.month &&
+                        (data['month'] as DateTime).year ==
+                            _selectedMonth.year;
+
+                    // Bar heights
+                    final double totalRatio =
+                        total <= 0 ? 0 : total / maxTotal;
+                    final double barHeight = math.max(
+                        totalRatio * maxBarHeight,
+                        total > 0 ? 6.0 : 2.0);
+
+                    final double paidHeight = total == 0
+                        ? 0
+                        : (paid / total) * barHeight;
+                    final double pendingHeight =
+                        barHeight - paidHeight;
+
+                    // Amount label text
+                    final String amountText = total <= 0
+                        ? '-'
+                        : (total >= 1000
+                            ? '${(total / 1000).toStringAsFixed(1)}k'
+                            : '$total');
+
+                    return SizedBox(
+                      width: barWidth,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: <Widget>[
+                          // ── Amount on top ──────────────
+                          SizedBox(
+                            height: amountHeight,
+                            child: Text(
+                              amountText,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: total > 0
+                                    ? (isCurrent
+                                        ? Colors.white
+                                        : const Color(0xFF9CA3AF))
+                                    : const Color(0x44FFFFFF),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+
+                          // ── Stacked bar ────────────────
+                          ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(6),
+                            ),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  // Pending = orange (top)
+                                  if (pendingHeight > 0)
+                                    Container(
+                                      height: pendingHeight,
+                                      width: double.infinity,
+                                      color: isCurrent
+                                          ? const Color(0xFFF97316)
+                                          : const Color(0x55F97316),
+                                    ),
+                                  // Paid = green (bottom)
+                                  Container(
+                                    height: math.max(paidHeight, 2.0),
+                                    width: double.infinity,
+                                    color: isCurrent
+                                        ? const Color(0xFF22C55E)
+                                        : const Color(0x4422C55E),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+
+                          // ── Month label ────────────────
+                          SizedBox(
+                            height: labelHeight,
+                            child: Text(
+                              label,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: isCurrent
+                                    ? const Color(0xFF00C9A7)
+                                    : Colors.white,
+                                fontSize: 11,
+                                fontWeight: isCurrent
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _legendDot(Color color) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  BOTTOM SHEET — ALL FACILITIES
+  // ─────────────────────────────────────────────────────────────
+
   void _showAllFacilities(BuildContext context, List<String> facilities) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF0F2027),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (_) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
@@ -1818,10 +1727,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
             const Text(
               'All Facilities',
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -1831,9 +1739,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                   .map(
                     (String facility) => Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(6),
                         color: const Color(0x0AFFFFFF),
@@ -1855,6 +1761,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       ),
     );
   }
+
+  // ─────────────────────────────────────────────────────────────
+  //  CARD / TILE WIDGETS
+  // ─────────────────────────────────────────────────────────────
 
   Widget _addAcademyCard() {
     return Container(
@@ -1885,13 +1795,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 backgroundColor: const Color(0xFF00C9A7),
                 foregroundColor: const Color(0xFF06271F),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                    borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text(
-                'Add Academy',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              child: const Text('Add Academy',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -1899,21 +1806,23 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     );
   }
 
-  Widget _academyCard(Map<String, dynamic> academy, {bool selected = false}) {
-    final String academyId = _academyId(academy);
-    final String name = _academyName(academy);
-    final String location =
+  Widget _academyCard(Map<String, dynamic> academy,
+      {bool selected = false}) {
+    final String academyId   = _academyId(academy);
+    final String name        = _academyName(academy);
+    final String location    =
         academy['city']?.toString().trim().isNotEmpty == true
-        ? academy['city'].toString().trim()
-        : 'Location not set';
-    final String rating = academy['rating']?.toString() ?? '4.6';
+            ? academy['city'].toString().trim()
+            : 'Location not set';
+    final String rating      = academy['rating']?.toString() ?? '4.6';
     final List<String> imageValues = _academyImageValues(academy);
-    final String? imageUrl = _academyImageUrl(academy);
+    final String? imageUrl   = _academyImageUrl(academy);
     final List<String> facilities = _academyFacilities(academy);
-    final int monthlyFee = _academyMonthlyFee(academy);
+    final int monthlyFee     = _academyMonthlyFee(academy);
 
     return GestureDetector(
-      onTap: academyId.isEmpty ? null : () => _onAcademyFilterTap(academyId),
+      onTap:
+          academyId.isEmpty ? null : () => _onAcademyFilterTap(academyId),
       child: Container(
         width: 263,
         decoration: BoxDecoration(
@@ -1930,7 +1839,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               child: Container(
                 height: 140,
                 width: double.infinity,
@@ -1950,11 +1860,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             ? Container(
                                 color: const Color(0xFF1B2F38),
                                 alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.school_outlined,
-                                  color: Color(0xFF9FB9B3),
-                                  size: 30,
-                                ),
+                                child: const Icon(Icons.school_outlined,
+                                    color: Color(0xFF9FB9B3), size: 30),
                               )
                             : _academyImageWidget(imageUrl),
                       ),
@@ -1963,20 +1870,15 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       top: 10,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           color: const Color(0xCC0B0E0C),
                         ),
                         child: Row(
                           children: <Widget>[
-                            const Icon(
-                              Icons.star_border,
-                              color: Color(0xFFEAB308),
-                              size: 14,
-                            ),
+                            const Icon(Icons.star_border,
+                                color: Color(0xFFEAB308), size: 14),
                             const SizedBox(width: 4),
                             Text(
                               rating,
@@ -2012,11 +1914,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: <Widget>[
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 16,
-                        color: Color(0x99FFFFFF),
-                      ),
+                      const Icon(Icons.location_on_outlined,
+                          size: 16, color: Color(0x99FFFFFF)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -2038,33 +1937,30 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                     runSpacing: 4,
                     children: <Widget>[
                       ...facilities.take(3).map(
-                        (String facility) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
-                            color: const Color(0x0AFFFFFF),
-                          ),
-                          child: Text(
-                            _facilityLabel(facility),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            (String facility) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(6),
+                                color: const Color(0x0AFFFFFF),
+                              ),
+                              child: Text(
+                                _facilityLabel(facility),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
                       if (facilities.length > 3)
                         GestureDetector(
-                          onTap: () => _showAllFacilities(context, facilities),
+                          onTap: () =>
+                              _showAllFacilities(context, facilities),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               color: const Color(0x0AFFFFFF),
@@ -2080,21 +1976,22 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           ),
                         ),
                       GestureDetector(
-                        onTap: () => _addFacilityToAcademy(academyId, facilities),
+                        onTap: () =>
+                            _addFacilityToAcademy(academyId, facilities),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0x3300C9A7)),
+                            border: Border.all(
+                                color: const Color(0x3300C9A7)),
                             color: const Color(0x0A00C9A7),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
-                              Icon(Icons.add, size: 12, color: Color(0xFF00C9A7)),
+                              Icon(Icons.add,
+                                  size: 12, color: Color(0xFF00C9A7)),
                               SizedBox(width: 4),
                               Text(
                                 'Add',
@@ -2113,11 +2010,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                   const SizedBox(height: 16),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.only(),
                     decoration: const BoxDecoration(
                       border: Border(
-                        top: BorderSide(color: Color(0x14000000)),
-                      ),
+                          top: BorderSide(color: Color(0x14000000))),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2147,30 +2042,23 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         SizedBox(
                           height: 38,
                           child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.of(context)
-                                  .push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          const AcademyBatchTimingsScreen(),
-                                    ),
-                                  )
-                                  .then((_) => _load());
-                            },
+                            onPressed: () => Navigator.of(context)
+                                .push(MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        const AcademyBatchTimingsScreen()))
+                                .then((_) => _load()),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF2563EB),
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                                  borderRadius:
+                                      BorderRadius.circular(12)),
                             ),
                             child: const Text(
                               'View Batches',
                               style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
+                                  fontSize: 13, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
@@ -2186,13 +2074,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     );
   }
 
-  BoxDecoration _overlayCardDecoration() {
-    return BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0x1FFFFFFF)),
-      color: const Color(0x0AFFFFFF),
-    );
-  }
+  BoxDecoration _overlayCardDecoration() => BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0x1FFFFFFF)),
+        color: const Color(0x0AFFFFFF),
+      );
 
   Widget _actionTile({
     required IconData icon,
@@ -2238,10 +2124,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         Text(
           text,
           style: const TextStyle(
-            color: Color(0xFF9FB9B3),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+              color: Color(0xFF9FB9B3),
+              fontSize: 14,
+              fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -2257,14 +2142,17 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           foregroundColor: const Color(0xFFDFF7F0),
           elevation: 0,
         ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
+        child: Text(label,
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w600)),
       ),
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  ACADEMY IMAGE CAROUSEL
+// ═══════════════════════════════════════════════════════════════
 
 class _AcademyImageCarousel extends StatefulWidget {
   const _AcademyImageCarousel({
@@ -2276,14 +2164,14 @@ class _AcademyImageCarousel extends StatefulWidget {
   final Widget Function(String imageValue) imageBuilder;
 
   @override
-  State<_AcademyImageCarousel> createState() => _AcademyImageCarouselState();
+  State<_AcademyImageCarousel> createState() =>
+      _AcademyImageCarouselState();
 }
 
 class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
   late final PageController _pageController;
   Timer? _autoSlideTimer;
   int _currentIndex = 0;
-
 
   @override
   void initState() {
@@ -2295,8 +2183,7 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    for (final image in widget.imageValues) {
+    for (final String image in widget.imageValues) {
       precacheImage(NetworkImage(image), context);
     }
   }
@@ -2304,13 +2191,11 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
   @override
   void didUpdateWidget(covariant _AcademyImageCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.imageValues != widget.imageValues) {
-      for (final image in widget.imageValues) {
+      for (final String image in widget.imageValues) {
         precacheImage(NetworkImage(image), context);
       }
     }
-
     if (oldWidget.imageValues.length != widget.imageValues.length) {
       _currentIndex = 0;
       _pageController.jumpToPage(0);
@@ -2327,15 +2212,12 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
 
   void _startAutoSlideIfNeeded() {
     _autoSlideTimer?.cancel();
-    if (widget.imageValues.length <= 1) {
-      return;
-    }
-
-    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (!mounted || !_pageController.hasClients) {
-        return;
-      }
-      final int nextIndex = (_currentIndex + 1) % widget.imageValues.length;
+    if (widget.imageValues.length <= 1) return;
+    _autoSlideTimer =
+        Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final int nextIndex =
+          (_currentIndex + 1) % widget.imageValues.length;
       _pageController.animateToPage(
         nextIndex,
         duration: const Duration(milliseconds: 500),
@@ -2352,9 +2234,7 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
   @override
   Widget build(BuildContext context) {
     final List<String> images = widget.imageValues;
-    if (images.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (images.isEmpty) return const SizedBox.shrink();
 
     return Stack(
       children: <Widget>[
@@ -2362,12 +2242,11 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
           controller: _pageController,
           itemCount: images.length,
           onPageChanged: (int index) {
-            setState(() {
-              _currentIndex = index;
-            });
+            setState(() => _currentIndex = index);
             _restartAutoSlide();
           },
-          itemBuilder: (_, int index) => widget.imageBuilder(images[index]),
+          itemBuilder: (_, int index) =>
+              widget.imageBuilder(images[index]),
         ),
         if (images.length > 1)
           Positioned(
@@ -2395,64 +2274,5 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
           ),
       ],
     );
-  }
-}
-
-class _WeeklyTrendPainter extends CustomPainter {
-  _WeeklyTrendPainter({
-    required this.values,
-    required this.maxValue,
-    required this.lineColor,
-  });
-
-  final List<int> values;
-  final int maxValue;
-  final Color lineColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.isEmpty || maxValue <= 0) {
-      return;
-    }
-
-    final Paint linePaint = Paint()
-      ..color = lineColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-
-    final Paint pointPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    final Path path = Path();
-    final double stepX = values.length == 1
-        ? 0
-        : size.width / (values.length - 1);
-    for (int index = 0; index < values.length; index++) {
-      final double x = stepX * index;
-      final double ratio = values[index] / maxValue;
-      final double y = size.height - (ratio * (size.height - 6)) - 3;
-      if (index == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-
-    canvas.drawPath(path, linePaint);
-
-    for (int index = 0; index < values.length; index++) {
-      final double x = stepX * index;
-      final double ratio = values[index] / maxValue;
-      final double y = size.height - (ratio * (size.height - 6)) - 3;
-      canvas.drawCircle(Offset(x, y), 2.2, pointPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WeeklyTrendPainter oldDelegate) {
-    return oldDelegate.values != values ||
-        oldDelegate.maxValue != maxValue ||
-        oldDelegate.lineColor != lineColor;
   }
 }

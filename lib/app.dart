@@ -100,7 +100,7 @@ class _GroundWaleAppState extends State<GroundWaleApp> {
   Widget build(BuildContext context) {
     if (!_sessionBootstrapped) {
       return MaterialApp(
-        title: 'Cric Info',
+        title: 'Sports Neo',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         home: const Scaffold(
@@ -116,7 +116,7 @@ class _GroundWaleAppState extends State<GroundWaleApp> {
     }
 
     return MaterialApp(
-      title: 'Cric Info',
+      title: 'Sports Neo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: AnimatedBuilder(

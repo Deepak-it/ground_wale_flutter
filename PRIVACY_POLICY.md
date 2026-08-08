@@ -2,11 +2,11 @@
 
 Effective date: 14 July 2026
 
-Cric Info ("we", "our", "us") values your privacy. This Privacy Policy explains what data we collect, how we use it, share it, retain it, and your legal rights when using the Cric Info mobile application and related services.
+Sports Neo ("we", "our", "us") values your privacy. This Privacy Policy explains what data we collect, how we use it, share it, retain it, and your legal rights when using the Sports Neo mobile application and related services.
 
 ## 1. Data Controller and Contact
 
-- Controller: Cric Info
+- Controller: Sports Neo
 - Controller contact email: support@groundwale.com
 - Data Protection Officer (DPO) contact email: dpo@groundwale.com
 - Registered address: [Add your registered business address]
@@ -118,7 +118,7 @@ Virginia users may access, correct, delete, and obtain data portability, and may
 
 ## 10. Children
 
-Cric Info is not intended for children under 13 without verified parent or guardian and organizational supervision where applicable. If we learn we collected data unlawfully from a child, we will take steps to delete it.
+Sports Neo is not intended for children under 13 without verified parent or guardian and organizational supervision where applicable. If we learn we collected data unlawfully from a child, we will take steps to delete it.
 
 ## 11. International Transfers
 
