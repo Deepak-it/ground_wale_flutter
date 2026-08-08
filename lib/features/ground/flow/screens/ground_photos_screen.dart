@@ -36,11 +36,11 @@ class _GroundPhotosScreenState extends State<GroundPhotosScreen> {
         await widget.controller.submitGroundForVerification();
       } catch (error) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-              error.toString().replaceFirst('Exception: ', ''),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.toString().replaceFirst('Exception: ', '')),
             ),
-          ));
+          );
         }
         return;
       } finally {
@@ -60,64 +60,147 @@ class _GroundPhotosScreenState extends State<GroundPhotosScreen> {
 
   Future<void> _pickImages() async {
     if (_isPicking) return;
+
+    final String? choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1D1D1D),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  color: const Color(0x33FFFFFF),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _GroundPhotoSourceTile(
+                icon: Icons.camera_alt_outlined,
+                label: 'Take Photo (Camera)',
+                onTap: () => Navigator.pop(ctx, 'camera'),
+              ),
+              _GroundPhotoSourceTile(
+                icon: Icons.image_outlined,
+                label: 'Choose Image from Gallery',
+                onTap: () => Navigator.pop(ctx, 'gallery'),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (choice == null || !mounted) return;
+
     setState(() => _isPicking = true);
 
     try {
-      final bool isDesktop = !kIsWeb &&
+      bool addedAny = false;
+      final bool isDesktop =
+          !kIsWeb &&
           (defaultTargetPlatform == TargetPlatform.windows ||
               defaultTargetPlatform == TargetPlatform.linux ||
               defaultTargetPlatform == TargetPlatform.macOS);
 
-      if (isDesktop) {
-        // Desktop: pick multiple via file_picker
-        final FilePickerResult? result = await FilePicker.platform.pickFiles(
-          type: FileType.image,
-          allowMultiple: true,
-          withData: true,
+      if (choice == 'camera') {
+        if (isDesktop) {
+          throw Exception('Camera is not available on desktop. Use Gallery.');
+        }
+        final XFile? file = await _picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 80,
+          maxWidth: 1600,
         );
-        if (result == null || result.files.isEmpty) return;
-        for (final PlatformFile file in result.files) {
-          List<int> bytes = file.bytes ?? <int>[];
-          if (bytes.isEmpty && file.path != null) {
-            bytes = await XFile(file.path!).readAsBytes();
-          }
-          if (bytes.isEmpty) continue;
-          if (bytes.length > 3 * 1024 * 1024) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('${file.name} is too large (max 3 MB). Skipped.'),
-              ));
+        if (file != null) {
+          final List<int> bytes = await file.readAsBytes();
+          if (bytes.isNotEmpty) {
+            if (bytes.length <= 3 * 1024 * 1024) {
+              final String mime = file.mimeType ?? _mimeFromName(file.name);
+              final String dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
+              widget.controller.data.groundImages.add(dataUri);
+              addedAny = true;
+            } else if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Captured image is too large (max 3 MB).'),
+                ),
+              );
             }
-            continue;
           }
-          final String mime = _mimeFromName(file.name);
-          final String dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
-          widget.controller.data.groundImages.add(dataUri);
         }
       } else {
-        // Mobile / web: pick multiple via image_picker
-        final List<XFile> files = await _picker.pickMultiImage(
-          imageQuality: 75,
-          maxWidth: 1024,
-        );
-        for (final XFile file in files) {
-          final List<int> bytes = await file.readAsBytes();
-          if (bytes.isEmpty) continue;
-          if (bytes.length > 3 * 1024 * 1024) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('${file.name} is too large (max 3 MB). Skipped.'),
-              ));
+        if (isDesktop) {
+          // Desktop: pick multiple via file_picker
+          final FilePickerResult? result = await FilePicker.platform.pickFiles(
+            type: FileType.image,
+            allowMultiple: true,
+            withData: true,
+          );
+          if (result == null || result.files.isEmpty) return;
+          for (final PlatformFile file in result.files) {
+            List<int> bytes = file.bytes ?? <int>[];
+            if (bytes.isEmpty && file.path != null) {
+              bytes = await XFile(file.path!).readAsBytes();
             }
-            continue;
+            if (bytes.isEmpty) continue;
+            if (bytes.length > 3 * 1024 * 1024) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${file.name} is too large (max 3 MB). Skipped.',
+                    ),
+                  ),
+                );
+              }
+              continue;
+            }
+            final String mime = _mimeFromName(file.name);
+            final String dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
+            widget.controller.data.groundImages.add(dataUri);
+            addedAny = true;
           }
-          final String mime = file.mimeType ?? _mimeFromName(file.name);
-          final String dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
-          widget.controller.data.groundImages.add(dataUri);
+        } else {
+          // Mobile / web: pick multiple via image_picker gallery.
+          final List<XFile> files = await _picker.pickMultiImage(
+            imageQuality: 75,
+            maxWidth: 1024,
+          );
+          for (final XFile file in files) {
+            final List<int> bytes = await file.readAsBytes();
+            if (bytes.isEmpty) continue;
+            if (bytes.length > 3 * 1024 * 1024) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${file.name} is too large (max 3 MB). Skipped.',
+                    ),
+                  ),
+                );
+              }
+              continue;
+            }
+            final String mime = file.mimeType ?? _mimeFromName(file.name);
+            final String dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
+            widget.controller.data.groundImages.add(dataUri);
+            addedAny = true;
+          }
         }
       }
 
-      widget.controller.update();
+      if (addedAny) {
+        widget.controller.update();
+      }
     } on PlatformException catch (e) {
       // MissingPluginException extends PlatformException; catches unregistered
       // plugin channels (e.g. before flutter clean + restart).
@@ -126,16 +209,20 @@ class _GroundPhotosScreenState extends State<GroundPhotosScreen> {
           (e.code == 'channel-error') ||
           e.message?.contains('No implementation found') == true;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(isMissingPlugin
-            ? 'Image picker not ready. Stop the app, run flutter clean && flutter pub get, then restart.'
-            : e.message ?? e.toString()),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isMissingPlugin
+                ? 'Image picker not ready. Stop the app, run flutter clean && flutter pub get, then restart.'
+                : e.message ?? e.toString(),
+          ),
+        ),
+      );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
       }
     } finally {
       if (mounted) setState(() => _isPicking = false);
@@ -156,7 +243,8 @@ class _GroundPhotosScreenState extends State<GroundPhotosScreen> {
       String normalized = raw.trim().replaceAll(RegExp(r'\s+'), '');
       normalized = normalized.replaceAll('-', '+').replaceAll('_', '/');
       final int rem = normalized.length % 4;
-      if (rem != 0) normalized = normalized.padRight(normalized.length + (4 - rem), '=');
+      if (rem != 0)
+        normalized = normalized.padRight(normalized.length + (4 - rem), '=');
       return Image.memory(
         base64Decode(normalized),
         fit: BoxFit.cover,
@@ -266,7 +354,9 @@ class _GroundPhotosScreenState extends State<GroundPhotosScreen> {
                           left: 4,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               color: const Color(0xFFDDF730),
@@ -309,10 +399,7 @@ class _GroundPhotosScreenState extends State<GroundPhotosScreen> {
           else
             const Spacer(),
           const SizedBox(height: 12),
-          NeonButton(
-            label: 'Next',
-            onPressed: _isSubmitting ? () {} : _onNext,
-          ),
+          NeonButton(label: 'Next', onPressed: _isSubmitting ? () {} : _onNext),
           if (_isSubmitting)
             const Padding(
               padding: EdgeInsets.only(top: 8),
@@ -329,6 +416,27 @@ class _GroundPhotosScreenState extends State<GroundPhotosScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GroundPhotoSourceTile extends StatelessWidget {
+  const _GroundPhotoSourceTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: const Color(0xFFDDF730)),
+      title: Text(label, style: const TextStyle(color: Colors.white)),
+      onTap: onTap,
     );
   }
 }

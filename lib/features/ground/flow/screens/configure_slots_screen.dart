@@ -93,7 +93,10 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
     return <String, dynamic>{};
   }
 
-  int _deriveBasePrice(Map<String, dynamic> draft, Map<String, dynamic> dayPrices) {
+  int _deriveBasePrice(
+    Map<String, dynamic> draft,
+    Map<String, dynamic> dayPrices,
+  ) {
     final dynamic rawPrice = draft['price'];
     final int parsedPrice = rawPrice is int
         ? rawPrice
@@ -112,9 +115,64 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
     return 0;
   }
 
+  int _readPrice(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is double) {
+      return value.round();
+    }
+    return int.tryParse(value?.toString().trim() ?? '') ?? 0;
+  }
+
+  String? _pricingValidationMessage() {
+    const List<String> weekdayKeys = <String>[
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+    ];
+    const List<String> weekendKeys = <String>['Sat', 'Sun'];
+
+    for (final Map<String, dynamic> draft in widget.data.customSlotDrafts) {
+      final Map<String, dynamic> dayPrices = _extractDayPrices(draft);
+      bool hasWeekdayPrice = false;
+      bool hasWeekendPrice = false;
+
+      for (final String key in weekdayKeys) {
+        if (_readPrice(dayPrices[key]) > 0) {
+          hasWeekdayPrice = true;
+          break;
+        }
+      }
+      for (final String key in weekendKeys) {
+        if (_readPrice(dayPrices[key]) > 0) {
+          hasWeekendPrice = true;
+          break;
+        }
+      }
+
+      if (!hasWeekdayPrice || !hasWeekendPrice) {
+        return 'Please save both weekday and weekend pricing before generating slots.';
+      }
+    }
+
+    return null;
+  }
+
   Future<void> _generate() async {
     final GroundFlowController? ctrl = widget.controller;
     if (ctrl == null) return;
+    final String? pricingError = _pricingValidationMessage();
+    if (pricingError != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(pricingError)));
+      }
+      return;
+    }
     setState(() => _isGenerating = true);
     try {
       final String? groundId = await ctrl.ensureDraftGroundId();
@@ -339,8 +397,8 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
                                       ],
                                     ),
                                   ),
-                                  GestureDetector(
-                                    onTap: () {
+                                  TextButton(
+                                    onPressed: () {
                                       if (widget.controller != null) {
                                         widget
                                                 .controller!
@@ -360,10 +418,22 @@ class _ConfigureSlotsScreenState extends State<ConfigureSlotsScreen> {
                                         widget.controller!.jumpToStep(10);
                                       }
                                     },
-                                    child: const Icon(
-                                      Icons.tune_rounded,
-                                      color: Color(0xFFDDF730),
-                                      size: 20,
+                                    style: TextButton.styleFrom(
+                                      minimumSize: Size.zero,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 4,
+                                      ),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      'Set Pricing',
+                                      style: TextStyle(
+                                        color: Color(0xFFDDF730),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),

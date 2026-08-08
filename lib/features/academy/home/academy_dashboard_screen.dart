@@ -79,9 +79,18 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
   String _shortMonthLabel(DateTime date) {
     const List<String> months = <String>[
-      'Jan', 'Feb', 'Mar', 'Apr',
-      'May', 'Jun', 'Jul', 'Aug',
-      'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months[date.month - 1];
   }
@@ -98,9 +107,54 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     return name.isEmpty ? 'Academy' : name;
   }
 
+  String _academySport(Map<String, dynamic> academy) {
+    final dynamic selectedSports = academy['selectedSports'];
+    if (selectedSports is List) {
+      for (final dynamic item in selectedSports) {
+        final String value = item?.toString().trim() ?? '';
+        if (value.isNotEmpty) {
+          return value;
+        }
+      }
+    }
+
+    final dynamic sports = academy['sports'];
+    if (sports is List) {
+      for (final dynamic item in sports) {
+        final String value = item?.toString().trim() ?? '';
+        if (value.isNotEmpty) {
+          return value;
+        }
+      }
+    }
+    if (sports is String && sports.trim().isNotEmpty) {
+      return sports.trim();
+    }
+
+    final String directSport =
+        academy['sport']?.toString().trim() ??
+        academy['sportName']?.toString().trim() ??
+        academy['game']?.toString().trim() ??
+        '';
+    return directSport;
+  }
+
+  String _academyNameWithSport(Map<String, dynamic> academy) {
+    final String name = _academyName(academy);
+    final String sport = _academySport(academy);
+    if (sport.isEmpty) {
+      return name;
+    }
+    return '$name ($sport)';
+  }
+
   String? _academyImageUrl(Map<String, dynamic> academy) {
     for (final String key in <String>[
-      'imageUrl', 'coverImage', 'bannerImage', 'photoUrl', 'image',
+      'imageUrl',
+      'coverImage',
+      'bannerImage',
+      'photoUrl',
+      'image',
     ]) {
       final String value = academy[key]?.toString().trim() ?? '';
       if (value.isNotEmpty) return value;
@@ -137,9 +191,18 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
   String _monthLabel(DateTime date) {
     const List<String> months = <String>[
-      'January', 'February', 'March', 'April',
-      'May', 'June', 'July', 'August',
-      'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return '${months[date.month - 1]} ${date.year}';
   }
@@ -147,8 +210,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   List<String> _academyFacilities(Map<String, dynamic> academy) {
     final List<dynamic> raw =
         (academy['facilities'] as List<dynamic>?) ??
-        (academy['amenities']  as List<dynamic>?) ??
-        (academy['features']   as List<dynamic>?) ??
+        (academy['amenities'] as List<dynamic>?) ??
+        (academy['features'] as List<dynamic>?) ??
         <dynamic>[];
 
     final List<String> values = raw
@@ -158,16 +221,23 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
     return values.isNotEmpty
         ? values
-        : <String>['Parking', 'Washroom', 'Water', 'Lighting', 'Ball Machine', 'Hard Court'];
+        : <String>[
+            'Parking',
+            'Washroom',
+            'Water',
+            'Lighting',
+            'Ball Machine',
+            'Hard Court',
+          ];
   }
 
   String _facilityLabel(String value) {
     final String key = value.trim().toLowerCase();
-    if (key.contains('park'))  return '🅿️ Parking';
-    if (key.contains('wash'))  return '🚻 Washroom';
+    if (key.contains('park')) return '🅿️ Parking';
+    if (key.contains('wash')) return '🚻 Washroom';
     if (key.contains('water')) return '💧 Water';
     if (key.contains('light')) return '💡 Lighting';
-    if (key.contains('ball'))  return '🎾 Ball Machine';
+    if (key.contains('ball')) return '🎾 Ball Machine';
     if (key.contains('court')) return '🎾 Hard Court';
     return value;
   }
@@ -184,13 +254,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           if (dur == 'monthly') {
             return int.tryParse(
                   plan['price']?.toString().replaceAll(',', '') ?? '',
-                ) ?? 0;
+                ) ??
+                0;
           }
         }
       }
     }
     final dynamic direct = academy['monthlyFee'] ?? academy['monthlyFees'];
-    if (direct is int)    return direct;
+    if (direct is int) return direct;
     if (direct is double) return direct.round();
     if (direct is String) return int.tryParse(direct) ?? 0;
     return 0;
@@ -202,10 +273,15 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     if (batchRaw is Map) {
       final List<dynamic> plans =
           batchRaw['feePlans'] as List<dynamic>? ?? <dynamic>[];
-      return plans.whereType<Map>().map((Map p) => <String, String>{
-        'duration': p['duration']?.toString() ?? 'Monthly',
-        'price': p['price']?.toString() ?? '0',
-      }).toList();
+      return plans
+          .whereType<Map>()
+          .map(
+            (Map p) => <String, String>{
+              'duration': p['duration']?.toString() ?? 'Monthly',
+              'price': p['price']?.toString() ?? '0',
+            },
+          )
+          .toList();
     }
     return <Map<String, String>>[];
   }
@@ -219,7 +295,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       return Container(
         color: const Color(0xFF1B2F38),
         alignment: Alignment.center,
-        child: const Icon(Icons.school_outlined, color: Color(0xFF9FB9B3), size: 30),
+        child: const Icon(
+          Icons.school_outlined,
+          color: Color(0xFF9FB9B3),
+          size: 30,
+        ),
       );
     }
 
@@ -229,8 +309,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       final int commaIndex = source.indexOf(',');
       if (commaIndex > -1 && commaIndex < source.length - 1) {
         try {
-          final String encoded = _normalizeBase64(source.substring(commaIndex + 1));
-          return Image.memory(_decodedImage(encoded), fit: BoxFit.cover, gaplessPlayback: true);
+          final String encoded = _normalizeBase64(
+            source.substring(commaIndex + 1),
+          );
+          return Image.memory(
+            _decodedImage(encoded),
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          );
         } catch (_) {
           return _academyImageFallback();
         }
@@ -249,7 +335,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
 
     try {
       final String encoded = _normalizeBase64(source);
-      return Image.memory(_decodedImage(encoded), fit: BoxFit.cover, gaplessPlayback: true);
+      return Image.memory(
+        _decodedImage(encoded),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+      );
     } catch (_) {
       return _academyImageFallback();
     }
@@ -261,7 +351,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     normalized = normalized.replaceAll('-', '+').replaceAll('_', '/');
     final int remainder = normalized.length % 4;
     if (remainder != 0) {
-      normalized = normalized.padRight(normalized.length + (4 - remainder), '=');
+      normalized = normalized.padRight(
+        normalized.length + (4 - remainder),
+        '=',
+      );
     }
     return normalized;
   }
@@ -270,7 +363,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     return Container(
       color: const Color(0xFF1B2F38),
       alignment: Alignment.center,
-      child: const Icon(Icons.broken_image_outlined, color: Color(0xFF9FB9B3), size: 28),
+      child: const Icon(
+        Icons.broken_image_outlined,
+        color: Color(0xFF9FB9B3),
+        size: 28,
+      ),
     );
   }
 
@@ -296,38 +393,41 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     }
 
     try {
-      final List<Map<String, dynamic>> academies =
-          await GroundWaleApi.instance.listAcademies(ownerId);
+      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
+          .listAcademies(ownerId);
 
       final String? preferredAcademyId =
           ApiSession.instance.selectedAcademyId?.trim().isNotEmpty == true
-              ? ApiSession.instance.selectedAcademyId
-              : null;
+          ? ApiSession.instance.selectedAcademyId
+          : null;
 
       String? selectedAcademyId;
       if (preferredAcademyId != null &&
-          academies.any((Map<String, dynamic> item) =>
-              _academyId(item) == preferredAcademyId)) {
+          academies.any(
+            (Map<String, dynamic> item) =>
+                _academyId(item) == preferredAcademyId,
+          )) {
         selectedAcademyId = preferredAcademyId;
       } else if (academies.isNotEmpty) {
         selectedAcademyId = _academyId(academies.first);
       }
 
-      final List<Map<String, dynamic>> batches =
-          await GroundWaleApi.instance
-              .listAcademyBatches(ownerId, academyId: selectedAcademyId);
+      final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
+          .listAcademyBatches(ownerId, academyId: selectedAcademyId);
 
       final String selectedFilter = _normalizeSelectedFilter(batches);
-      final String? selectedBatchId =
-          _batchIdByFilterLabel(selectedFilter, batches);
-
-      final Map<String, dynamic> dashboard =
-          await GroundWaleApi.instance.getAcademyDashboard(
-        ownerId,
-        batchId: selectedBatchId,
-        academyId: selectedAcademyId,
-        monthKey: _monthKey(_selectedMonth),
+      final String? selectedBatchId = _batchIdByFilterLabel(
+        selectedFilter,
+        batches,
       );
+
+      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
+          .getAcademyDashboard(
+            ownerId,
+            batchId: selectedBatchId,
+            academyId: selectedAcademyId,
+            monthKey: _monthKey(_selectedMonth),
+          );
 
       if (!mounted) return;
 
@@ -341,16 +441,21 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       });
 
       final Map<String, dynamic>? selectedAcademy = academies
-          .where((Map<String, dynamic> item) =>
-              _academyId(item) == _selectedAcademyId)
+          .where(
+            (Map<String, dynamic> item) =>
+                _academyId(item) == _selectedAcademyId,
+          )
           .cast<Map<String, dynamic>?>()
-          .firstWhere((_) => true,
-              orElse: () => academies.isEmpty ? null : academies.first);
+          .firstWhere(
+            (_) => true,
+            orElse: () => academies.isEmpty ? null : academies.first,
+          );
 
       ApiSession.instance.setSelectedAcademy(
         academyId: _selectedAcademyId,
-        academyName:
-            selectedAcademy == null ? null : _academyName(selectedAcademy),
+        academyName: selectedAcademy == null
+            ? null
+            : _academyName(selectedAcademy),
       );
     } catch (error) {
       if (mounted) {
@@ -398,10 +503,22 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     if (ownerId == null || ownerId.isEmpty) return;
 
     const List<String> suggestions = <String>[
-      'Parking', 'Cafeteria / Food', 'First Aid', 'Rest Room',
-      'Changing Room', 'Dugout', 'Lighting', 'Wi-Fi',
-      'Locker Room', 'CCTV', 'Water', 'Shower', 'Washroom',
-      'Seating Area', 'AC Hall', 'Equipment Room',
+      'Parking',
+      'Cafeteria / Food',
+      'First Aid',
+      'Rest Room',
+      'Changing Room',
+      'Dugout',
+      'Lighting',
+      'Wi-Fi',
+      'Locker Room',
+      'CCTV',
+      'Water',
+      'Shower',
+      'Washroom',
+      'Seating Area',
+      'AC Hall',
+      'Equipment Room',
     ];
 
     final Set<String> selected = Set<String>.from(existingFacilities);
@@ -421,8 +538,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 return Container(
                   decoration: const BoxDecoration(
                     color: Color(0xFF0F2027),
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Column(
@@ -466,7 +584,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   child: Container(
                                     height: 42,
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 14),
+                                      horizontal: 14,
+                                    ),
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(10),
@@ -533,8 +652,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   String _normalizeSelectedFilter(List<Map<String, dynamic>> batches) {
     if (_selectedBatchFilter == 'All') return 'All';
     final String selectedKey = _selectedBatchFilter.trim().toLowerCase();
-    final bool exists = batches.any((Map<String, dynamic> batch) =>
-        (batch['name']?.toString() ?? '').trim().toLowerCase() == selectedKey);
+    final bool exists = batches.any(
+      (Map<String, dynamic> batch) =>
+          (batch['name']?.toString() ?? '').trim().toLowerCase() == selectedKey,
+    );
     return exists ? _selectedBatchFilter : 'All';
   }
 
@@ -565,13 +686,13 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     });
 
     try {
-      final Map<String, dynamic> dashboard =
-          await GroundWaleApi.instance.getAcademyDashboard(
-        ownerId,
-        batchId: batchId,
-        academyId: _selectedAcademyId,
-        monthKey: _monthKey(_selectedMonth),
-      );
+      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
+          .getAcademyDashboard(
+            ownerId,
+            batchId: batchId,
+            academyId: _selectedAcademyId,
+            monthKey: _monthKey(_selectedMonth),
+          );
       if (!mounted) return;
       setState(() {
         _dashboard = dashboard;
@@ -600,19 +721,20 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     });
 
     try {
-      final List<Map<String, dynamic>> batches =
-          await GroundWaleApi.instance
-              .listAcademyBatches(ownerId, academyId: academyId);
+      final List<Map<String, dynamic>> batches = await GroundWaleApi.instance
+          .listAcademyBatches(ownerId, academyId: academyId);
       final String selectedFilter = _normalizeSelectedFilter(batches);
-      final String? selectedBatchId =
-          _batchIdByFilterLabel(selectedFilter, batches);
-      final Map<String, dynamic> dashboard =
-          await GroundWaleApi.instance.getAcademyDashboard(
-        ownerId,
-        batchId: selectedBatchId,
-        academyId: academyId,
-        monthKey: _monthKey(_selectedMonth),
+      final String? selectedBatchId = _batchIdByFilterLabel(
+        selectedFilter,
+        batches,
       );
+      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
+          .getAcademyDashboard(
+            ownerId,
+            batchId: selectedBatchId,
+            academyId: academyId,
+            monthKey: _monthKey(_selectedMonth),
+          );
 
       if (!mounted) return;
 
@@ -646,10 +768,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty || _isLoading) return;
 
-    final DateTime next =
-        DateTime(_selectedMonth.year, _selectedMonth.month + delta);
-    final String? selectedBatchId =
-        _batchIdByFilterLabel(_selectedBatchFilter, _batches);
+    final DateTime next = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + delta,
+    );
+    final String? selectedBatchId = _batchIdByFilterLabel(
+      _selectedBatchFilter,
+      _batches,
+    );
 
     setState(() {
       _selectedMonth = next;
@@ -657,13 +783,13 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     });
 
     try {
-      final Map<String, dynamic> dashboard =
-          await GroundWaleApi.instance.getAcademyDashboard(
-        ownerId,
-        batchId: selectedBatchId,
-        academyId: _selectedAcademyId,
-        monthKey: _monthKey(next),
-      );
+      final Map<String, dynamic> dashboard = await GroundWaleApi.instance
+          .getAcademyDashboard(
+            ownerId,
+            batchId: selectedBatchId,
+            academyId: _selectedAcademyId,
+            monthKey: _monthKey(next),
+          );
       if (!mounted) return;
       setState(() {
         _dashboard = dashboard;
@@ -685,7 +811,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   // ─────────────────────────────────────────────────────────────
 
   int _toInt(dynamic value) {
-    if (value is int)    return value;
+    if (value is int) return value;
     if (value is double) return value.round();
     if (value is String) return int.tryParse(value) ?? 0;
     return 0;
@@ -695,8 +821,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     final List<dynamic> daysRaw =
         batch['days'] as List<dynamic>? ?? <dynamic>[];
     if (daysRaw.isEmpty) return 'Mon - Sat';
-    final List<String> days =
-        daysRaw.map((dynamic d) => d.toString()).toList();
+    final List<String> days = daysRaw.map((dynamic d) => d.toString()).toList();
     return days.length == 1 ? days.first : '${days.first} - ${days.last}';
   }
 
@@ -704,8 +829,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     if (_selectedBatchFilter == 'All') return _batches;
     final String query = _selectedBatchFilter.trim().toLowerCase();
     return _batches
-        .where((Map<String, dynamic> batch) =>
-            (batch['name']?.toString() ?? '').trim().toLowerCase() == query)
+        .where(
+          (Map<String, dynamic> batch) =>
+              (batch['name']?.toString() ?? '').trim().toLowerCase() == query,
+        )
         .toList();
   }
 
@@ -724,10 +851,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   }
 
   List<Map<String, dynamic>> _orderedAcademies(
-      List<Map<String, dynamic>> input) {
+    List<Map<String, dynamic>> input,
+  ) {
     if (_selectedAcademyId == null || _selectedAcademyId!.isEmpty) return input;
     final List<Map<String, dynamic>> selected = <Map<String, dynamic>>[];
-    final List<Map<String, dynamic>> others  = <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> others = <Map<String, dynamic>>[];
     for (final Map<String, dynamic> academy in input) {
       if (_academyId(academy) == _selectedAcademyId) {
         selected.add(academy);
@@ -754,17 +882,17 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       _dashboard['attendanceToday'] as Map? ?? <String, dynamic>{},
     );
 
-    final int totalStudents  = _toInt(students['total']);
-    final int presentToday   = _toInt(attendance['present']);
-    final int absentToday    = attendance.containsKey('absent')
+    final int totalStudents = _toInt(students['total']);
+    final int presentToday = _toInt(attendance['present']);
+    final int absentToday = attendance.containsKey('absent')
         ? _toInt(attendance['absent'])
         : (totalStudents - presentToday).clamp(0, 1000000);
 
     final int collectedAmount = _toInt(fees['collectedAmount'] ?? 0);
-    final int pendingAmount   = _toInt(fees['pendingAmount']);
-    final int paidStudents    = _toInt(fees['paidStudents']);
+    final int pendingAmount = _toInt(fees['pendingAmount']);
+    final int paidStudents = _toInt(fees['paidStudents']);
     final int pendingStudents = _toInt(fees['pendingStudents']);
-    final int monthEarnings   = _toInt(collectedAmount + pendingAmount);
+    final int monthEarnings = _toInt(collectedAmount + pendingAmount);
 
     final List<Map<String, dynamic>> quarterlyData = _buildQuarterlyData(
       collectedAmount,
@@ -773,8 +901,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       pendingStudents,
     );
 
-    final List<Map<String, dynamic>> orderedAcademies =
-        _orderedAcademies(_academies);
+    final List<Map<String, dynamic>> orderedAcademies = _orderedAcademies(
+      _academies,
+    );
     final List<Map<String, dynamic>> filteredBatches = _filteredBatches();
     final List<String> batchFilterLabels = _batchFilterLabels();
 
@@ -783,8 +912,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       body: SafeArea(
         child: _isLoading
             ? const Center(
-                child:
-                    CircularProgressIndicator(color: Color(0xFF00C9A7)),
+                child: CircularProgressIndicator(color: Color(0xFF00C9A7)),
               )
             : RefreshIndicator(
                 onRefresh: _load,
@@ -844,7 +972,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                 orderedAcademies[index];
                             return _academyCard(
                               academy,
-                              selected: _academyId(academy) == _selectedAcademyId,
+                              selected:
+                                  _academyId(academy) == _selectedAcademyId,
                             );
                           },
                         ),
@@ -876,7 +1005,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             const Text(
                               'Create an academy to see dashboard data for this tab.',
                               style: TextStyle(
-                                  color: Color(0xCCFFFFFF), fontSize: 14),
+                                color: Color(0xCCFFFFFF),
+                                fontSize: 14,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             ElevatedButton(
@@ -885,14 +1016,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                 backgroundColor: const Color(0xFF00C9A7),
                                 foregroundColor: const Color(0xFF06271F),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                               child: const Text('Add Academy'),
                             ),
                           ],
                         ),
                       )
-
                     // ── Batch filter chips ─────────────────────────
                     else
                       SizedBox(
@@ -900,15 +1031,16 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         child: ListView(
                           scrollDirection: Axis.horizontal,
                           children: batchFilterLabels.map((String label) {
-                            final bool selected =
-                                _selectedBatchFilter == label;
+                            final bool selected = _selectedBatchFilter == label;
                             return Padding(
                               padding: const EdgeInsets.only(right: 12),
                               child: GestureDetector(
                                 onTap: () => _onBatchFilterTap(label),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 12),
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
@@ -955,8 +1087,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                   color: const Color(0x0DFFFFFF),
                                 ),
-                                child: const Icon(Icons.chevron_left,
-                                    color: Colors.white),
+                                child: const Icon(
+                                  Icons.chevron_left,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -979,8 +1113,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                   color: const Color(0x0DFFFFFF),
                                 ),
-                                child: const Icon(Icons.chevron_right,
-                                    color: Colors.white),
+                                child: const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ],
@@ -1011,8 +1147,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Text('•',
-                            style: TextStyle(color: Color(0x66FFFFFF))),
+                        const Text(
+                          '•',
+                          style: TextStyle(color: Color(0x66FFFFFF)),
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           '$pendingStudents Pending',
@@ -1040,36 +1178,48 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           label: 'Add Student',
                           highlighted: true,
                           onTap: () => Navigator.of(context)
-                              .push(MaterialPageRoute<void>(
+                              .push(
+                                MaterialPageRoute<void>(
                                   builder: (_) =>
-                                      const AcademyAddStudentScreen()))
+                                      const AcademyAddStudentScreen(),
+                                ),
+                              )
                               .then((_) => _load()),
                         ),
                         _actionTile(
                           icon: Icons.group_add_rounded,
                           label: 'Add Batch',
                           onTap: () => Navigator.of(context)
-                              .push(MaterialPageRoute<void>(
+                              .push(
+                                MaterialPageRoute<void>(
                                   builder: (_) =>
-                                      const AcademyBatchTimingsScreen()))
+                                      const AcademyBatchTimingsScreen(),
+                                ),
+                              )
                               .then((_) => _load()),
                         ),
                         _actionTile(
                           icon: Icons.manage_accounts_outlined,
                           label: 'Manage Student',
                           onTap: () => Navigator.of(context)
-                              .push(MaterialPageRoute<void>(
+                              .push(
+                                MaterialPageRoute<void>(
                                   builder: (_) =>
-                                      const AcademyManageStudentsScreen()))
+                                      const AcademyManageStudentsScreen(),
+                                ),
+                              )
                               .then((_) => _load()),
                         ),
                         _actionTile(
                           icon: Icons.notifications_active_outlined,
                           label: 'Fees Reminder',
                           onTap: () => Navigator.of(context)
-                              .push(MaterialPageRoute<void>(
+                              .push(
+                                MaterialPageRoute<void>(
                                   builder: (_) =>
-                                      const AcademyFeeDetailsScreen()))
+                                      const AcademyFeeDetailsScreen(),
+                                ),
+                              )
                               .then((_) => _load()),
                         ),
                       ],
@@ -1107,12 +1257,16 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               Text(
                                 'Present Today: $presentToday',
                                 style: const TextStyle(
-                                    color: Color(0xFF9FB9B3), fontSize: 14),
+                                  color: Color(0xFF9FB9B3),
+                                  fontSize: 14,
+                                ),
                               ),
                               Text(
                                 'Absent Today: $absentToday',
                                 style: const TextStyle(
-                                    color: Color(0xFF9FB9B3), fontSize: 14),
+                                  color: Color(0xFF9FB9B3),
+                                  fontSize: 14,
+                                ),
                               ),
                             ],
                           ),
@@ -1124,14 +1278,16 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                 Expanded(
                                   flex: presentToday == 0 ? 1 : presentToday,
                                   child: Container(
-                                      height: 8,
-                                      color: const Color(0xFF22C55E)),
+                                    height: 8,
+                                    color: const Color(0xFF22C55E),
+                                  ),
                                 ),
                                 Expanded(
                                   flex: absentToday == 0 ? 1 : absentToday,
                                   child: Container(
-                                      height: 8,
-                                      color: const Color(0xFFEF4444)),
+                                    height: 8,
+                                    color: const Color(0xFFEF4444),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1175,7 +1331,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   : presentToday / totalStudents,
                               backgroundColor: const Color(0xFF12252B),
                               valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF22C55E)),
+                                Color(0xFF22C55E),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -1184,9 +1341,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             height: 40,
                             child: ElevatedButton(
                               onPressed: () => Navigator.of(context)
-                                  .push(MaterialPageRoute<void>(
+                                  .push(
+                                    MaterialPageRoute<void>(
                                       builder: (_) =>
-                                          const AcademyMarkAttendanceScreen()))
+                                          const AcademyMarkAttendanceScreen(),
+                                    ),
+                                  )
                                   .then((_) => _load()),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF00C9A7),
@@ -1196,7 +1356,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               child: const Text(
                                 'Mark Attendance',
                                 style: TextStyle(
-                                    fontWeight: FontWeight.w600, fontSize: 15),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
                               ),
                             ),
                           ),
@@ -1224,11 +1386,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                  color: const Color(0x33F97316)),
+                                color: const Color(0x33F97316),
+                              ),
                               color: const Color(0x1AF97316),
                             ),
                             child: Text(
@@ -1246,9 +1411,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             height: 40,
                             child: ElevatedButton(
                               onPressed: () => Navigator.of(context)
-                                  .push(MaterialPageRoute<void>(
+                                  .push(
+                                    MaterialPageRoute<void>(
                                       builder: (_) =>
-                                          const AcademyFeeDetailsScreen()))
+                                          const AcademyFeeDetailsScreen(),
+                                    ),
+                                  )
                                   .then((_) => _load()),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF203A43),
@@ -1258,7 +1426,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               child: const Text(
                                 'View Details',
                                 style: TextStyle(
-                                    fontSize: 15, fontWeight: FontWeight.w600),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
@@ -1281,9 +1451,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                         ),
                         GestureDetector(
                           onTap: () => Navigator.of(context)
-                              .push(MaterialPageRoute<void>(
+                              .push(
+                                MaterialPageRoute<void>(
                                   builder: (_) =>
-                                      const AcademyBatchTimingsScreen()))
+                                      const AcademyBatchTimingsScreen(),
+                                ),
+                              )
                               .then((_) => _load()),
                           child: const Text(
                             'View All',
@@ -1318,7 +1491,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           final String coach =
                               batch['coachName']?.toString() ?? 'Coach';
                           final int studentsCount = _toInt(
-                              batch['capacity'] ?? batch['studentsCount']);
+                            batch['capacity'] ?? batch['studentsCount'],
+                          );
                           final String status =
                               (batch['status']?.toString() ?? 'active')
                                   .toLowerCase();
@@ -1348,10 +1522,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        borderRadius:
-                                            BorderRadius.circular(4),
+                                        borderRadius: BorderRadius.circular(4),
                                         color: status == 'active'
                                             ? const Color(0x1A22C55E)
                                             : const Color(0x33F97316),
@@ -1372,95 +1547,123 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                _batchMeta(Icons.schedule_rounded,
-                                    '$start - $end'),
+                                _batchMeta(
+                                  Icons.schedule_rounded,
+                                  '$start - $end',
+                                ),
                                 const SizedBox(height: 10),
-                                _batchMeta(Icons.calendar_month_outlined,
-                                    _batchDays(batch)),
+                                _batchMeta(
+                                  Icons.calendar_month_outlined,
+                                  _batchDays(batch),
+                                ),
                                 const SizedBox(height: 10),
-                                _batchMeta(Icons.person_outline_rounded,
-                                    'Coach: $coach'),
+                                _batchMeta(
+                                  Icons.person_outline_rounded,
+                                  'Coach: $coach',
+                                ),
                                 const SizedBox(height: 10),
-                                _batchMeta(Icons.groups_outlined,
-                                    'Students: $studentsCount'),
+                                _batchMeta(
+                                  Icons.groups_outlined,
+                                  'Students: $studentsCount',
+                                ),
                                 const Spacer(),
                                 Row(
                                   children: <Widget>[
                                     Expanded(
-                                      child: _darkActionButton('View Batch',
-                                          () {
-                                        Navigator.of(context)
-                                            .push(MaterialPageRoute<void>(
-                                                builder: (_) =>
-                                                    AcademyViewBatchScreen(
-                                                      batchId: batch['_id']
-                                                              ?.toString() ??
-                                                          batch['id']
-                                                              ?.toString(),
-                                                      batchName: name,
-                                                      coachName: coach,
-                                                      time: '$start - $end',
-                                                      days: _batchDays(batch),
-                                                    )))
-                                            .then((_) => _load());
-                                      }),
+                                      child: _darkActionButton(
+                                        'View Batch',
+                                        () {
+                                          Navigator.of(context)
+                                              .push(
+                                                MaterialPageRoute<void>(
+                                                  builder: (_) =>
+                                                      AcademyViewBatchScreen(
+                                                        batchId:
+                                                            batch['_id']
+                                                                ?.toString() ??
+                                                            batch['id']
+                                                                ?.toString(),
+                                                        batchName: name,
+                                                        coachName: coach,
+                                                        time: '$start - $end',
+                                                        days: _batchDays(batch),
+                                                      ),
+                                                ),
+                                              )
+                                              .then((_) => _load());
+                                        },
+                                      ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: _darkActionButton('Edit', () {
                                         Navigator.of(context)
-                                            .push(MaterialPageRoute<void>(
-                                                builder: (_) =>
-                                                    AcademyEditBatchScreen(
-                                                      batchId: batch['_id']
-                                                              ?.toString() ??
-                                                          batch['id']
-                                                              ?.toString(),
-                                                      batchName: name,
-                                                      coachName: coach,
-                                                      startTime: start,
-                                                      endTime: end,
-                                                      days: (batch['days']
-                                                                      as List<
-                                                                          dynamic>? ??
-                                                                  <dynamic>[])
-                                                              .map((dynamic v) =>
-                                                                  v.toString())
-                                                              .toList(),
-                                                      capacity: _toInt(
-                                                          batch['capacity']),
-                                                      status: batch['status']
-                                                              ?.toString() ??
-                                                          'active',
-                                                      monthlyFee: (batch[
-                                                                      'monthlyFee']
-                                                                  as num?)
-                                                              ?.toDouble() ??
-                                                          0,
-                                                      feePlans: (batch['feePlans']
-                                                                      as List<
-                                                                          dynamic>? ??
-                                                                  <dynamic>[])
-                                                          .whereType<Map>()
-                                                          .map((Map p) =>
-                                                              <String, String>{
-                                                                'duration': p[
-                                                                            'duration']
-                                                                        ?.toString() ??
-                                                                    'Monthly',
-                                                                'price': p[
-                                                                            'price']
-                                                                        ?.toString() ??
-                                                                    '0',
-                                                              })
+                                            .push(
+                                              MaterialPageRoute<void>(
+                                                builder: (_) => AcademyEditBatchScreen(
+                                                  batchId:
+                                                      batch['_id']
+                                                          ?.toString() ??
+                                                      batch['id']?.toString(),
+                                                  batchName: name,
+                                                  coachName: coach,
+                                                  startTime: start,
+                                                  endTime: end,
+                                                  days:
+                                                      (batch['days']
+                                                                  as List<
+                                                                    dynamic
+                                                                  >? ??
+                                                              <dynamic>[])
+                                                          .map(
+                                                            (dynamic v) =>
+                                                                v.toString(),
+                                                          )
                                                           .toList(),
-                                                      coachExperience: _toInt(
-                                                          batch[
-                                                              'coachExperience']),
-                                                      enrolledStudents: _toInt(
-                                                          batch['studentsCount'] ??
-                                                              batch['capacity']),
-                                                    )))
+                                                  capacity: _toInt(
+                                                    batch['capacity'],
+                                                  ),
+                                                  status:
+                                                      batch['status']
+                                                          ?.toString() ??
+                                                      'active',
+                                                  monthlyFee:
+                                                      (batch['monthlyFee']
+                                                              as num?)
+                                                          ?.toDouble() ??
+                                                      0,
+                                                  feePlans:
+                                                      (batch['feePlans']
+                                                                  as List<
+                                                                    dynamic
+                                                                  >? ??
+                                                              <dynamic>[])
+                                                          .whereType<Map>()
+                                                          .map(
+                                                            (
+                                                              Map p,
+                                                            ) => <String, String>{
+                                                              'duration':
+                                                                  p['duration']
+                                                                      ?.toString() ??
+                                                                  'Monthly',
+                                                              'price':
+                                                                  p['price']
+                                                                      ?.toString() ??
+                                                                  '0',
+                                                            },
+                                                          )
+                                                          .toList(),
+                                                  coachExperience: _toInt(
+                                                    batch['coachExperience'],
+                                                  ),
+                                                  enrolledStudents: _toInt(
+                                                    batch['studentsCount'] ??
+                                                        batch['capacity'],
+                                                  ),
+                                                ),
+                                              ),
+                                            )
                                             .then((_) => _load());
                                       }),
                                     ),
@@ -1493,9 +1696,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         .map((Map<String, dynamic> m) => m['total'] as int)
         .fold(1, (int a, int b) => a > b ? a : b);
 
-    const double maxBarHeight  = 80.0;
-    const double amountHeight  = 20.0;
-    const double labelHeight   = 18.0;
+    const double maxBarHeight = 80.0;
+    const double amountHeight = 20.0;
+    const double labelHeight = 18.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1551,15 +1754,17 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
             children: <Widget>[
               _legendDot(const Color(0xFF22C55E)),
               const SizedBox(width: 4),
-              const Text('Paid',
-                  style: TextStyle(
-                      color: Color(0xFF9CA3AF), fontSize: 11)),
+              const Text(
+                'Paid',
+                style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 11),
+              ),
               const SizedBox(width: 14),
               _legendDot(const Color(0xFFF97316)),
               const SizedBox(width: 4),
-              const Text('Pending',
-                  style: TextStyle(
-                      color: Color(0xFF9CA3AF), fontSize: 11)),
+              const Text(
+                'Pending',
+                style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 11),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -1569,44 +1774,40 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
             height: amountHeight + maxBarHeight + 8 + labelHeight,
             child: LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
-                final double barWidth =
-                    (constraints.maxWidth - 48) / 4;
+                final double barWidth = (constraints.maxWidth - 48) / 4;
 
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: quarterlyData
-                      .map((Map<String, dynamic> data) {
-                    final int paid    = data['paid']    as int;
+                  children: quarterlyData.map((Map<String, dynamic> data) {
+                    final int paid = data['paid'] as int;
                     final int pending = data['pending'] as int;
-                    final int total   = data['total']   as int;
-                    final String label = data['label']  as String;
+                    final int total = data['total'] as int;
+                    final String label = data['label'] as String;
 
                     final bool isCurrent =
                         (data['month'] as DateTime).month ==
                             _selectedMonth.month &&
-                        (data['month'] as DateTime).year ==
-                            _selectedMonth.year;
+                        (data['month'] as DateTime).year == _selectedMonth.year;
 
                     // Bar heights
-                    final double totalRatio =
-                        total <= 0 ? 0 : total / maxTotal;
+                    final double totalRatio = total <= 0 ? 0 : total / maxTotal;
                     final double barHeight = math.max(
-                        totalRatio * maxBarHeight,
-                        total > 0 ? 6.0 : 2.0);
+                      totalRatio * maxBarHeight,
+                      total > 0 ? 6.0 : 2.0,
+                    );
 
                     final double paidHeight = total == 0
                         ? 0
                         : (paid / total) * barHeight;
-                    final double pendingHeight =
-                        barHeight - paidHeight;
+                    final double pendingHeight = barHeight - paidHeight;
 
                     // Amount label text
                     final String amountText = total <= 0
                         ? '-'
                         : (total >= 1000
-                            ? '${(total / 1000).toStringAsFixed(1)}k'
-                            : '$total');
+                              ? '${(total / 1000).toStringAsFixed(1)}k'
+                              : '$total');
 
                     return SizedBox(
                       width: barWidth,
@@ -1622,8 +1823,8 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                               style: TextStyle(
                                 color: total > 0
                                     ? (isCurrent
-                                        ? Colors.white
-                                        : const Color(0xFF9CA3AF))
+                                          ? Colors.white
+                                          : const Color(0xFF9CA3AF))
                                     : const Color(0x44FFFFFF),
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
@@ -1715,8 +1916,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
       context: context,
       backgroundColor: const Color(0xFF0F2027),
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (_) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
@@ -1727,9 +1927,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
             const Text(
               'All Facilities',
               style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600),
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -1739,7 +1940,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                   .map(
                     (String facility) => Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(6),
                         color: const Color(0x0AFFFFFF),
@@ -1795,10 +1998,13 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                 backgroundColor: const Color(0xFF00C9A7),
                 foregroundColor: const Color(0xFF06271F),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text('Add Academy',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              child: const Text(
+                'Add Academy',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],
@@ -1806,31 +2012,27 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
     );
   }
 
-  Widget _academyCard(Map<String, dynamic> academy,
-      {bool selected = false}) {
-    final String academyId   = _academyId(academy);
-    final String name        = _academyName(academy);
-    final String location    =
+  Widget _academyCard(Map<String, dynamic> academy, {bool selected = false}) {
+    final String academyId = _academyId(academy);
+    final String name = _academyNameWithSport(academy);
+    final String location =
         academy['city']?.toString().trim().isNotEmpty == true
-            ? academy['city'].toString().trim()
-            : 'Location not set';
-    final String rating      = academy['rating']?.toString() ?? '4.6';
+        ? academy['city'].toString().trim()
+        : 'Location not set';
+    final String rating = academy['rating']?.toString() ?? '4.6';
     final List<String> imageValues = _academyImageValues(academy);
-    final String? imageUrl   = _academyImageUrl(academy);
+    final String? imageUrl = _academyImageUrl(academy);
     final List<String> facilities = _academyFacilities(academy);
-    final int monthlyFee     = _academyMonthlyFee(academy);
+    final int monthlyFee = _academyMonthlyFee(academy);
 
     return GestureDetector(
-      onTap:
-          academyId.isEmpty ? null : () => _onAcademyFilterTap(academyId),
+      onTap: academyId.isEmpty ? null : () => _onAcademyFilterTap(academyId),
       child: Container(
         width: 263,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected
-                ? const Color(0xFF00C9A7)
-                : const Color(0x1FFFFFFF),
+            color: selected ? const Color(0xFF00C9A7) : const Color(0x1FFFFFFF),
             width: selected ? 1.5 : 1,
           ),
           color: const Color(0x0AFFFFFF),
@@ -1839,8 +2041,9 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
               child: Container(
                 height: 140,
                 width: double.infinity,
@@ -1860,8 +2063,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             ? Container(
                                 color: const Color(0xFF1B2F38),
                                 alignment: Alignment.center,
-                                child: const Icon(Icons.school_outlined,
-                                    color: Color(0xFF9FB9B3), size: 30),
+                                child: const Icon(
+                                  Icons.school_outlined,
+                                  color: Color(0xFF9FB9B3),
+                                  size: 30,
+                                ),
                               )
                             : _academyImageWidget(imageUrl),
                       ),
@@ -1870,15 +2076,20 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                       top: 10,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           color: const Color(0xCC0B0E0C),
                         ),
                         child: Row(
                           children: <Widget>[
-                            const Icon(Icons.star_border,
-                                color: Color(0xFFEAB308), size: 14),
+                            const Icon(
+                              Icons.star_border,
+                              color: Color(0xFFEAB308),
+                              size: 14,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               rating,
@@ -1914,8 +2125,11 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: <Widget>[
-                      const Icon(Icons.location_on_outlined,
-                          size: 16, color: Color(0x99FFFFFF)),
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 16,
+                        color: Color(0x99FFFFFF),
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -1936,10 +2150,14 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                     spacing: 4,
                     runSpacing: 4,
                     children: <Widget>[
-                      ...facilities.take(3).map(
+                      ...facilities
+                          .take(3)
+                          .map(
                             (String facility) => Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(6),
                                 color: const Color(0x0AFFFFFF),
@@ -1956,11 +2174,12 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           ),
                       if (facilities.length > 3)
                         GestureDetector(
-                          onTap: () =>
-                              _showAllFacilities(context, facilities),
+                          onTap: () => _showAllFacilities(context, facilities),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               color: const Color(0x0AFFFFFF),
@@ -1980,18 +2199,22 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                             _addFacilityToAcademy(academyId, facilities),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                                color: const Color(0x3300C9A7)),
+                            border: Border.all(color: const Color(0x3300C9A7)),
                             color: const Color(0x0A00C9A7),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
-                              Icon(Icons.add,
-                                  size: 12, color: Color(0xFF00C9A7)),
+                              Icon(
+                                Icons.add,
+                                size: 12,
+                                color: Color(0xFF00C9A7),
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'Add',
@@ -2011,8 +2234,7 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                   Container(
                     width: double.infinity,
                     decoration: const BoxDecoration(
-                      border: Border(
-                          top: BorderSide(color: Color(0x14000000))),
+                      border: Border(top: BorderSide(color: Color(0x14000000))),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2043,22 +2265,27 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
                           height: 38,
                           child: ElevatedButton(
                             onPressed: () => Navigator.of(context)
-                                .push(MaterialPageRoute<void>(
+                                .push(
+                                  MaterialPageRoute<void>(
                                     builder: (_) =>
-                                        const AcademyBatchTimingsScreen()))
+                                        const AcademyBatchTimingsScreen(),
+                                  ),
+                                )
                                 .then((_) => _load()),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF2563EB),
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             child: const Text(
                               'View Batches',
                               style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
@@ -2075,10 +2302,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
   }
 
   BoxDecoration _overlayCardDecoration() => BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0x1FFFFFFF)),
-        color: const Color(0x0AFFFFFF),
-      );
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: const Color(0x1FFFFFFF)),
+    color: const Color(0x0AFFFFFF),
+  );
 
   Widget _actionTile({
     required IconData icon,
@@ -2124,9 +2351,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
         Text(
           text,
           style: const TextStyle(
-              color: Color(0xFF9FB9B3),
-              fontSize: 14,
-              fontWeight: FontWeight.w500),
+            color: Color(0xFF9FB9B3),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -2142,9 +2370,10 @@ class _AcademyDashboardScreenState extends State<AcademyDashboardScreen> {
           foregroundColor: const Color(0xFFDFF7F0),
           elevation: 0,
         ),
-        child: Text(label,
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600)),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }
@@ -2164,8 +2393,7 @@ class _AcademyImageCarousel extends StatefulWidget {
   final Widget Function(String imageValue) imageBuilder;
 
   @override
-  State<_AcademyImageCarousel> createState() =>
-      _AcademyImageCarouselState();
+  State<_AcademyImageCarousel> createState() => _AcademyImageCarouselState();
 }
 
 class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
@@ -2213,11 +2441,9 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
   void _startAutoSlideIfNeeded() {
     _autoSlideTimer?.cancel();
     if (widget.imageValues.length <= 1) return;
-    _autoSlideTimer =
-        Timer.periodic(const Duration(seconds: 3), (_) {
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted || !_pageController.hasClients) return;
-      final int nextIndex =
-          (_currentIndex + 1) % widget.imageValues.length;
+      final int nextIndex = (_currentIndex + 1) % widget.imageValues.length;
       _pageController.animateToPage(
         nextIndex,
         duration: const Duration(milliseconds: 500),
@@ -2245,8 +2471,7 @@ class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
             setState(() => _currentIndex = index);
             _restartAutoSlide();
           },
-          itemBuilder: (_, int index) =>
-              widget.imageBuilder(images[index]),
+          itemBuilder: (_, int index) => widget.imageBuilder(images[index]),
         ),
         if (images.length > 1)
           Positioned(

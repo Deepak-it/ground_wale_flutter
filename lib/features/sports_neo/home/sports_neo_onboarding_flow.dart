@@ -485,21 +485,22 @@ class _SportsNeoLoginOptionsScreen extends StatelessWidget {
                     child: Image.asset(
                       'assets/images/1st-slide.png',
                       fit: BoxFit.cover,
-                      errorBuilder: (
-                        BuildContext context,
-                        Object error,
-                        StackTrace? stackTrace,
-                      ) {
-                        return Container(
-                          color: const Color(0xFF141B33),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.image_not_supported_outlined,
-                            color: Colors.white70,
-                            size: 40,
-                          ),
-                        );
-                      },
+                      errorBuilder:
+                          (
+                            BuildContext context,
+                            Object error,
+                            StackTrace? stackTrace,
+                          ) {
+                            return Container(
+                              color: const Color(0xFF141B33),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Colors.white70,
+                                size: 40,
+                              ),
+                            );
+                          },
                     ),
                   ),
                 ),
@@ -542,33 +543,33 @@ class _SportsNeoLoginOptionsScreen extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 16),
-                _OutlineActionButton(
-                  leading: Image.asset(
-                    'assets/images/google-logo.png',
-                    width: 20,
-                    height: 20,
-                    fit: BoxFit.contain,
-                  ),
-                  text: 'Continue with Google',
-                  onPressed: () => _openGoogleSheet(context),
-                ),
-                const SizedBox(height: 16),
-                _OutlineActionButton(
-                  icon: null,
-                  text: 'Continue as Guest',
-                  textColor: const Color(0xFF2563EB),
-                  borderColor: const Color(0xFF2563EB),
-                  onPressed: () {
-                    ApiSession.instance.setGuest();
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const SportsNeoDashboardScreen(),
-                      ),
-                      (Route<dynamic> route) => false,
-                    );
-                  },
-                ),
+                // const SizedBox(height: 16),
+                // _OutlineActionButton(
+                //   leading: Image.asset(
+                //     'assets/images/google-logo.png',
+                //     width: 20,
+                //     height: 20,
+                //     fit: BoxFit.contain,
+                //   ),
+                //   text: 'Continue with Google',
+                //   onPressed: () => _openGoogleSheet(context),
+                // ),
+                // const SizedBox(height: 16),
+                // _OutlineActionButton(
+                //   icon: null,
+                //   text: 'Continue as Guest',
+                //   textColor: const Color(0xFF2563EB),
+                //   borderColor: const Color(0xFF2563EB),
+                //   onPressed: () {
+                //     ApiSession.instance.setGuest();
+                //     Navigator.of(context).pushAndRemoveUntil(
+                //       MaterialPageRoute<void>(
+                //         builder: (_) => const SportsNeoDashboardScreen(),
+                //       ),
+                //       (Route<dynamic> route) => false,
+                //     );
+                //   },
+                // ),
                 const SizedBox(height: 20),
               ],
             ),
@@ -873,27 +874,27 @@ class _SportsNeoPhoneScreenState extends State<SportsNeoPhoneScreen> {
                 onPressed: _isSubmitting ? () {} : _sendOtp,
                 loading: _isSubmitting,
               ),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () {
-                  showModalBottomSheet<void>(
-                    context: context,
-                    backgroundColor: Colors.transparent,
-                    builder: (BuildContext sheetContext) {
-                      return const _SportsNeoGoogleSheet();
-                    },
-                  );
-                },
-                child: const Text(
-                  'Login with Google',
-                  style: TextStyle(
-                    color: Color(0xFF6593F9),
-                    fontFamily: 'Montserrat',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
+              // const SizedBox(height: 16),
+              // GestureDetector(
+              //   onTap: () {
+              //     showModalBottomSheet<void>(
+              //       context: context,
+              //       backgroundColor: Colors.transparent,
+              //       builder: (BuildContext sheetContext) {
+              //         return const _SportsNeoGoogleSheet();
+              //       },
+              //     );
+              //   },
+              //   child: const Text(
+              //     'Login with Google',
+              //     style: TextStyle(
+              //       color: Color(0xFF6593F9),
+              //       fontFamily: 'Montserrat',
+              //       fontSize: 16,
+              //       fontWeight: FontWeight.w500,
+              //     ),
+              //   ),
+              // ),
               const SizedBox(height: 24),
             ],
           ),
@@ -955,9 +956,9 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
 
   Future<void> _verifyOtp() async {
     if (_otpValue.length != 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter 4 digit OTP')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter 4 digit OTP')));
       return;
     }
     setState(() => _isSubmitting = true);
@@ -1015,33 +1016,33 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
                 ],
               ),
               const SizedBox(height: 58),
-Center(
-  child: Column(
-    children: <Widget>[
-      const _SportsNeoWordmark(large: true),
-      const SizedBox(height: 42),
-      const Text(
-        'Enter Verification Code',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        'We sent a verification code to +91 ${widget.contactNumber}',
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Color(0xCCFFFFFF),
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-    ],
-  ),
-),
+              Center(
+                child: Column(
+                  children: <Widget>[
+                    const _SportsNeoWordmark(large: true),
+                    const SizedBox(height: 42),
+                    const Text(
+                      'Enter Verification Code',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'We sent a verification code to +91 ${widget.contactNumber}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xCCFFFFFF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 32),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1163,42 +1164,92 @@ class _SportsNeoCompleteProfileScreenState
       return;
     }
 
+    final String? choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1D1D1D),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  color: const Color(0x33FFFFFF),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ProfileImageSourceTile(
+                icon: Icons.camera_alt_outlined,
+                label: 'Take Photo (Camera)',
+                onTap: () => Navigator.pop(ctx, 'camera'),
+              ),
+              _ProfileImageSourceTile(
+                icon: Icons.image_outlined,
+                label: 'Choose Image from Gallery',
+                onTap: () => Navigator.pop(ctx, 'gallery'),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (choice == null || !mounted) {
+      return;
+    }
+
     setState(() => _isPickingImage = true);
     try {
-      List<int> bytes = <int>[];
-      String mime = 'image/jpeg';
-
-      final bool useDesktopPicker =
+      final bool isDesktop =
           !kIsWeb &&
           (defaultTargetPlatform == TargetPlatform.windows ||
               defaultTargetPlatform == TargetPlatform.linux ||
               defaultTargetPlatform == TargetPlatform.macOS);
 
-      if (useDesktopPicker) {
-        try {
-          final FilePickerResult? result = await FilePicker.platform.pickFiles(
-            type: FileType.image,
-            withData: true,
-          );
-          if (result == null || result.files.isEmpty) {
-            return;
-          }
-          final PlatformFile file = result.files.first;
-          bytes = file.bytes ?? <int>[];
-          if (bytes.isEmpty && file.path != null) {
-            bytes = await XFile(file.path!).readAsBytes();
-          }
-          if (bytes.isEmpty) {
-            throw Exception('Selected image has no readable bytes');
-          }
-          if (bytes.length > _maxImageBytes) {
-            throw Exception(
-              'Image is too large. Please select an image smaller than 3 MB.',
+      List<int> bytes = <int>[];
+      String mime = 'image/jpeg';
+
+      if (choice == 'gallery') {
+        if (isDesktop) {
+          try {
+            final FilePickerResult? result = await FilePicker.platform
+                .pickFiles(type: FileType.image, withData: true);
+            if (result == null || result.files.isEmpty) {
+              return;
+            }
+            final PlatformFile file = result.files.first;
+            bytes = file.bytes ?? <int>[];
+            if (bytes.isEmpty && file.path != null) {
+              bytes = await XFile(file.path!).readAsBytes();
+            }
+            if (bytes.isEmpty) {
+              throw Exception('Selected image has no readable bytes');
+            }
+            mime = _mimeTypeFromName(file.name);
+          } on MissingPluginException {
+            final XFile? file = await _imagePicker.pickImage(
+              source: ImageSource.gallery,
+              imageQuality: 75,
+              maxWidth: 1024,
             );
+            if (file == null) {
+              return;
+            }
+            bytes = await file.readAsBytes();
+            if (bytes.isEmpty) {
+              throw Exception('Selected image has no readable bytes');
+            }
+            mime = file.mimeType ?? _mimeTypeFromName(file.name);
           }
-          mime = _mimeTypeFromName(file.name);
-        } on MissingPluginException {
-          // Fallback to image_picker when desktop picker plugin is not wired yet.
+        } else {
           final XFile? file = await _imagePicker.pickImage(
             source: ImageSource.gallery,
             imageQuality: 75,
@@ -1211,16 +1262,14 @@ class _SportsNeoCompleteProfileScreenState
           if (bytes.isEmpty) {
             throw Exception('Selected image has no readable bytes');
           }
-          if (bytes.length > _maxImageBytes) {
-            throw Exception(
-              'Image is too large. Please select an image smaller than 3 MB.',
-            );
-          }
           mime = file.mimeType ?? _mimeTypeFromName(file.name);
         }
       } else {
+        if (isDesktop) {
+          throw Exception('Camera is not available on desktop. Use Gallery.');
+        }
         final XFile? file = await _imagePicker.pickImage(
-          source: ImageSource.gallery,
+          source: ImageSource.camera,
           imageQuality: 75,
           maxWidth: 1024,
         );
@@ -1231,12 +1280,13 @@ class _SportsNeoCompleteProfileScreenState
         if (bytes.isEmpty) {
           throw Exception('Selected image has no readable bytes');
         }
-        if (bytes.length > _maxImageBytes) {
-          throw Exception(
-            'Image is too large. Please select an image smaller than 3 MB.',
-          );
-        }
         mime = file.mimeType ?? _mimeTypeFromName(file.name);
+      }
+
+      if (bytes.length > _maxImageBytes) {
+        throw Exception(
+          'Image is too large. Please select an image smaller than 3 MB.',
+        );
       }
 
       final String encoded = base64Encode(bytes);
@@ -1400,7 +1450,7 @@ class _SportsNeoCompleteProfileScreenState
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  _BackSquareButton(onTap: () => Navigator.of(context).pop()),
+                  // _BackSquareButton(onTap: () => Navigator.of(context).pop()),
                   const Spacer(),
                   const Text(
                     'Step 2/2',
@@ -1551,20 +1601,6 @@ class _SportsNeoCompleteProfileScreenState
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              const _FieldLabel('State'),
-              const SizedBox(height: 8),
-              _InputLikeField(
-                'Your state',
-                controller: _stateController,
-                readOnly: true,
-                onTap: _pickCityState,
-                trailing: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: Color(0x66FFFFFF),
-                  size: 20,
-                ),
-              ),
               const SizedBox(height: 18),
               const _FieldLabel('City'),
               const SizedBox(height: 8),
@@ -1575,6 +1611,20 @@ class _SportsNeoCompleteProfileScreenState
                 onTap: _pickCityState,
                 trailing: const Icon(
                   Icons.location_on_outlined,
+                  color: Color(0x66FFFFFF),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const _FieldLabel('State'),
+              const SizedBox(height: 8),
+              _InputLikeField(
+                'Your state',
+                controller: _stateController,
+                readOnly: true,
+                onTap: _pickCityState,
+                trailing: const Icon(
+                  Icons.keyboard_arrow_down,
                   color: Color(0x66FFFFFF),
                   size: 20,
                 ),
@@ -1642,9 +1692,14 @@ class _SportsNeoCompleteProfileScreenState
                           }
 
                           if (normalizedRole == 'player') {
+                            ApiSession.instance.city = _cityController.text
+                                .trim();
+                            ApiSession.instance.state = _stateController.text
+                                .trim();
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => const SportsNeoLocationScreen(),
+                                builder: (_) =>
+                                    const SportsNeoDashboardScreen(),
                               ),
                             );
                             return;
@@ -1702,6 +1757,27 @@ class _SportsNeoCompleteProfileScreenState
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ProfileImageSourceTile extends StatelessWidget {
+  const _ProfileImageSourceTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: const Color(0xFFDDF730)),
+      title: Text(label, style: const TextStyle(color: Colors.white)),
+      onTap: onTap,
     );
   }
 }

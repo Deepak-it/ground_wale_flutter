@@ -95,6 +95,23 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     try {
       final Map<String, dynamic> dashboard = await GroundWaleApi.instance
           .getBoxCricketDashboard(ownerId);
+
+      final List<Map<String, dynamic>> dashboardGrounds = _extractGrounds(
+        dashboard,
+      );
+      List<Map<String, dynamic>> resolvedGrounds = dashboardGrounds;
+      try {
+        final List<Map<String, dynamic>> fullGrounds = await GroundWaleApi
+            .instance
+            .listGrounds(ownerId: ownerId);
+        resolvedGrounds = _mergeGroundCollections(
+          dashboardGrounds,
+          fullGrounds,
+        );
+      } catch (_) {
+        // Keep dashboard grounds if full grounds fetch fails.
+      }
+
       if (!mounted) {
         return;
       }
@@ -102,7 +119,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
         _dashboard = dashboard;
         _isLoading = false;
       });
-      _syncSelectedGroundFromDashboard();
+      _syncSelectedGroundFromDashboard(groundsOverride: resolvedGrounds);
       // Load ground-scoped data and calendar slots in parallel – they are
       // independent of each other.
       await Future.wait(<Future<void>>[
@@ -122,8 +139,10 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     }
   }
 
-  void _syncSelectedGroundFromDashboard() {
-    final List<Map<String, dynamic>> grounds = _grounds();
+  void _syncSelectedGroundFromDashboard({
+    List<Map<String, dynamic>>? groundsOverride,
+  }) {
+    final List<Map<String, dynamic>> grounds = groundsOverride ?? _grounds();
     final String? sessionGroundId = ApiSession.instance.groundId;
 
     String? selected = _selectedGroundId;
@@ -299,6 +318,67 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
     return 'Ground';
   }
 
+  String _groundSport(Map<String, dynamic> ground) {
+    // ignore: avoid_print
+    print('Extracting sport for ground: $ground');
+    String fromItem(dynamic item) {
+      if (item is Map) {
+        final String mapped =
+            item['name']?.toString().trim() ??
+            (item['sports'] is List && item['sports'].isNotEmpty
+                ? item['sports'][0]?.toString().trim()
+                : '') ??
+            item['label']?.toString().trim() ??
+            item['title']?.toString().trim() ??
+            item['value']?.toString().trim() ??
+            '';
+        if (mapped.isNotEmpty) {
+          return mapped;
+        }
+      }
+      return item?.toString().trim() ?? '';
+    }
+
+    final dynamic selectedSports = ground['selectedSports'];
+    if (selectedSports is List) {
+      for (final dynamic item in selectedSports) {
+        final String value = fromItem(item);
+        if (value.isNotEmpty) {
+          return value;
+        }
+      }
+    }
+
+    final dynamic sports = ground['sports'];
+    if (sports is List) {
+      for (final dynamic item in sports) {
+        final String value = fromItem(item);
+        if (value.isNotEmpty) {
+          return value;
+        }
+      }
+    }
+    if (sports is String && sports.trim().isNotEmpty) {
+      return sports.trim();
+    }
+
+    final String directSport =
+        ground['sport']?.toString().trim() ??
+        ground['sportName']?.toString().trim() ??
+        ground['game']?.toString().trim() ??
+        '';
+    return directSport;
+  }
+
+  String _groundNameWithSport(Map<String, dynamic> ground) {
+    final String name = _groundName(ground);
+    final String sport = _groundSport(ground);
+    if (sport.isEmpty) {
+      return name;
+    }
+    return '$name ($sport)';
+  }
+
   List<Map<String, dynamic>> _upcomingBookings() {
     final List<dynamic> raw =
         _dashboard['upcomingBookings'] as List<dynamic>? ?? <dynamic>[];
@@ -312,8 +392,18 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   }
 
   List<Map<String, dynamic>> _grounds() {
+    return _extractGrounds(_dashboard);
+  }
+
+  List<Map<String, dynamic>> _extractGrounds(Map<String, dynamic> source) {
+    final Map<String, dynamic> data = source['data'] is Map
+        ? Map<String, dynamic>.from(source['data'] as Map)
+        : <String, dynamic>{};
+
     final List<dynamic> raw =
-        _dashboard['grounds'] as List<dynamic>? ?? <dynamic>[];
+        source['grounds'] as List<dynamic>? ??
+        data['grounds'] as List<dynamic>? ??
+        <dynamic>[];
     if (raw.isNotEmpty) {
       return raw
           .whereType<Map>()
@@ -321,19 +411,96 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
           .toList();
     }
 
+    final dynamic singularGround = source['ground'] ?? data['ground'];
+    if (singularGround is Map) {
+      return <Map<String, dynamic>>[Map<String, dynamic>.from(singularGround)];
+    }
+
     final String fallbackName =
-        _dashboard['groundName']?.toString() ?? 'Green Valley Cricket Ground';
+        source['groundName']?.toString() ??
+        data['groundName']?.toString() ??
+        source['name']?.toString() ??
+        data['name']?.toString() ??
+        'Green Valley Cricket Ground';
     final String fallbackLocation =
-        _dashboard['groundLocation']?.toString() ?? 'Sector 118, Mohali';
+        source['location']?.toString() ??
+        data['location']?.toString() ??
+        source['groundLocation']?.toString() ??
+        data['groundLocation']?.toString() ??
+        'Sector 118, Mohali';
     return <Map<String, dynamic>>[
       <String, dynamic>{
+        '_id': source['_id'] ?? data['_id'],
+        'id': source['id'] ?? data['id'],
+        'groundName': fallbackName,
         'name': fallbackName,
         'location': fallbackLocation,
-        'rating': (_dashboard['groundRating'] ?? 4.6).toString(),
-        'imageUrl': _dashboard['groundImage']?.toString() ?? '',
-        'facilities': <String>['Parking', 'Washroom', 'Water', 'Lighting'],
+        'rating': (source['groundRating'] ?? 4.6).toString(),
+        'imageUrl':
+            source['groundImage']?.toString() ??
+            data['groundImage']?.toString() ??
+            source['imageUrl']?.toString() ??
+            data['imageUrl']?.toString() ??
+            '',
+        'image': source['image'] ?? data['image'],
+        'groundImages': source['groundImages'] ?? data['groundImages'],
+        'imageUrls': source['imageUrls'] ?? data['imageUrls'],
+        'sports': source['sports'] ?? data['sports'],
+        'selectedSports': source['selectedSports'] ?? data['selectedSports'],
+        'sport': source['sport'] ?? data['sport'],
+        'sportName': source['sportName'] ?? data['sportName'],
+        'game': source['game'] ?? data['game'],
+        'facilities':
+            source['facilities'] ??
+            data['facilities'] ??
+            <String>['Parking', 'Washroom', 'Water', 'Lighting'],
       },
     ];
+  }
+
+  List<Map<String, dynamic>> _mergeGroundCollections(
+    List<Map<String, dynamic>> dashboardGrounds,
+    List<Map<String, dynamic>> fullGrounds,
+  ) {
+    if (fullGrounds.isEmpty) {
+      return dashboardGrounds;
+    }
+
+    final Map<String, Map<String, dynamic>> fullById =
+        <String, Map<String, dynamic>>{};
+    for (final Map<String, dynamic> ground in fullGrounds) {
+      final String id = _groundId(ground);
+      if (id.isNotEmpty) {
+        fullById[id] = ground;
+      }
+    }
+
+    final List<Map<String, dynamic>> merged = <Map<String, dynamic>>[];
+    final Set<String> seen = <String>{};
+
+    for (final Map<String, dynamic> ground in dashboardGrounds) {
+      final String id = _groundId(ground);
+      final Map<String, dynamic>? full = id.isEmpty ? null : fullById[id];
+      if (full != null) {
+        merged.add(<String, dynamic>{...full, ...ground});
+        seen.add(id);
+      } else {
+        merged.add(ground);
+        if (id.isNotEmpty) {
+          seen.add(id);
+        }
+      }
+    }
+
+    for (final Map<String, dynamic> ground in fullGrounds) {
+      final String id = _groundId(ground);
+      if (id.isEmpty || seen.contains(id)) {
+        continue;
+      }
+      merged.add(ground);
+    }
+
+    return merged;
   }
 
   List<Map<String, dynamic>> _orderedGrounds(List<Map<String, dynamic>> input) {
@@ -1553,7 +1720,7 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
   }
 
   Widget _groundCard(Map<String, dynamic> ground, {bool selected = false}) {
-    final String name = ground['name']?.toString() ?? 'Cricket Ground';
+    final String name = _groundNameWithSport(ground);
     final String location =
         ground['location']?.toString() ?? 'Location not available';
     final String rating = ground['rating']?.toString() ?? '4.6';
