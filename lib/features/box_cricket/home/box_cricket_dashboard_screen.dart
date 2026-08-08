@@ -14,6 +14,7 @@ import 'box_cricket_earning_screen.dart';
 import 'box_cricket_edit_ground_screen.dart';
 import 'box_cricket_manage_slots_screen.dart';
 import 'box_cricket_upcoming_bookings_screen.dart';
+import 'box_cricket_booking_collection_screen.dart';
 
 class BoxCricketDashboardScreen extends StatefulWidget {
   const BoxCricketDashboardScreen({
@@ -1308,11 +1309,16 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
 
                     const SizedBox(height: 12),
                     GestureDetector(
-                      onTap: () => Navigator.of(context).push(
+
+
+                                          onTap: () {
+                      Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => const BoxCricketEarningScreen(),
+                          builder: (_) =>
+                              const BoxCricketBookingCollectionScreen(),
                         ),
-                      ),
+                      );
+                    },
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(

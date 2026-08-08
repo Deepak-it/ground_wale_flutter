@@ -3,6 +3,7 @@ import 'package:ground_wale/core/widgets/app_text_field.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import 'package:intl/intl.dart';
 
 class BoxCricketBookingCollectionScreen extends StatefulWidget {
   const BoxCricketBookingCollectionScreen({super.key});
@@ -787,7 +788,7 @@ class _BoxCricketBookingCollectionScreenState
                       const SizedBox(width: 10),
                       Expanded(
                         child: _summaryCard(
-                          'Pending Collection',
+                          'Pending Collection Amount',
                           _currency(pending),
                           valueColor: const Color(0xFFF59E0B),
                           footnote: 'Collected: ${_currency(paid)}',
@@ -930,31 +931,42 @@ class _BoxCricketBookingCollectionScreenState
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: <Widget>[
+
+InkWell(
+  onTap: () {
+    // Handle payer click
+  },
+  child: Text(
+    '${_captainName(booking)}',
+    style: const TextStyle(
+      color: Color.fromARGB(153, 26, 226, 189),
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+      decorationColor: Color(0x99E6F7F4),
+      decorationThickness: 1.5,
+    ),
+  ),
+),
+                                      const SizedBox(height: 4),
                                       Text(
                                         _teamName(booking),
                                         style: const TextStyle(
                                           color: Color(0xFFE6F7F4),
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Captain: ${_captainName(booking)}',
-                                        style: const TextStyle(
-                                          color: Color(0x99E6F7F4),
                                           fontSize: 14,
                                         ),
                                       ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        _bookingCode(booking),
-                                        style: const TextStyle(
-                                          color: Color(0xFF00C9A7),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+
+const SizedBox(height: 3),
+Text(
+  '${booking['date'] != null ? DateFormat('dd MMM yyyy').format(DateTime.parse(booking['date'].toString()).toLocal()) : '-'}, '
+  '${booking['startTime'] ?? '--'} - ${booking['endTime'] ?? '--'}',
+  style: const TextStyle(
+    color: Color(0x99FFFFFF),
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+  ),
+),
                                       const SizedBox(height: 3),
                                       Text(
                                         _bookingGroundName(booking),

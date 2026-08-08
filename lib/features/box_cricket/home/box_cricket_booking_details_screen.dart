@@ -425,21 +425,22 @@ class _BoxCricketBookingDetailsScreenState
         _formCard(
           title: 'Team Info',
           children: <Widget>[
-            _input(_teamController, 'Team Name'),
+                  _input(_captainController, ' Name'),
+
             const SizedBox(height: 10),
-            _input(_captainController, 'Captain Name'),
+                      _input(_teamController, 'Team Name'),
             const SizedBox(height: 10),
             _input(
               _phoneController,
-              'Captain Phone',
+              'Phone',
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 10),
-            _input(
-              _playersController,
-              'Players Count',
-              keyboardType: TextInputType.number,
-            ),
+            // const SizedBox(height: 10),
+            // _input(
+            //   _playersController,
+            //   'Players Count',
+            //   keyboardType: TextInputType.number,
+            // ),
           ],
         ),
         const SizedBox(height: 12),
@@ -450,7 +451,7 @@ class _BoxCricketBookingDetailsScreenState
               spacing: 8,
               runSpacing: 8,
               // children: <String>['upi', 'cod', 'cash', 'netbanking'].map((String method) {
-              children: <String>['cod', 'cash'].map((String method) {
+              children: <String>['Paid', 'Pending'].map((String method) {
 
                 final bool selected = _paymentMethod == method;
                 return GestureDetector(

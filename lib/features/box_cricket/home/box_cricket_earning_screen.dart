@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import 'box_cricket_bank_account_screen.dart';
-import 'box_cricket_booking_collection_screen.dart';
 
 class BoxCricketEarningScreen extends StatefulWidget {
   const BoxCricketEarningScreen({super.key});
@@ -504,46 +503,7 @@ class _BoxCricketEarningScreenState extends State<BoxCricketEarningScreen> {
                         child: _summaryCard('This Month', 'Rs $_earningsMonth'),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              const BoxCricketBookingCollectionScreen(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: _cardBorder(),
-                      child: Row(
-                        children: const <Widget>[
-                          Icon(
-                            Icons.receipt_long_outlined,
-                            color: Color(0xFF00C9A7),
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Booking Collection',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            color: Color(0x99FFFFFF),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                  ), const SizedBox(height: 24),
                   const Text(
                     'Transactions',
                     style: TextStyle(
