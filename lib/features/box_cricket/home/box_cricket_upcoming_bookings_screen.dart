@@ -39,33 +39,6 @@ class _BoxCricketUpcomingBookingsScreenState
     return (booking['bookingStatus']?.toString() ?? '').trim().toLowerCase();
   }
 
-  int _summaryInt(Map<String, dynamic> summary, String key) {
-    final dynamic value = summary[key];
-    if (value is int) {
-      return value;
-    }
-    if (value is double) {
-      return value.round();
-    }
-    if (value is String) {
-      return int.tryParse(value) ?? 0;
-    }
-    return 0;
-  }
-
-  Map<String, dynamic> _mergeSummary(
-    Map<String, dynamic> first,
-    Map<String, dynamic> second,
-  ) {
-    return <String, dynamic>{
-      'totalBookings':
-          _summaryInt(first, 'totalBookings') +
-          _summaryInt(second, 'totalBookings'),
-      'totalRevenue':
-          _summaryInt(first, 'totalRevenue') + _summaryInt(second, 'totalRevenue'),
-    };
-  }
-
   List<Map<String, dynamic>> _dedupeByBookingId(
     List<Map<String, dynamic>> input,
   ) {
@@ -237,17 +210,8 @@ class _BoxCricketUpcomingBookingsScreenState
     final List<Map<String, dynamic>> cancelled =
       (results[3] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
 
-    final Map<String, dynamic> rejectedSummary =
-      (results[6] as Map<String, dynamic>?) ?? <String, dynamic>{};
-    final Map<String, dynamic> cancelledSummary =
-      (results[7] as Map<String, dynamic>?) ?? <String, dynamic>{};
-
     final List<Map<String, dynamic>> rejectedCombined = _dedupeByBookingId(
       <Map<String, dynamic>>[...rejected, ...cancelled],
-    );
-    final Map<String, dynamic> rejectedCombinedSummary = _mergeSummary(
-      rejectedSummary,
-      cancelledSummary,
     );
 
     _cachedBookings[0] = _sanitizeForTab(0, upcoming);
@@ -530,6 +494,7 @@ Padding(
         .toLowerCase();
     final String paymentStatus = (booking['paymentStatus']?.toString() ?? '')
         .toLowerCase();
+    final bool isRefunded = paymentStatus == 'refunded';
     final int amount = _toInt(booking['amount']);
 
     final bool isRejected = status == 'cancelled' || _tabIndex == 3;
@@ -622,13 +587,17 @@ Padding(
               ),
               Text(
                 isRejected
-                    ? 'Refund - $amount'
+                  ? isRefunded
+                    ? 'Refunded (Rs $amount)'
+                    : 'Cancelled (Rs $amount)'
                     : paymentStatus == 'pending'
                     ? 'COD (Rs $amount)'
                     : 'Paid (Rs $amount)',
                 style: TextStyle(
                   color: isRejected
-                      ? const Color(0xFFE3220D)
+                    ? isRefunded
+                      ? const Color(0xFF60A5FA)
+                      : const Color(0xFFE3220D)
                       : paymentStatus == 'pending'
                       ? Colors.white
                       : const Color(0xFF08B36A),
@@ -641,7 +610,7 @@ Padding(
           if (isRejected) ...<Widget>[
             const SizedBox(height: 8),
             Text(
-              'Reason: ${booking['cancellationReason'] ?? 'Not Available'}',
+              'Reason: ${booking['refundReason'] ?? booking['cancellationReason'] ?? 'Not Available'}',
               style: const TextStyle(
                 color: Color(0x99FFFFFF),
                 fontSize: 14,

@@ -75,6 +75,8 @@ class _BoxCricketBookingDetailsScreenState
 
   Color _statusBg(String status) {
     switch (status) {
+      case 'refunded':
+        return const Color(0x222563EB);
       case 'cancelled':
       case 'rejected':
         return const Color(0x22E3220D);
@@ -88,6 +90,8 @@ class _BoxCricketBookingDetailsScreenState
 
   Color _statusTextColor(String status) {
     switch (status) {
+      case 'refunded':
+        return const Color(0xFF60A5FA);
       case 'cancelled':
       case 'rejected':
         return const Color(0xFFE3220D);
@@ -101,6 +105,8 @@ class _BoxCricketBookingDetailsScreenState
 
   String _statusText(String status) {
     switch (status) {
+      case 'refunded':
+        return 'Refunded';
       case 'cancelled':
       case 'rejected':
         return 'Rejected';
@@ -110,6 +116,35 @@ class _BoxCricketBookingDetailsScreenState
         return 'Confirmed';
       default:
         return 'Pending';
+    }
+  }
+
+  String _paymentStatusLabel(String status) {
+    switch (status.toLowerCase()) {
+      case 'paid':
+        return 'Done';
+      case 'partial':
+        return 'Partial';
+      case 'refunded':
+        return 'Refunded';
+      case 'failed':
+        return 'Failed';
+      default:
+        return 'Pending';
+    }
+  }
+
+  Color _paymentStatusBg(String status) {
+    switch (status.toLowerCase()) {
+      case 'paid':
+        return const Color(0x2234D399);
+      case 'partial':
+      case 'refunded':
+        return const Color(0x222563EB);
+      case 'failed':
+        return const Color(0x22E3220D);
+      default:
+        return const Color(0x22F59E0B);
     }
   }
 
@@ -171,6 +206,141 @@ class _BoxCricketBookingDetailsScreenState
       if (mounted) {
         setState(() => _submitting = false);
       }
+    }
+  }
+
+  Future<void> _showRefundDialog(Map<String, dynamic> booking) async {
+    final TextEditingController reasonController = TextEditingController(
+      text: booking['refundReason']?.toString().trim().isNotEmpty == true
+          ? booking['refundReason']?.toString().trim()
+          : booking['cancellationReason']?.toString().trim() ?? '',
+    );
+
+    final bool? processed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        bool processing = false;
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1B1F1B),
+              title: const Text(
+                'Refund Request',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'Reason of refund',
+                    style: TextStyle(
+                      color: Color(0xCCFFFFFF),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 4,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Enter refund reason',
+                      hintStyle: const TextStyle(color: Color(0x66FFFFFF)),
+                      filled: true,
+                      fillColor: const Color(0x10FFFFFF),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0x1FFFFFFF)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFF2563EB)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: processing
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: processing
+                      ? null
+                      : () async {
+                          final String reason = reasonController.text.trim();
+                          if (reason.isEmpty) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(
+                                content: Text('Refund reason is required.'),
+                              ),
+                            );
+                            return;
+                          }
+                          setDialogState(() => processing = true);
+                          try {
+                            final Map<String, dynamic> updated =
+                                await GroundWaleApi.instance.updateBookingStatus(
+                              widget.bookingId!,
+                              <String, dynamic>{
+                                'bookingStatus': 'cancelled',
+                                'paymentStatus': 'refunded',
+                                'refundReason': reason,
+                                'cancellationReason': reason,
+                              },
+                            );
+                            if (!mounted) {
+                              return;
+                            }
+                            setState(() {
+                              _future = Future<Map<String, dynamic>>.value(updated);
+                            });
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop(true);
+                            }
+                          } catch (error) {
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    error.toString().replaceFirst('Exception: ', ''),
+                                  ),
+                                ),
+                              );
+                            }
+                            setDialogState(() => processing = false);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                  ),
+                  child: processing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Process Refund'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    reasonController.dispose();
+
+    if (processed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Refund processed successfully.')),
+      );
     }
   }
 
@@ -239,6 +409,8 @@ class _BoxCricketBookingDetailsScreenState
             booking['paymentMethod']?.toString().toUpperCase() ?? 'UPI';
         final String paymentStatus =
           (booking['paymentStatus']?.toString() ?? 'pending').toLowerCase();
+        final bool isRefunded = paymentStatus == 'refunded';
+        final String displayStatus = isRefunded ? 'refunded' : bookingStatus;
         final bool isPending = bookingStatus == 'pending';
         final bool isConfirmed = bookingStatus == 'confirmed';
         final bool isCompleted = bookingStatus == 'completed';
@@ -247,7 +419,7 @@ class _BoxCricketBookingDetailsScreenState
         final bool isCodPending =
           paymentMethod == 'COD' && paymentStatus == 'pending';
         final bool showConfirmAction = isPending;
-        final bool showRefundAction = isPending || isConfirmed;
+        final bool showRefundAction = (isPending || isConfirmed) && !isRefunded;
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -267,13 +439,13 @@ class _BoxCricketBookingDetailsScreenState
                             vertical: 7,
                           ),
                           decoration: BoxDecoration(
-                            color: _statusBg(bookingStatus),
+                            color: _statusBg(displayStatus),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            _statusText(bookingStatus),
+                            _statusText(displayStatus),
                             style: TextStyle(
-                              color: _statusTextColor(bookingStatus),
+                              color: _statusTextColor(displayStatus),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -290,6 +462,11 @@ class _BoxCricketBookingDetailsScreenState
                         const SizedBox(height: 4),
                         Text(
                           booking['bookingCode']?.toString() ?? '',
+                          style: const TextStyle(color: Color(0x99FFFFFF)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Date: ${booking['date']?.toString() ?? '-'}',
                           style: const TextStyle(color: Color(0x99FFFFFF)),
                         ),
                       ],
@@ -337,11 +514,13 @@ class _BoxCricketBookingDetailsScreenState
                       child: OutlinedButton(
                         onPressed: _submitting
                             ? null
-                            : () => _reject(
-                                isCodPending
-                                    ? 'COD booking cancelled by owner'
-                                    : 'Refund requested by owner',
-                              ),
+                            : () async {
+                                if (isCodPending && isPending) {
+                                  await _reject('COD booking cancelled by owner');
+                                  return;
+                                }
+                                await _showRefundDialog(booking);
+                              },
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFFD43827)),
                           foregroundColor: const Color(0xFFD43827),
@@ -555,11 +734,6 @@ class _BoxCricketBookingDetailsScreenState
           ),
           const SizedBox(height: 7),
           Text(
-            'Players: ${booking['playerCount'] ?? '-'}',
-            style: const TextStyle(color: Color(0xCCFFFFFF)),
-          ),
-          const SizedBox(height: 4),
-          Text(
             'Captain: ${booking['captainName'] ?? booking['teamName'] ?? '-'}',
             style: const TextStyle(color: Color(0xCCFFFFFF)),
           ),
@@ -605,12 +779,10 @@ class _BoxCricketBookingDetailsScreenState
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(7),
-                  color: status == 'paid'
-                      ? const Color(0x2234D399)
-                      : const Color(0x22F59E0B),
+                  color: _paymentStatusBg(status),
                 ),
                 child: Text(
-                  status == 'paid' ? 'Done' : 'Pending',
+                  _paymentStatusLabel(status),
                   style: const TextStyle(color: Colors.white),
                 ),
               ),

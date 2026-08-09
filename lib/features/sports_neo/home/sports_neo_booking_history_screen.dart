@@ -133,6 +133,8 @@ class _SportsNeoBookingHistoryScreenState
 
   Color _bookingStatusColor(String status) {
     switch (status.toLowerCase()) {
+      case 'refunded':
+        return const Color(0xFF60A5FA);
       case 'confirmed':
         return const Color(0xFF08B36A);
       case 'pending':
@@ -151,6 +153,9 @@ class _SportsNeoBookingHistoryScreenState
       return 'Unknown';
     }
     final String lower = status.toLowerCase();
+    if (lower == 'refunded') {
+      return 'Refunded';
+    }
     return '${lower[0].toUpperCase()}${lower.substring(1)}';
   }
 
@@ -177,7 +182,7 @@ class _SportsNeoBookingHistoryScreenState
                       child: ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                         itemCount: _bookings.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
                         itemBuilder: (_, int index) {
                           final _UserBookingItem item = _bookings[index];
                           final Color bookingColor = _bookingStatusColor(

@@ -274,6 +274,9 @@ class _BoxCricketBookingCollectionClientState
   }
 
   int _paidAmount(Map<String, dynamic> booking) {
+    if (_paymentStatus(booking) == 'refunded') {
+      return 0;
+    }
     final int amount = _amount(booking);
     final int fromField = _toInt(booking['paidAmount']);
     final int fromTransactions = _paidFromTransactions(booking);
@@ -304,6 +307,9 @@ class _BoxCricketBookingCollectionClientState
   String _paymentStatus(Map<String, dynamic> booking) {
     final String raw =
         booking['paymentStatus']?.toString().trim().toLowerCase() ?? '';
+    if (raw == 'refunded') {
+      return 'refunded';
+    }
     final int paid = _paidAmount(booking);
     final int total = _amount(booking);
 
@@ -324,6 +330,9 @@ class _BoxCricketBookingCollectionClientState
   }
 
   bool _canCollect(Map<String, dynamic> booking) {
+    if (_paymentStatus(booking) == 'refunded') {
+      return false;
+    }
     if (_dueAmount(booking) <= 0) {
       return false;
     }
@@ -390,6 +399,13 @@ class _BoxCricketBookingCollectionClientState
     }
 
     return 'name:${_captainName(booking).trim().toLowerCase()}';
+  }
+
+  bool _countsInTotals(Map<String, dynamic> booking) {
+    final String paymentStatus = _paymentStatus(booking);
+    final String bookingStatus =
+        booking['bookingStatus']?.toString().trim().toLowerCase() ?? '';
+    return paymentStatus != 'refunded' && bookingStatus != 'cancelled';
   }
 
   List<Map<String, dynamic>> _bookingsForClient(String clientKey) {
@@ -550,7 +566,7 @@ class _BoxCricketBookingCollectionClientState
                 : ListView.separated(
                     padding: const EdgeInsets.all(14),
                     itemCount: txns.length,
-                    separatorBuilder: (_, __) =>
+                  separatorBuilder: (_, _) =>
                         const Divider(color: Color(0x1FFFFFFF), height: 12),
                     itemBuilder: (_, int index) {
                       final Map<String, dynamic> tx = txns[index];
@@ -704,11 +720,13 @@ class _BoxCricketBookingCollectionClientState
     final List<Map<String, dynamic>> previewTxns = txns.take(3).toList();
     final int clientTotal = clientBookings.fold<int>(
       0,
-      (int sum, Map<String, dynamic> item) => sum + _amount(item),
+      (int sum, Map<String, dynamic> item) =>
+          sum + (_countsInTotals(item) ? _amount(item) : 0),
     );
     final int clientPaid = clientBookings.fold<int>(
       0,
-      (int sum, Map<String, dynamic> item) => sum + _paidAmount(item),
+      (int sum, Map<String, dynamic> item) =>
+          sum + (_countsInTotals(item) ? _paidAmount(item) : 0),
     );
     final int clientDue = clientTotal - clientPaid < 0
         ? 0
@@ -886,7 +904,7 @@ class _BoxCricketBookingCollectionClientState
                           )
                         : ListView.separated(
                             itemCount: previewTxns.length,
-                            separatorBuilder: (_, __) => const Divider(
+                            separatorBuilder: (_, _) => const Divider(
                               color: Color(0x1FFFFFFF),
                               height: 12,
                             ),
@@ -1132,7 +1150,7 @@ class _BoxCricketBookingCollectionClientState
                                   };
                                 }
 
-                                if (!mounted) {
+                                if (!mounted || !ctx.mounted) {
                                   return;
                                 }
                                 Navigator.of(ctx).pop();
@@ -1214,11 +1232,13 @@ class _BoxCricketBookingCollectionClientState
 
     final int total = _bookings.fold<int>(
       0,
-      (int sum, Map<String, dynamic> booking) => sum + _amount(booking),
+      (int sum, Map<String, dynamic> booking) =>
+          sum + (_countsInTotals(booking) ? _amount(booking) : 0),
     );
     final int paid = _bookings.fold<int>(
       0,
-      (int sum, Map<String, dynamic> booking) => sum + _paidAmount(booking),
+      (int sum, Map<String, dynamic> booking) =>
+          sum + (_countsInTotals(booking) ? _paidAmount(booking) : 0),
     );
     final int pending = (total - paid) < 0 ? 0 : (total - paid);
 

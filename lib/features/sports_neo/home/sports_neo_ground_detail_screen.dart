@@ -32,6 +32,7 @@ class SportsNeoGroundDetailScreen extends StatefulWidget {
 class _SportsNeoGroundDetailScreenState
     extends State<SportsNeoGroundDetailScreen> {
   late DateTime _selectedDate;
+  late DateTime _visibleMonth;
   bool _isLoadingSlots = false;
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
   String? _selectedSlotId;
@@ -41,7 +42,69 @@ class _SportsNeoGroundDetailScreenState
     super.initState();
     final DateTime now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
+    _visibleMonth = DateTime(now.year, now.month, 1);
     _loadSlots();
+  }
+
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  String _monthLabel(DateTime month) {
+    const List<String> names = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${names[month.month - 1]} ${month.year}';
+  }
+
+  List<DateTime> _calendarGridDays(DateTime month) {
+    final DateTime first = DateTime(month.year, month.month, 1);
+    final int leading = first.weekday - DateTime.monday;
+    final DateTime start = first.subtract(Duration(days: leading));
+    return List<DateTime>.generate(
+      42,
+      (int index) => _dateOnly(start.add(Duration(days: index))),
+    );
+  }
+
+  void _selectCalendarDate(DateTime date) {
+    setState(() {
+      _selectedDate = _dateOnly(date);
+      _visibleMonth = DateTime(date.year, date.month, 1);
+      _selectedSlotId = null;
+    });
+    _loadSlots();
+  }
+
+  void _goToPreviousMonth() {
+    final DateTime today = _dateOnly(DateTime.now());
+    final DateTime previous = DateTime(_visibleMonth.year, _visibleMonth.month - 1, 1);
+    final DateTime firstAllowed = DateTime(today.year, today.month, 1);
+    if (previous.isBefore(firstAllowed)) {
+      return;
+    }
+    setState(() => _visibleMonth = previous);
+  }
+
+  void _goToNextMonth() {
+    final DateTime today = _dateOnly(DateTime.now());
+    final DateTime lastAllowed = DateTime(today.year, today.month + 12, 1);
+    final DateTime next = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 1);
+    if (next.isAfter(lastAllowed)) {
+      return;
+    }
+    setState(() => _visibleMonth = next);
   }
 
   String _apiDate(DateTime date) {
@@ -238,18 +301,6 @@ class _SportsNeoGroundDetailScreenState
         ? const <String>['Parking', 'Washroom', 'Water', 'Lighting']
         : widget.facilities;
 
-    final DateTime today = DateTime.now();
-    final List<DateTime> dateDays = List<DateTime>.generate(
-      7,
-      (int i) {
-        final DateTime d = today.add(Duration(days: i));
-        return DateTime(d.year, d.month, d.day);
-      },
-    );
-    const List<String> _weekLabels = <String>[
-      'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
-    ];
-
     final Map<String, dynamic>? selSlot = _selectedSlot;
     final int selPrice = selSlot != null ? _slotPrice(selSlot) : 0;
 
@@ -283,7 +334,7 @@ class _SportsNeoGroundDetailScreenState
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      selPrice > 0 ? 'â‚¹$selPrice' : widget.price,
+                      selPrice > 0 ? 'Rs $selPrice' : widget.price,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -589,40 +640,18 @@ class _SportsNeoGroundDetailScreenState
                                       const SizedBox(height: 16),
                                       const _SectionTitle(title: 'Select Date'),
                                       const SizedBox(height: 12),
-                                      SizedBox(
-                                        height: 78,
-                                        child: ListView.separated(
-                                          scrollDirection: Axis.horizontal,
-                                          itemCount: dateDays.length,
-                                          separatorBuilder: (_, __) =>
-                                              const SizedBox(width: 12),
-                                          itemBuilder: (
-                                            BuildContext ctx,
-                                            int i,
-                                          ) {
-                                            final DateTime d = dateDays[i];
-                                            final bool sel =
-                                                _selectedDate.year ==
-                                                        d.year &&
-                                                    _selectedDate.month ==
-                                                        d.month &&
-                                                    _selectedDate.day == d.day;
-                                            return GestureDetector(
-                                              onTap: () {
-                                                setState(
-                                                  () => _selectedDate = d,
-                                                );
-                                                _loadSlots();
-                                              },
-                                              child: _DateChip(
-                                                label:
-                                                    _weekLabels[d.weekday - 1],
-                                                day: '${d.day}',
-                                                selected: sel,
-                                              ),
-                                            );
-                                          },
+                                      _MonthCalendarCard(
+                                        monthLabel: _monthLabel(_visibleMonth),
+                                        days: _calendarGridDays(_visibleMonth),
+                                        selectedDate: _selectedDate,
+                                        visibleMonth: _visibleMonth,
+                                        minDate: _dateOnly(DateTime.now()),
+                                        maxDate: _dateOnly(
+                                          DateTime.now().add(const Duration(days: 365)),
                                         ),
+                                        onPreviousMonth: _goToPreviousMonth,
+                                        onNextMonth: _goToNextMonth,
+                                        onSelectDate: _selectCalendarDate,
                                       ),
                                       const SizedBox(height: 16),
                                       const _SlotLegend(),
@@ -810,46 +839,149 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _DateChip extends StatelessWidget {
-  const _DateChip({
-    required this.label,
-    required this.day,
-    this.selected = false,
+class _MonthCalendarCard extends StatelessWidget {
+  const _MonthCalendarCard({
+    required this.monthLabel,
+    required this.days,
+    required this.selectedDate,
+    required this.visibleMonth,
+    required this.minDate,
+    required this.maxDate,
+    required this.onPreviousMonth,
+    required this.onNextMonth,
+    required this.onSelectDate,
   });
 
-  final String label;
-  final String day;
-  final bool selected;
+  final String monthLabel;
+  final List<DateTime> days;
+  final DateTime selectedDate;
+  final DateTime visibleMonth;
+  final DateTime minDate;
+  final DateTime maxDate;
+  final VoidCallback onPreviousMonth;
+  final VoidCallback onNextMonth;
+  final ValueChanged<DateTime> onSelectDate;
+
+  bool _isSameDay(DateTime first, DateTime second) {
+    return first.year == second.year &&
+        first.month == second.month &&
+        first.day == second.day;
+  }
 
   @override
   Widget build(BuildContext context) {
+    const List<String> weekLabels = <String>['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final DateTime firstAllowedMonth = DateTime(minDate.year, minDate.month, 1);
+    final DateTime lastAllowedMonth = DateTime(maxDate.year, maxDate.month, 1);
+    final bool canGoPrevious = !visibleMonth.isBefore(firstAllowedMonth) &&
+        visibleMonth != firstAllowedMonth;
+    final bool canGoNext = !visibleMonth.isAfter(lastAllowedMonth) &&
+        visibleMonth != lastAllowedMonth;
+
     return Container(
-      width: 64,
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
+        color: const Color(0x0AFFFFFF),
         border: Border.all(color: const Color(0x1FFFFFFF)),
-        color: selected ? const Color(0xFF2563EB) : Colors.transparent,
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Text(
-            label,
-            style: TextStyle(
-              color: selected ? Colors.white : const Color(0xFFDDDDDD),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+          Row(
+            children: <Widget>[
+              IconButton(
+                onPressed: canGoPrevious ? onPreviousMonth : null,
+                icon: const Icon(Icons.chevron_left_rounded),
+                color: Colors.white,
+              ),
+              Expanded(
+                child: Text(
+                  monthLabel,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: canGoNext ? onNextMonth : null,
+                icon: const Icon(Icons.chevron_right_rounded),
+                color: Colors.white,
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            day,
-            style: TextStyle(
-              color: selected ? Colors.white : const Color(0xFFDDDDDD),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+          const SizedBox(height: 8),
+          Row(
+            children: weekLabels
+                .map(
+                  (String label) => Expanded(
+                    child: Center(
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Color(0x99FFFFFF),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 10),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: days.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 1,
             ),
+            itemBuilder: (BuildContext context, int index) {
+              final DateTime day = days[index];
+              final bool inMonth = day.month == visibleMonth.month &&
+                  day.year == visibleMonth.year;
+              final bool disabled = day.isBefore(minDate) || day.isAfter(maxDate) || !inMonth;
+              final bool selected = _isSameDay(day, selectedDate);
+
+              return InkWell(
+                onTap: disabled ? null : () => onSelectDate(day),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: selected
+                        ? const Color(0xFF2563EB)
+                        : disabled
+                            ? const Color(0x05000000)
+                            : const Color(0x12FFFFFF),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFF2563EB)
+                          : const Color(0x1FFFFFFF),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      color: selected
+                          ? Colors.white
+                          : disabled
+                              ? const Color(0x55FFFFFF)
+                              : const Color(0xFFDDDDDD),
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

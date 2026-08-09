@@ -18,7 +18,6 @@ class _BoxCricketBookingCollectionScreenState
   static const String _allGroundsValue = '__all_grounds__';
 
   bool _isLoading = true;
-  bool _isSavingPayment = false;
   String _status = 'All';
   String? _selectedGroundId;
   List<Map<String, dynamic>> _grounds = <Map<String, dynamic>>[];
@@ -232,10 +231,6 @@ class _BoxCricketBookingCollectionScreenState
     return _teamName(booking);
   }
 
-  String _captainPhone(Map<String, dynamic> booking) {
-    return booking['captainPhone']?.toString().trim() ?? '';
-  }
-
   int _toInt(dynamic value) {
     if (value is int) {
       return value;
@@ -254,6 +249,9 @@ class _BoxCricketBookingCollectionScreenState
   }
 
   int _paidAmount(Map<String, dynamic> booking) {
+    if (_paymentStatus(booking) == 'refunded') {
+      return 0;
+    }
     final int amount = _amount(booking);
     final int fromField = _toInt(booking['paidAmount']);
     if (fromField > 0) {
@@ -278,6 +276,9 @@ class _BoxCricketBookingCollectionScreenState
   String _paymentStatus(Map<String, dynamic> booking) {
     final String raw =
         booking['paymentStatus']?.toString().trim().toLowerCase() ?? 'pending';
+    if (raw == 'refunded') {
+      return 'refunded';
+    }
     if (raw == 'paid' ||
         raw == 'partial' ||
         raw == 'pending' ||
@@ -299,6 +300,9 @@ class _BoxCricketBookingCollectionScreenState
   }
 
   bool _canCollect(Map<String, dynamic> booking) {
+    if (_paymentStatus(booking) == 'refunded') {
+      return false;
+    }
     if (_dueAmount(booking) <= 0) {
       return false;
     }
@@ -417,6 +421,18 @@ class _BoxCricketBookingCollectionScreenState
                   'Pending: ${_currency(_dueAmount(booking))}',
                   style: const TextStyle(color: Color(0xFFF59E0B)),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  'Payment Status: ${_statusLabel(_paymentStatus(booking))}',
+                  style: const TextStyle(color: Color(0xFF9FB9B3)),
+                ),
+                if (_paymentStatus(booking) == 'refunded') ...<Widget>[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Refund Reason: ${booking['refundReason'] ?? booking['cancellationReason'] ?? 'Not provided'}',
+                    style: const TextStyle(color: Color(0xFFE3220D)),
+                  ),
+                ],
                 const SizedBox(height: 14),
               ],
             ),
@@ -564,7 +580,6 @@ class _BoxCricketBookingCollectionScreenState
                               }
 
                               setSheetState(() => isSaving = true);
-                              setState(() => _isSavingPayment = true);
                               try {
                                 final int newPaid = alreadyPaid + paying;
                                 final Map<String, dynamic> updated =
@@ -592,7 +607,7 @@ class _BoxCricketBookingCollectionScreenState
                                   };
                                 }
 
-                                if (!mounted) {
+                                if (!mounted || !ctx.mounted) {
                                   return;
                                 }
                                 Navigator.of(ctx).pop();
@@ -616,11 +631,7 @@ class _BoxCricketBookingCollectionScreenState
                                   );
                                 }
                                 setSheetState(() => isSaving = false);
-                              } finally {
-                                if (mounted) {
-                                  setState(() => _isSavingPayment = false);
-                                }
-                              }
+                              } finally {}
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00C9A7),
@@ -658,27 +669,26 @@ class _BoxCricketBookingCollectionScreenState
     amountCtrl.dispose();
   }
 
-  void _showNumberHint(String title, String phone) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          phone.isEmpty ? '$title number not available.' : '$title: $phone',
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> visible = _visibleBookings();
 
+    bool countInTotals(Map<String, dynamic> booking) {
+      final String paymentStatus = _paymentStatus(booking);
+      final String bookingStatus =
+          booking['bookingStatus']?.toString().trim().toLowerCase() ?? '';
+      return paymentStatus != 'refunded' && bookingStatus != 'cancelled';
+    }
+
     final int total = _bookings.fold<int>(
       0,
-      (int sum, Map<String, dynamic> booking) => sum + _amount(booking),
+      (int sum, Map<String, dynamic> booking) =>
+          sum + (countInTotals(booking) ? _amount(booking) : 0),
     );
     final int paid = _bookings.fold<int>(
       0,
-      (int sum, Map<String, dynamic> booking) => sum + _paidAmount(booking),
+      (int sum, Map<String, dynamic> booking) =>
+          sum + (countInTotals(booking) ? _paidAmount(booking) : 0),
     );
     final int pending = (total - paid) < 0 ? 0 : (total - paid);
 
@@ -918,7 +928,6 @@ class _BoxCricketBookingCollectionScreenState
                           DataColumn(label: Text("Action")),
                         ],
                         rows: visible.map((booking) {
-                          final status = _paymentStatus(booking);
                           final canCollect = _canCollect(booking);
 
                           String date = '-';
