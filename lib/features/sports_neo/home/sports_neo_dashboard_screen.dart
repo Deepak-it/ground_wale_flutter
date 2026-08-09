@@ -772,7 +772,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                           _HeaderActionIcon(
                             icon: Icons.notifications_none_rounded,
                             badgeCount: _unreadNotifications,
-                            backgroundColor: const Color(0x251FFFFFF),
+                            backgroundColor: const Color(0x25FFFFFF),
                             iconColor: Colors.white,
                             onTap: () {
                               Navigator.of(context).push(
@@ -788,7 +788,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
                           _HeaderActionIcon(
                             icon: Icons.shopping_cart_outlined,
-                            backgroundColor: const Color(0x251FFFFFF),
+                            backgroundColor: const Color(0x25FFFFFF),
                             iconColor: Colors.white,
                             onTap: () {
                               Navigator.of(context).push(
@@ -925,7 +925,9 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const SportsNeoAcademyDetailScreen(),
+                    builder: (_) => SportsNeoAcademyDetailScreen(
+                      selectedCity: _selectedCityFilter,
+                    ),
                   ),
                 );
               },
@@ -1169,7 +1171,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: count,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (_, index) {
           return _NearbyGroundShowcaseCard(item: _filteredGrounds[index]);
         },
@@ -1192,7 +1194,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: _teams.length > 5 ? 5 : _teams.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, index) {
           return _TeamGradientCard(item: _teams[index]);
         },
@@ -1283,12 +1285,6 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                   icon: Icons.home_rounded,
                   label: 'Home',
                   active: true,
-                  onTap: () {},
-                ),
-
-                _BottomNavItem(
-                  icon: Icons.explore_outlined,
-                  label: 'Explore',
                   onTap: () {},
                 ),
 

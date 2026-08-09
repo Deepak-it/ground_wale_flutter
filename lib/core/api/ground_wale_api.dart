@@ -641,7 +641,7 @@ class GroundWaleApi {
   Future<void> unblockSlot(String slotId, {String? date}) async {
     await _dio.patch(
       '/slots/$slotId/unblock',
-      data: {if (date != null) 'date': date},
+      data: <String, dynamic>{'date': date},
     );
   }
 
@@ -1009,6 +1009,58 @@ class GroundWaleApi {
           if (batchId != null && batchId.isNotEmpty) 'batchId': batchId,
           if (monthKey != null && monthKey.isNotEmpty) 'monthKey': monthKey,
         },
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> discoverAcademies({
+    String? playerId,
+    String? city,
+    String? sport,
+  }) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/academy/discover',
+        queryParameters: <String, dynamic>{
+          if (playerId != null && playerId.isNotEmpty) 'playerId': playerId,
+          if (city != null && city.isNotEmpty) 'city': city,
+          if (sport != null && sport.isNotEmpty) 'sport': sport,
+        },
+      );
+      return (response.data as List<dynamic>)
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> listPlayerAcademyEnrollments(
+    String playerId,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/academy/player/$playerId/enrollments',
+      );
+      return (response.data as List<dynamic>)
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> joinAcademy(
+    String playerId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/academy/player/$playerId/join',
+        data: payload,
       );
       return Map<String, dynamic>.from(response.data as Map);
     } catch (error) {
