@@ -10,7 +10,8 @@ class SportsNeoBookingCartScreen extends StatefulWidget {
       _SportsNeoBookingCartScreenState();
 }
 
-class _SportsNeoBookingCartScreenState extends State<SportsNeoBookingCartScreen> {
+class _SportsNeoBookingCartScreenState
+    extends State<SportsNeoBookingCartScreen> {
   final GroundWaleApi _api = GroundWaleApi.instance;
   bool _isLoading = true;
   final List<_CartGroundItem> _items = <_CartGroundItem>[];
@@ -44,7 +45,7 @@ class _SportsNeoBookingCartScreenState extends State<SportsNeoBookingCartScreen>
       setState(() {
         _items
           ..clear()
-          ..addAll(mapped.isEmpty ? _fallbackCartItems : mapped);
+          ..addAll(mapped);
         _isLoading = false;
       });
     } catch (_) {
@@ -52,9 +53,7 @@ class _SportsNeoBookingCartScreenState extends State<SportsNeoBookingCartScreen>
         return;
       }
       setState(() {
-        _items
-          ..clear()
-          ..addAll(_fallbackCartItems);
+        _items.clear();
         _isLoading = false;
       });
     }
@@ -110,7 +109,9 @@ class _SportsNeoBookingCartScreenState extends State<SportsNeoBookingCartScreen>
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF2563EB),
+                      ),
                     )
                   : SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
@@ -134,7 +135,9 @@ class _SportsNeoBookingCartScreenState extends State<SportsNeoBookingCartScreen>
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Coupon flow is not available yet'),
+                                  content: Text(
+                                    'Coupon flow is not available yet',
+                                  ),
                                 ),
                               );
                             },
@@ -166,7 +169,9 @@ class _SportsNeoBookingCartScreenState extends State<SportsNeoBookingCartScreen>
                       : () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Booking submission flow will be connected next'),
+                              content: Text(
+                                'Booking submission flow will be connected next',
+                              ),
                             ),
                           );
                         },
@@ -270,7 +275,11 @@ class _CartGroundCard extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: <Widget>[
-              const Icon(Icons.location_on_outlined, color: Colors.white, size: 14),
+              const Icon(
+                Icons.location_on_outlined,
+                color: Colors.white,
+                size: 14,
+              ),
               const SizedBox(width: 4),
               Text(
                 item.location,
@@ -299,10 +308,8 @@ class _CartGroundCard extends StatelessWidget {
             runSpacing: 7,
             children: <Widget>[
               ...item.selectedSlots.map(
-                (String slot) => _SlotChip(
-                  label: slot,
-                  onRemove: () => onRemoveSlot(slot),
-                ),
+                (String slot) =>
+                    _SlotChip(label: slot, onRemove: () => onRemoveSlot(slot)),
               ),
               _AddSlotChip(onTap: onAddSlot),
             ],
@@ -369,7 +376,11 @@ class _CartGroundCard extends StatelessWidget {
                   onTap: onRemoveGround,
                   child: const Row(
                     children: <Widget>[
-                      Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 18),
+                      Icon(
+                        Icons.delete_outline,
+                        color: Color(0xFFEF4444),
+                        size: 18,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Remove Ground',
@@ -502,11 +513,7 @@ class _DashedActionRow extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: Color(0xFF0EA5A4),
-              size: 20,
-            ),
+            const Icon(Icons.chevron_right, color: Color(0xFF0EA5A4), size: 20),
           ],
         ),
       ),
@@ -548,7 +555,10 @@ class _PriceSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _SummaryRow(label: 'Subtotal', value: '₹${subtotal.toStringAsFixed(0)}'),
+          _SummaryRow(
+            label: 'Subtotal',
+            value: '₹${subtotal.toStringAsFixed(0)}',
+          ),
           const SizedBox(height: 8),
           _SummaryRow(
             label: 'Discount',
@@ -623,26 +633,28 @@ class _CartGroundItem {
         .where((String text) => text.isNotEmpty)
         .toList();
 
-    final List<String> facilities = ((ground['facilities'] as List?) ?? <dynamic>[])
-        .take(3)
-        .map((dynamic item) => item.toString())
-        .toList();
+    final List<String> facilities =
+        ((ground['facilities'] as List?) ?? <dynamic>[])
+            .take(3)
+            .map((dynamic item) => item.toString())
+            .toList();
 
     final double price = _groundPrice(ground) ?? 400;
 
     return _CartGroundItem(
-      name: ground['groundName']?.toString() ?? ground['name']?.toString() ?? 'Ground',
-      location: ground['city']?.toString() ?? ground['location']?.toString() ?? 'Mohali',
-      selectedSlots: selectedSlots.isEmpty
-          ? <String>['5:00 - 6:00 PM', '6:00 - 7:00 PM']
-          : selectedSlots,
-      facilities: facilities.isEmpty
-          ? <String>['Floodlights', 'Parking', 'Washroom']
-          : facilities,
+      name:
+          ground['groundName']?.toString() ??
+          ground['name']?.toString() ??
+          'Ground',
+      location:
+          ground['city']?.toString() ??
+          ground['location']?.toString() ??
+          ground['address']?.toString() ??
+          'Location unavailable',
+      selectedSlots: selectedSlots,
+      facilities: facilities,
       pricePerSlot: price,
-      suggestedNextSlot: slots.length > 2
-          ? _slotLabel(slots[2])
-          : '7:00 - 8:00 PM',
+      suggestedNextSlot: slots.length > 2 ? _slotLabel(slots[2]) : '',
     );
   }
 
@@ -667,9 +679,8 @@ class _CartGroundItem {
   }
 
   static double? _groundPrice(Map<String, dynamic> ground) {
-    final dynamic raw = ground['hourlyPrice'] ??
-        ground['pricePerHour'] ??
-        ground['hourlyRate'];
+    final dynamic raw =
+        ground['hourlyPrice'] ?? ground['pricePerHour'] ?? ground['hourlyRate'];
     if (raw is num) {
       return raw.toDouble();
     }
@@ -688,22 +699,3 @@ class _CartGroundItem {
     return end.isEmpty ? start : '$start - $end';
   }
 }
-
-final List<_CartGroundItem> _fallbackCartItems = <_CartGroundItem>[
-  const _CartGroundItem(
-    name: 'Green Turf Arena',
-    location: 'Mohali',
-    selectedSlots: <String>['5:00 - 6:00 PM', '6:00 - 7:00 PM'],
-    facilities: <String>['Floodlights', 'Parking', 'Washroom'],
-    pricePerSlot: 400,
-    suggestedNextSlot: '7:00 - 8:00 PM',
-  ),
-  const _CartGroundItem(
-    name: 'Champions Box Cricket',
-    location: 'Sector 62',
-    selectedSlots: <String>['7:00 - 8:00 PM'],
-    facilities: <String>['Parking', 'Washroom'],
-    pricePerSlot: 500,
-    suggestedNextSlot: '8:00 - 9:00 PM',
-  ),
-];

@@ -20,7 +20,8 @@ class GroundFlowController extends ChangeNotifier {
   bool forceCreateGround = false;
 
   bool get isAcademyFlow => data.offerType == OfferType.academyCoaching;
-  bool get isBoxCricketFlow => data.offerType == OfferType.boxCricket || data.offerType == null;
+  bool get isBoxCricketFlow =>
+      data.offerType == OfferType.boxCricket || data.offerType == null;
 
   int get totalSteps => 17;
 
@@ -57,20 +58,38 @@ class GroundFlowController extends ChangeNotifier {
     int next;
     if (isAcademyFlow) {
       switch (currentStep) {
-        case 3:  next = 13; break; // WhatToOffer → Academy Details
-        case 15: next = 5;  break; // Facilities → Photos
-        case 5:  next = skipOwnershipVerification ? 16 : 11; break; // Photos → skip or Ownership
-        case 11: next = 16; break; // Ownership → Academy Under Review
-        default: next = currentStep + 1;
+        case 3:
+          next = 13;
+          break; // WhatToOffer → Academy Details
+        case 15:
+          next = 5;
+          break; // Facilities → Photos
+        case 5:
+          next = skipOwnershipVerification ? 16 : 11;
+          break; // Photos → skip or Ownership
+        case 11:
+          next = 16;
+          break; // Ownership → Academy Under Review
+        default:
+          next = currentStep + 1;
       }
     } else {
       // Ground / Box Cricket flow
       switch (currentStep) {
-        case 7:  next = 8;  break; // Facilities → Configure Slot review
-        case 9:  next = 8;  break; // Add Custom Slots → Configure Slot review
-        case 10: next = 8;  break; // Day-wise Pricing → Configure Slot review
-        case 8:  next = skipOwnershipVerification ? 12 : 11; break; // Configure Slot review → skip or Ownership Verification
-        default: next = currentStep + 1;
+        case 7:
+          next = 8;
+          break; // Facilities → Configure Slot review
+        case 9:
+          next = 8;
+          break; // Add Custom Slots → Configure Slot review
+        case 10:
+          next = 8;
+          break; // Day-wise Pricing → Configure Slot review
+        case 8:
+          next = skipOwnershipVerification ? 12 : 11;
+          break; // Configure Slot review → skip or Ownership Verification
+        default:
+          next = currentStep + 1;
       }
     }
     if (next < totalSteps) {
@@ -91,23 +110,47 @@ class GroundFlowController extends ChangeNotifier {
     int prev;
     if (isAcademyFlow) {
       switch (currentStep) {
-        case 13: prev = 3;  break; // Academy Details → WhatToOffer
-        case 14: prev = 13; break; // Batch → Academy Details
-        case 15: prev = 14; break; // Facilities → Batch
-        case 5:  prev = 15; break; // Photos → Facilities
-        case 11: prev = 5;  break; // Ownership → Photos
-        case 16: prev = 11; break; // Under Review → Ownership
-        default: prev = currentStep - 1;
+        case 13:
+          prev = 3;
+          break; // Academy Details → WhatToOffer
+        case 14:
+          prev = 13;
+          break; // Batch → Academy Details
+        case 15:
+          prev = 14;
+          break; // Facilities → Batch
+        case 5:
+          prev = 15;
+          break; // Photos → Facilities
+        case 11:
+          prev = 5;
+          break; // Ownership → Photos
+        case 16:
+          prev = 11;
+          break; // Under Review → Ownership
+        default:
+          prev = currentStep - 1;
       }
     } else {
       // Ground / Box Cricket flow
       switch (currentStep) {
-        case 8:  prev = 7;  break; // Configure Slot review → Facilities
-        case 9:  prev = 8;  break; // Add Custom Slots → Configure Slot review
-        case 10: prev = 8;  break; // Day-wise Pricing → Configure Slot review
-        case 11: prev = 8;  break; // Ownership → Configure Slot review (ground path)
-        case 12: prev = skipOwnershipVerification ? 8 : 11; break; // Under Review → Configure Slot review or Ownership
-        default: prev = currentStep - 1;
+        case 8:
+          prev = 7;
+          break; // Configure Slot review → Facilities
+        case 9:
+          prev = 8;
+          break; // Add Custom Slots → Configure Slot review
+        case 10:
+          prev = 8;
+          break; // Day-wise Pricing → Configure Slot review
+        case 11:
+          prev = 8;
+          break; // Ownership → Configure Slot review (ground path)
+        case 12:
+          prev = skipOwnershipVerification ? 8 : 11;
+          break; // Under Review → Configure Slot review or Ownership
+        default:
+          prev = currentStep - 1;
       }
     }
     if (prev >= 0) {
@@ -146,7 +189,9 @@ class GroundFlowController extends ChangeNotifier {
   Map<String, dynamic> _groundPayload() {
     final bool academy = isAcademyFlow;
     final String entityName = academy
-        ? (data.academyName.trim().isNotEmpty ? data.academyName.trim() : 'Academy')
+        ? (data.academyName.trim().isNotEmpty
+              ? data.academyName.trim()
+              : 'Academy')
         : data.groundName;
     final String description = academy
         ? 'Academy with facilities: ${data.facilities.join(', ')}'
@@ -183,7 +228,6 @@ class GroundFlowController extends ChangeNotifier {
       'pitchType': data.pitchType.name,
       'facilities': data.facilities.toList(),
       'groundImages': data.groundImages,
-      'ownershipProof': data.ownershipProof,
       'openingTime': data.openingTime,
       'startDate': _dateOnlyString(data.startDate),
       'endDate': _dateOnlyString(data.endDate),
@@ -208,7 +252,9 @@ class GroundFlowController extends ChangeNotifier {
 
   Map<String, dynamic> _academyPayload() {
     return <String, dynamic>{
-      'name': data.academyName.trim().isNotEmpty ? data.academyName.trim() : 'Academy',
+      'name': data.academyName.trim().isNotEmpty
+          ? data.academyName.trim()
+          : 'Academy',
       'city': data.city.trim(),
       'state': data.state.trim(),
       'address': data.address.trim(),
@@ -241,9 +287,7 @@ class GroundFlowController extends ChangeNotifier {
 
   Future<void> submitGroundForVerification() async {
     if (!_session.isAuthenticated) {
-      throw Exception(
-        'Complete OTP verification before submitting',
-      );
+      throw Exception('Complete OTP verification before submitting');
     }
 
     isBusy = true;
@@ -276,14 +320,6 @@ class GroundFlowController extends ChangeNotifier {
             academyName: _academyPayload()['name']?.toString(),
           );
 
-          if (data.ownershipProof.isNotEmpty) {
-            await _api.updateAcademyOwnershipProof(
-              _session.ownerId!,
-              academyId,
-              data.ownershipProof,
-            );
-          }
-
           await _api.submitAcademyForReview(_session.ownerId!, academyId);
           // Create the AcademyBatch record so it appears in /batches
           if (data.academyBatchName.trim().isNotEmpty) {
@@ -305,10 +341,12 @@ class GroundFlowController extends ChangeNotifier {
                   'capacity': capacity,
                   'monthlyFee': monthlyFee,
                   'feePlans': data.academyFeePlans
-                      .map((AcademyFeePlan p) => <String, String>{
-                            'duration': p.duration,
-                            'price': p.price,
-                          })
+                      .map(
+                        (AcademyFeePlan p) => <String, String>{
+                          'duration': p.duration,
+                          'price': p.price,
+                        },
+                      )
                       .toList(),
                   'academyId': academyId,
                   'status': 'active',
@@ -317,12 +355,16 @@ class GroundFlowController extends ChangeNotifier {
             } catch (_) {
               // Non-fatal — batch can be added manually from dashboard
             }
-          }        }
+          }
+        }
       } else {
         // ── Ground / Box Cricket path ──
         Map<String, dynamic> ground;
         if (_session.hasGround && !forceCreateGround) {
-          ground = await _api.updateGround(_session.groundId!, _groundPayload());
+          ground = await _api.updateGround(
+            _session.groundId!,
+            _groundPayload(),
+          );
         } else {
           ground = await _api.createGround(_groundPayload());
         }
@@ -330,13 +372,6 @@ class GroundFlowController extends ChangeNotifier {
         _session.setGroundId(
           ground['_id']?.toString() ?? ground['id']?.toString(),
         );
-
-        if (data.ownershipProof.isNotEmpty) {
-          await _api.updateOwnershipVerification(
-            _session.groundId!,
-            data.ownershipProof,
-          );
-        }
 
         await _api.submitGroundForReview(_session.groundId!);
       }
@@ -358,14 +393,18 @@ class GroundFlowController extends ChangeNotifier {
     }
 
     if (!forceCreateGround) {
-      final String? existing = await _api.ensureGroundIdForOwner(_session.ownerId!);
+      final String? existing = await _api.ensureGroundIdForOwner(
+        _session.ownerId!,
+      );
       if (existing != null && existing.isNotEmpty) {
         _session.setGroundId(existing);
         return existing;
       }
     }
 
-    final Map<String, dynamic> created = await _api.createGround(_groundPayload());
+    final Map<String, dynamic> created = await _api.createGround(
+      _groundPayload(),
+    );
     final String createdId =
         created['_id']?.toString() ?? created['id']?.toString() ?? '';
     if (createdId.isEmpty) {

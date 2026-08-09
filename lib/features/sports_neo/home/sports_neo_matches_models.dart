@@ -43,16 +43,20 @@ class SportsNeoMatchBooking {
       id: booking['_id']?.toString() ?? booking['id']?.toString() ?? '',
       teamName: booking['teamName']?.toString() ?? 'Unknown Team',
       groundName:
-          ground['groundName']?.toString() ?? ground['name']?.toString() ?? 'Ground',
-      location: ground['city']?.toString() ??
+          ground['groundName']?.toString() ??
+          ground['name']?.toString() ??
+          'Ground',
+      location:
+          ground['city']?.toString() ??
           ground['location']?.toString() ??
           ground['address']?.toString() ??
-          'Mohali',
+          'Location unavailable',
       dateLabel: dateLabel,
       timeRange: endTime.isEmpty ? startTime : '$startTime - $endTime',
       amount: _toDouble(booking['amount']),
       playerCount: _toInt(booking['playerCount']),
-      captainName: booking['captainName']?.toString() ??
+      captainName:
+          booking['captainName']?.toString() ??
           booking['teamName']?.toString() ??
           'Captain',
       captainPhone: booking['captainPhone']?.toString() ?? '',
@@ -87,7 +91,7 @@ class SportsNeoMatchBooking {
 
   static String _formatDate(String? raw) {
     if (raw == null || raw.isEmpty) {
-      return 'Apr 8';
+      return '-';
     }
     final DateTime? date = DateTime.tryParse(raw)?.toLocal();
     if (date == null) {
@@ -165,7 +169,8 @@ class SportsNeoMatchesRepository {
 
   Future<List<SportsNeoTeamSummary>> loadTeams() async {
     final List<Map<String, dynamic>> grounds = await _api.listGrounds();
-    final Map<String, Map<String, dynamic>> groundById = <String, Map<String, dynamic>>{};
+    final Map<String, Map<String, dynamic>> groundById =
+        <String, Map<String, dynamic>>{};
     final List<SportsNeoMatchBooking> allBookings = <SportsNeoMatchBooking>[];
 
     for (final Map<String, dynamic> ground in grounds) {
@@ -176,34 +181,39 @@ class SportsNeoMatchesRepository {
       }
       groundById[groundId] = ground;
       try {
-        final List<Map<String, dynamic>> bookings = await _api.listBookings(groundId);
+        final List<Map<String, dynamic>> bookings = await _api.listBookings(
+          groundId,
+        );
         allBookings.addAll(
           bookings.map(
-            (Map<String, dynamic> booking) => SportsNeoMatchBooking.fromMaps(
-              booking,
-              ground,
-            ),
+            (Map<String, dynamic> booking) =>
+                SportsNeoMatchBooking.fromMaps(booking, ground),
           ),
         );
       } catch (_) {}
     }
 
     if (allBookings.isEmpty) {
-      return _fallbackTeams;
+      return const <SportsNeoTeamSummary>[];
     }
 
-    final String contactNumber = ApiSession.instance.contactNumber?.trim() ?? '';
-    final String ownerName = ApiSession.instance.ownerName?.trim().toLowerCase() ?? '';
+    final String contactNumber =
+        ApiSession.instance.contactNumber?.trim() ?? '';
+    final String ownerName =
+        ApiSession.instance.ownerName?.trim().toLowerCase() ?? '';
     final Map<String, List<SportsNeoMatchBooking>> grouped =
         <String, List<SportsNeoMatchBooking>>{};
 
     for (final SportsNeoMatchBooking booking in allBookings) {
-      grouped.putIfAbsent(booking.teamName, () => <SportsNeoMatchBooking>[]).add(booking);
+      grouped
+          .putIfAbsent(booking.teamName, () => <SportsNeoMatchBooking>[])
+          .add(booking);
     }
 
     final List<SportsNeoTeamSummary> teams = grouped.entries.map((entry) {
-      final List<SportsNeoMatchBooking> bookings = List<SportsNeoMatchBooking>.from(entry.value)
-        ..sort((a, b) => b.dateLabel.compareTo(a.dateLabel));
+      final List<SportsNeoMatchBooking> bookings =
+          List<SportsNeoMatchBooking>.from(entry.value)
+            ..sort((a, b) => b.dateLabel.compareTo(a.dateLabel));
       final SportsNeoMatchBooking recent = bookings.first;
       final int playerCount = bookings.fold<int>(
         0,
@@ -212,8 +222,10 @@ class SportsNeoMatchesRepository {
       );
       final bool createdByMe = bookings.any((SportsNeoMatchBooking booking) {
         final bool phoneMatch =
-            contactNumber.isNotEmpty && booking.captainPhone.trim() == contactNumber;
-        final bool nameMatch = ownerName.isNotEmpty &&
+            contactNumber.isNotEmpty &&
+            booking.captainPhone.trim() == contactNumber;
+        final bool nameMatch =
+            ownerName.isNotEmpty &&
             booking.captainName.trim().toLowerCase() == ownerName;
         return phoneMatch || nameMatch;
       });
@@ -256,62 +268,3 @@ class SportsNeoPlayerRow {
   final String subtitle;
   final bool isCaptain;
 }
-
-const List<SportsNeoTeamSummary> _fallbackTeams = <SportsNeoTeamSummary>[
-  SportsNeoTeamSummary(
-    teamName: 'Thunderbolts XI',
-    createdByMe: true,
-    captainName: 'Rahul Sharma',
-    captainPhone: '+91 9876543210',
-    playerCount: 11,
-    matchesCount: 8,
-    totalAmount: 2400,
-    recentGround: 'Victory Cricket Stadium',
-    recentLocation: 'Sector 118, Mohali',
-    bookings: <SportsNeoMatchBooking>[
-      SportsNeoMatchBooking(
-        id: '',
-        teamName: 'Thunderbolts XI',
-        groundName: 'Victory Cricket Stadium',
-        location: 'Sector 118, Mohali',
-        dateLabel: 'Apr 8',
-        timeRange: '6:00 AM - 8:00 AM',
-        amount: 350,
-        playerCount: 11,
-        captainName: 'Rahul Sharma',
-        captainPhone: '+91 9876543210',
-        bookingStatus: 'confirmed',
-        paymentStatus: 'paid',
-        notes: 'White Ball',
-      ),
-    ],
-  ),
-  SportsNeoTeamSummary(
-    teamName: 'Manu XI',
-    createdByMe: false,
-    captainName: 'Manu',
-    captainPhone: '',
-    playerCount: 11,
-    matchesCount: 4,
-    totalAmount: 1200,
-    recentGround: 'Green Turf Arena',
-    recentLocation: 'Sector 62',
-    bookings: <SportsNeoMatchBooking>[
-      SportsNeoMatchBooking(
-        id: '',
-        teamName: 'Manu XI',
-        groundName: 'Green Turf Arena',
-        location: 'Sector 62',
-        dateLabel: 'Apr 7',
-        timeRange: '7:00 PM - 8:00 PM',
-        amount: 500,
-        playerCount: 11,
-        captainName: 'Manu',
-        captainPhone: '',
-        bookingStatus: 'confirmed',
-        paymentStatus: 'pending',
-        notes: '',
-      ),
-    ],
-  ),
-];

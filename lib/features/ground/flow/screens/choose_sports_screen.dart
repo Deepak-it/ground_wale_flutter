@@ -4,9 +4,16 @@ import 'package:ground_wale/core/widgets/app_text_field.dart';
 import '../controllers/ground_flow_controller.dart';
 
 class ChooseSportsScreen extends StatefulWidget {
-  const ChooseSportsScreen({super.key, required this.controller});
+  const ChooseSportsScreen({
+    super.key,
+    required this.controller,
+    this.onDone,
+    this.singleSelection = false,
+  });
 
   final GroundFlowController controller;
+  final ValueChanged<List<String>>? onDone;
+  final bool singleSelection;
 
   @override
   State<ChooseSportsScreen> createState() => _ChooseSportsScreenState();
@@ -133,12 +140,24 @@ class _ChooseSportsScreenState extends State<ChooseSportsScreen> {
                     borderRadius: BorderRadius.circular(12),
                     onTap: () {
                       setState(() {
-                        if (selected) {
-                          widget.controller.data.selectedSports.remove(
-                            sport.name,
-                          );
+                        if (widget.singleSelection) {
+                          if (selected) {
+                            widget.controller.data.selectedSports.clear();
+                          } else {
+                            widget.controller.data.selectedSports
+                              ..clear()
+                              ..add(sport.name);
+                          }
                         } else {
-                          widget.controller.data.selectedSports.add(sport.name);
+                          if (selected) {
+                            widget.controller.data.selectedSports.remove(
+                              sport.name,
+                            );
+                          } else {
+                            widget.controller.data.selectedSports.add(
+                              sport.name,
+                            );
+                          }
                         }
                       });
                       widget.controller.update();
@@ -211,6 +230,14 @@ class _ChooseSportsScreenState extends State<ChooseSportsScreen> {
                     );
                     return;
                   }
+
+                  if (widget.onDone != null) {
+                    widget.onDone!(
+                      widget.controller.data.selectedSports.toList(),
+                    );
+                    return;
+                  }
+
                   widget.controller.nextStep();
                 },
                 child: const Text(
@@ -259,7 +286,13 @@ class _ChooseSportsScreenState extends State<ChooseSportsScreen> {
                     _sports.insert(0, _SportItem(sportName, '🏅'));
                   });
                 }
-                widget.controller.data.selectedSports.add(sportName);
+                if (widget.singleSelection) {
+                  widget.controller.data.selectedSports
+                    ..clear()
+                    ..add(sportName);
+                } else {
+                  widget.controller.data.selectedSports.add(sportName);
+                }
                 widget.controller.update();
                 Navigator.of(dialogContext).pop();
               },
@@ -280,5 +313,3 @@ class _SportItem {
   final String name;
   final String emoji;
 }
-
-

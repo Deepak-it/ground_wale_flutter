@@ -8,6 +8,7 @@ import '../../academy/home/academy_dashboard_screen.dart';
 import '../../academy/home/academy_profile_screen.dart';
 import '../../box_cricket/home/box_cricket_dashboard_screen.dart';
 import '../../box_cricket/home/box_cricket_manage_slots_screen.dart';
+import '../../box_cricket/home/box_cricket_owner_notifications_screen.dart';
 import '../../box_cricket/home/box_cricket_profile_screen.dart';
 import '../../box_cricket/home/box_cricket_upcoming_bookings_screen.dart';
 import '../../ground/flow/controllers/ground_flow_controller.dart';
@@ -22,7 +23,8 @@ class GroundCourtOwnerShellScreen extends StatefulWidget {
       _GroundCourtOwnerShellScreenState();
 }
 
-class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScreen> {
+class _GroundCourtOwnerShellScreenState
+    extends State<GroundCourtOwnerShellScreen> {
   final GlobalKey<NavigatorState> _groundNavigatorKey =
       GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _academyNavigatorKey =
@@ -56,10 +58,11 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
 
     setState(() => _isLoadingCounts = true);
     try {
-      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
-        GroundWaleApi.instance.listGrounds(ownerId: ownerId),
-        GroundWaleApi.instance.listAcademies(ownerId),
-      ]);
+      final List<dynamic> results =
+          await Future.wait<dynamic>(<Future<dynamic>>[
+            GroundWaleApi.instance.listGrounds(ownerId: ownerId),
+            GroundWaleApi.instance.listAcademies(ownerId),
+          ]);
 
       final List<Map<String, dynamic>> grounds =
           results[0] as List<Map<String, dynamic>>;
@@ -209,10 +212,7 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xCCFFFFFF),
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: Color(0xCCFFFFFF), fontSize: 14),
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -300,7 +300,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             borderRadius: BorderRadius.circular(12),
             color: selected ? const Color(0xFF00C9A7) : const Color(0x0FFFFFFF),
             border: Border.all(
-              color: selected ? const Color(0xFF00C9A7) : const Color(0x26FFFFFF),
+              color: selected
+                  ? const Color(0xFF00C9A7)
+                  : const Color(0x26FFFFFF),
             ),
           ),
           child: Text(
@@ -330,14 +332,18 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
           children: <Widget>[
             Icon(
               icon,
-              color: selected ? const Color(0xFF00C9A7) : const Color(0xFF9FB9B3),
+              color: selected
+                  ? const Color(0xFF00C9A7)
+                  : const Color(0xFF9FB9B3),
               size: 22,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: selected ? const Color(0xFF00C9A7) : const Color(0xFF9FB9B3),
+                color: selected
+                    ? const Color(0xFF00C9A7)
+                    : const Color(0xFF9FB9B3),
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -362,7 +368,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             label: 'Home',
             selected: _groundNavIndex == 0,
             onTap: () {
-              _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              _groundNavigatorKey.currentState?.popUntil(
+                (Route<dynamic> r) => r.isFirst,
+              );
               if (_groundNavIndex != 0) {
                 _dashboardRefreshKey++;
               }
@@ -374,7 +382,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             label: 'Bookings',
             selected: _groundNavIndex == 1,
             onTap: () {
-              _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              _groundNavigatorKey.currentState?.popUntil(
+                (Route<dynamic> r) => r.isFirst,
+              );
               setState(() => _groundNavIndex = 1);
             },
           ),
@@ -383,7 +393,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             label: 'Slots',
             selected: _groundNavIndex == 2,
             onTap: () {
-              _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              _groundNavigatorKey.currentState?.popUntil(
+                (Route<dynamic> r) => r.isFirst,
+              );
               setState(() => _groundNavIndex = 2);
             },
           ),
@@ -392,7 +404,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             label: 'Profile',
             selected: _groundNavIndex == 3,
             onTap: () {
-              _groundNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              _groundNavigatorKey.currentState?.popUntil(
+                (Route<dynamic> r) => r.isFirst,
+              );
               setState(() => _groundNavIndex = 3);
             },
           ),
@@ -415,7 +429,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             label: 'Home',
             selected: _academyNavIndex == 0,
             onTap: () {
-              _academyNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              _academyNavigatorKey.currentState?.popUntil(
+                (Route<dynamic> r) => r.isFirst,
+              );
               setState(() => _academyNavIndex = 0);
             },
           ),
@@ -424,7 +440,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             label: 'Announcement',
             selected: _academyNavIndex == 1,
             onTap: () {
-              _academyNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              _academyNavigatorKey.currentState?.popUntil(
+                (Route<dynamic> r) => r.isFirst,
+              );
               setState(() => _academyNavIndex = 1);
             },
           ),
@@ -433,7 +451,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             label: 'Profile',
             selected: _academyNavIndex == 2,
             onTap: () {
-              _academyNavigatorKey.currentState?.popUntil((Route<dynamic> r) => r.isFirst);
+              _academyNavigatorKey.currentState?.popUntil(
+                (Route<dynamic> r) => r.isFirst,
+              );
               setState(() => _academyNavIndex = 2);
             },
           ),
@@ -442,15 +462,19 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
     );
   }
 
-  Widget _headerIconChip(IconData icon) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x14FFFFFF)),
+  Widget _headerIconChip(IconData icon, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0x14FFFFFF)),
+        ),
+        child: Icon(icon, color: const Color(0xFFDDF730), size: 20),
       ),
-      child: Icon(icon, color: const Color(0xFFDDF730), size: 20),
     );
   }
 
@@ -463,7 +487,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
     final String greetingMessage = istGreetingMessage(ownerName);
 
     return Scaffold(
-      backgroundColor: _topTabIndex == 0 ? const Color(0xFF1B1F1B) : const Color(0xFF0F2027),
+      backgroundColor: _topTabIndex == 0
+          ? const Color(0xFF1B1F1B)
+          : const Color(0xFF0F2027),
       body: SafeArea(
         child: Column(
           children: <Widget>[
@@ -505,7 +531,17 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
                     children: <Widget>[
                       _headerIconChip(Icons.campaign_outlined),
                       const SizedBox(width: 10),
-                      _headerIconChip(Icons.notifications_none_rounded),
+                      _headerIconChip(
+                        Icons.notifications_none_rounded,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  const BoxCricketOwnerNotificationsScreen(),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -532,7 +568,9 @@ class _GroundCourtOwnerShellScreenState extends State<GroundCourtOwnerShellScree
             Expanded(
               child: _isLoadingCounts
                   ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF00C9A7)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF00C9A7),
+                      ),
                     )
                   : _topTabIndex == 0
                   ? (_groundCount == 0

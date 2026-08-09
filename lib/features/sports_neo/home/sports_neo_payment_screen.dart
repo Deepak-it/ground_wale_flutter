@@ -151,11 +151,17 @@ class _SportsNeoPaymentScreenState extends State<SportsNeoPaymentScreen> {
                     ),
                     const SizedBox(height: 16),
                     _PaymentOption(
-                      label: 'UPI',
+                      label: 'COD',
                       icon: Icons.account_balance_wallet_outlined,
-                      selected: _method == 'UPI',
-                      onTap: () => setState(() => _method = 'UPI'),
+                      selected: _method == 'COD',
+                      onTap: () => setState(() => _method = 'COD'),
                     ),
+                    // _PaymentOption(
+                    //   label: 'UPI',
+                    //   icon: Icons.account_balance_wallet_outlined,
+                    //   selected: _method == 'UPI',
+                    //   onTap: () => setState(() => _method = 'UPI'),
+                    // ),
                     const SizedBox(height: 12),
                     _PaymentOption(
                       label: 'Cash',
@@ -163,107 +169,107 @@ class _SportsNeoPaymentScreenState extends State<SportsNeoPaymentScreen> {
                       selected: _method == 'Cash',
                       onTap: () => setState(() => _method = 'Cash'),
                     ),
-                    const SizedBox(height: 12),
-                    _PaymentOption(
-                      label: 'Card / Razerpay',
-                      icon: Icons.credit_card_outlined,
-                      selected: _method == 'Card',
-                      onTap: () => setState(() => _method = 'Card'),
-                    ),
-                    const SizedBox(height: 12),
-                    _PaymentOption(
-                      label: 'manual Payment',
-                      icon: Icons.upload_outlined,
-                      selected: _method == 'Manual',
-                      onTap: () => setState(() => _method = 'Manual'),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0x1FFFFFFF)),
-                      ),
-                      child: Column(
-                        children: <Widget>[
-                          const Icon(
-                            Icons.qr_code_2_rounded,
-                            color: Colors.white,
-                            size: 133,
-                          ),
-                          const SizedBox(height: 8),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Manual Payment details',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0x1FFFFFFF)),
-                            ),
-                            child: const Text(
-                              'Transaction ID',
-                              style: TextStyle(
-                                color: Color(0x99FFFFFF),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Upload Payment screenshot',
-                              style: TextStyle(
-                                color: Color(0x99FFFFFF),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF2563EB)),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: <Widget>[
-                                Icon(
-                                  Icons.upload_rounded,
-                                  color: Color(0xFF2563EB),
-                                  size: 24,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Choose File',
-                                  style: TextStyle(
-                                    color: Color(0xFF2563EB),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // const SizedBox(height: 12),
+                    // _PaymentOption(
+                    //   label: 'Card / Razerpay',
+                    //   icon: Icons.credit_card_outlined,
+                    //   selected: _method == 'Card',
+                    //   onTap: () => setState(() => _method = 'Card'),
+                    // ),
+                    // const SizedBox(height: 12),
+                    // _PaymentOption(
+                    //   label: 'manual Payment',
+                    //   icon: Icons.upload_outlined,
+                    //   selected: _method == 'Manual',
+                    //   onTap: () => setState(() => _method = 'Manual'),
+                    // ),
+                  //   const SizedBox(height: 16),
+                  //   Container(
+                  //     width: double.infinity,
+                  //     padding: const EdgeInsets.all(16),
+                  //     decoration: BoxDecoration(
+                  //       borderRadius: BorderRadius.circular(12),
+                  //       border: Border.all(color: const Color(0x1FFFFFFF)),
+                  //     ),
+                  //     child: Column(
+                  //       children: <Widget>[
+                  //         const Icon(
+                  //           Icons.qr_code_2_rounded,
+                  //           color: Colors.white,
+                  //           size: 133,
+                  //         ),
+                  //         const SizedBox(height: 8),
+                  //         const Align(
+                  //           alignment: Alignment.centerLeft,
+                  //           child: Text(
+                  //             'Manual Payment details',
+                  //             style: TextStyle(
+                  //               color: Colors.white,
+                  //               fontSize: 14,
+                  //               fontWeight: FontWeight.w500,
+                  //             ),
+                  //           ),
+                  //         ),
+                  //         const SizedBox(height: 8),
+                  //         Container(
+                  //           width: double.infinity,
+                  //           padding: const EdgeInsets.all(16),
+                  //           decoration: BoxDecoration(
+                  //             borderRadius: BorderRadius.circular(12),
+                  //             border: Border.all(color: const Color(0x1FFFFFFF)),
+                  //           ),
+                  //           child: const Text(
+                  //             'Transaction ID',
+                  //             style: TextStyle(
+                  //               color: Color(0x99FFFFFF),
+                  //               fontSize: 14,
+                  //               fontWeight: FontWeight.w400,
+                  //             ),
+                  //           ),
+                  //         ),
+                  //         const SizedBox(height: 8),
+                  //         const Align(
+                  //           alignment: Alignment.centerLeft,
+                  //           child: Text(
+                  //             'Upload Payment screenshot',
+                  //             style: TextStyle(
+                  //               color: Color(0x99FFFFFF),
+                  //               fontSize: 14,
+                  //               fontWeight: FontWeight.w500,
+                  //             ),
+                  //           ),
+                  //         ),
+                  //         const SizedBox(height: 8),
+                  //         Container(
+                  //           width: double.infinity,
+                  //           padding: const EdgeInsets.all(16),
+                  //           decoration: BoxDecoration(
+                  //             borderRadius: BorderRadius.circular(12),
+                  //             border: Border.all(color: const Color(0xFF2563EB)),
+                  //           ),
+                  //           child: const Row(
+                  //             mainAxisAlignment: MainAxisAlignment.center,
+                  //             children: <Widget>[
+                  //               Icon(
+                  //                 Icons.upload_rounded,
+                  //                 color: Color(0xFF2563EB),
+                  //                 size: 24,
+                  //               ),
+                  //               SizedBox(width: 8),
+                  //               Text(
+                  //                 'Choose File',
+                  //                 style: TextStyle(
+                  //                   color: Color(0xFF2563EB),
+                  //                   fontSize: 14,
+                  //                   fontWeight: FontWeight.w600,
+                  //                 ),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   ),
                   ],
                 ),
               ),

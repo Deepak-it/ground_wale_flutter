@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 
-const bool kUseSportsNeoLedgerMock = true;
+const bool kUseSportsNeoLedgerMock = false;
 
 class SportsNeoLedgerHomeData {
   const SportsNeoLedgerHomeData({
@@ -130,7 +130,10 @@ class SportsNeoAddMoneyPayload {
 abstract class SportsNeoLedgerRepository {
   Future<SportsNeoLedgerHomeData> loadLedgerHome(String groundId);
 
-  Future<SportsNeoMatchLedgerData> loadMatchLedger(String groundId, String matchId);
+  Future<SportsNeoMatchLedgerData> loadMatchLedger(
+    String groundId,
+    String matchId,
+  );
 
   Future<SportsNeoLedgerHomeData> loadPendingLedger(String groundId);
 
@@ -140,7 +143,12 @@ abstract class SportsNeoLedgerRepository {
 
   Future<void> addMoney(String groundId, SportsNeoAddMoneyPayload payload);
 
-  Future<void> replacePlayer(String groundId, String fromPlayerId, String toPlayerId, String handlingType);
+  Future<void> replacePlayer(
+    String groundId,
+    String fromPlayerId,
+    String toPlayerId,
+    String handlingType,
+  );
 
   Future<void> sendPendingReminder(String groundId);
 
@@ -158,50 +166,69 @@ class _ApiSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
   final GroundWaleApi _api = GroundWaleApi.instance;
 
   @override
-  Future<void> addMoney(String groundId, SportsNeoAddMoneyPayload payload) async {
+  Future<void> addMoney(
+    String groundId,
+    SportsNeoAddMoneyPayload payload,
+  ) async {
     await _api.sportsNeoAddLedgerMoney(groundId, payload.toJson());
   }
 
   @override
   Future<SportsNeoLedgerHomeData> loadAdvanceLedger(String groundId) async {
-    final Map<String, dynamic> json = await _api.sportsNeoGetAdvanceLedger(groundId);
+    final Map<String, dynamic> json = await _api.sportsNeoGetAdvanceLedger(
+      groundId,
+    );
     return _decodeHome(json, fallbackTitle: 'Advance Payment');
   }
 
   @override
   Future<SportsNeoLedgerHomeData> loadLedgerHome(String groundId) async {
-    final Map<String, dynamic> json = await _api.sportsNeoGetLedgerHome(groundId);
+    final Map<String, dynamic> json = await _api.sportsNeoGetLedgerHome(
+      groundId,
+    );
     return _decodeHome(json, fallbackTitle: 'Ledger & Payment');
   }
 
   @override
-  Future<SportsNeoMatchLedgerData> loadMatchLedger(String groundId, String matchId) async {
-    final Map<String, dynamic> json = await _api.sportsNeoGetMatchLedger(groundId, matchId);
+  Future<SportsNeoMatchLedgerData> loadMatchLedger(
+    String groundId,
+    String matchId,
+  ) async {
+    final Map<String, dynamic> json = await _api.sportsNeoGetMatchLedger(
+      groundId,
+      matchId,
+    );
     return _decodeMatch(json, fallbackTitle: 'Match');
   }
 
   @override
   Future<SportsNeoLedgerHomeData> loadPendingLedger(String groundId) async {
-    final Map<String, dynamic> json = await _api.sportsNeoGetPendingLedger(groundId);
+    final Map<String, dynamic> json = await _api.sportsNeoGetPendingLedger(
+      groundId,
+    );
     return _decodeHome(json, fallbackTitle: 'Pending Payment');
   }
 
   @override
   Future<SportsNeoMatchLedgerData> loadSarpanchLedger(String groundId) async {
-    final Map<String, dynamic> json = await _api.sportsNeoGetSarpanchLedger(groundId);
+    final Map<String, dynamic> json = await _api.sportsNeoGetSarpanchLedger(
+      groundId,
+    );
     return _decodeMatch(json, fallbackTitle: 'Sarpanch');
   }
 
   @override
-  Future<void> replacePlayer(String groundId, String fromPlayerId, String toPlayerId, String handlingType) async {
-    await _api.sportsNeoReplaceLedgerPlayer(
-      groundId,
-      <String, dynamic>{
-        'fromPlayerId': fromPlayerId,
-        'toPlayerId': toPlayerId,
-        'handlingType': handlingType,
-      },
-    );
+  Future<void> replacePlayer(
+    String groundId,
+    String fromPlayerId,
+    String toPlayerId,
+    String handlingType,
+  ) async {
+    await _api.sportsNeoReplaceLedgerPlayer(groundId, <String, dynamic>{
+      'fromPlayerId': fromPlayerId,
+      'toPlayerId': toPlayerId,
+      'handlingType': handlingType,
+    });
   }
 
   @override
@@ -214,11 +241,15 @@ class _ApiSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
     await _api.sportsNeoSendPendingReminder(groundId);
   }
 
-  SportsNeoLedgerHomeData _decodeHome(Map<String, dynamic> json, {required String fallbackTitle}) {
-    final List<SportsNeoLedgerEntry> entries = (json['entries'] as List<dynamic>? ?? <dynamic>[])
-        .map((dynamic item) => Map<String, dynamic>.from(item as Map))
-        .map(_decodeEntry)
-        .toList();
+  SportsNeoLedgerHomeData _decodeHome(
+    Map<String, dynamic> json, {
+    required String fallbackTitle,
+  }) {
+    final List<SportsNeoLedgerEntry> entries =
+        (json['entries'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+            .map(_decodeEntry)
+            .toList();
 
     return SportsNeoLedgerHomeData(
       title: (json['title']?.toString() ?? fallbackTitle),
@@ -230,21 +261,26 @@ class _ApiSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
     );
   }
 
-  SportsNeoMatchLedgerData _decodeMatch(Map<String, dynamic> json, {required String fallbackTitle}) {
-    final List<SportsNeoSummaryLine> lines = (json['paymentLines'] as List<dynamic>? ?? <dynamic>[])
-        .map((dynamic item) => Map<String, dynamic>.from(item as Map))
-        .map(
-          (Map<String, dynamic> item) => SportsNeoSummaryLine(
-            label: item['label']?.toString() ?? 'Line',
-            amount: (item['amount'] as num?)?.round() ?? 0,
-          ),
-        )
-        .toList();
+  SportsNeoMatchLedgerData _decodeMatch(
+    Map<String, dynamic> json, {
+    required String fallbackTitle,
+  }) {
+    final List<SportsNeoSummaryLine> lines =
+        (json['paymentLines'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+            .map(
+              (Map<String, dynamic> item) => SportsNeoSummaryLine(
+                label: item['label']?.toString() ?? 'Line',
+                amount: (item['amount'] as num?)?.round() ?? 0,
+              ),
+            )
+            .toList();
 
-    final List<SportsNeoLedgerEntry> tx = (json['transactions'] as List<dynamic>? ?? <dynamic>[])
-        .map((dynamic item) => Map<String, dynamic>.from(item as Map))
-        .map(_decodeEntry)
-        .toList();
+    final List<SportsNeoLedgerEntry> tx =
+        (json['transactions'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+            .map(_decodeEntry)
+            .toList();
 
     return SportsNeoMatchLedgerData(
       matchTitle: json['matchTitle']?.toString() ?? fallbackTitle,
@@ -285,7 +321,10 @@ class _MockSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
   const _MockSportsNeoLedgerRepository();
 
   @override
-  Future<void> addMoney(String groundId, SportsNeoAddMoneyPayload payload) async {
+  Future<void> addMoney(
+    String groundId,
+    SportsNeoAddMoneyPayload payload,
+  ) async {
     debugPrint('Mock addMoney for $groundId -> ${payload.toJson()}');
   }
 
@@ -298,16 +337,20 @@ class _MockSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
       addReceiptLabel: 'Share',
       addPaymentLabel: 'WhatsApp',
       balanceLabel: 'Total Advance Collected',
-      entries: _mockPlayers().map((SportsNeoLedgerEntry e) => SportsNeoLedgerEntry(
-            id: e.id,
-            index: e.index,
-            title: e.title,
-            subtitle: e.phone,
-            amount: 500,
-            isCredit: true,
-            phone: e.phone,
-            hasWhatsapp: true,
-          )).toList(),
+      entries: _mockPlayers()
+          .map(
+            (SportsNeoLedgerEntry e) => SportsNeoLedgerEntry(
+              id: e.id,
+              index: e.index,
+              title: e.title,
+              subtitle: e.phone,
+              amount: 500,
+              isCredit: true,
+              phone: e.phone,
+              hasWhatsapp: true,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -357,7 +400,10 @@ class _MockSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
   }
 
   @override
-  Future<SportsNeoMatchLedgerData> loadMatchLedger(String groundId, String matchId) async {
+  Future<SportsNeoMatchLedgerData> loadMatchLedger(
+    String groundId,
+    String matchId,
+  ) async {
     return SportsNeoMatchLedgerData(
       matchTitle: 'Manu Xi vs Thunderbolt XI',
       netBalance: -3,
@@ -410,16 +456,20 @@ class _MockSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
       addReceiptLabel: 'Share',
       addPaymentLabel: 'WhatsApp',
       balanceLabel: 'Total Pending Amount',
-      entries: _mockPlayers().map((SportsNeoLedgerEntry e) => SportsNeoLedgerEntry(
-            id: e.id,
-            index: e.index,
-            title: e.title,
-            subtitle: e.phone,
-            amount: 500,
-            isCredit: false,
-            phone: e.phone,
-            hasWhatsapp: true,
-          )).toList(),
+      entries: _mockPlayers()
+          .map(
+            (SportsNeoLedgerEntry e) => SportsNeoLedgerEntry(
+              id: e.id,
+              index: e.index,
+              title: e.title,
+              subtitle: e.phone,
+              amount: 500,
+              isCredit: false,
+              phone: e.phone,
+              hasWhatsapp: true,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -531,8 +581,15 @@ class _MockSportsNeoLedgerRepository implements SportsNeoLedgerRepository {
   }
 
   @override
-  Future<void> replacePlayer(String groundId, String fromPlayerId, String toPlayerId, String handlingType) async {
-    debugPrint('Mock replacePlayer $fromPlayerId -> $toPlayerId ($handlingType)');
+  Future<void> replacePlayer(
+    String groundId,
+    String fromPlayerId,
+    String toPlayerId,
+    String handlingType,
+  ) async {
+    debugPrint(
+      'Mock replacePlayer $fromPlayerId -> $toPlayerId ($handlingType)',
+    );
   }
 
   @override
@@ -613,7 +670,9 @@ Future<String?> resolveGroundIdForLedger() async {
     return null;
   }
 
-  final String? resolved = await GroundWaleApi.instance.ensureGroundIdForOwner(ownerId);
+  final String? resolved = await GroundWaleApi.instance.ensureGroundIdForOwner(
+    ownerId,
+  );
   if (resolved != null && resolved.isNotEmpty) {
     ApiSession.instance.setGroundId(resolved);
   }

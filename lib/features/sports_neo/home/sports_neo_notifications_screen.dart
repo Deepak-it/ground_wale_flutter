@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
-import 'sports_neo_booking_cart_screen.dart';
+import 'sports_neo_booking_history_screen.dart';
 import 'sports_neo_reply_screen.dart';
 
 class SportsNeoNotificationsScreen extends StatefulWidget {
@@ -45,9 +45,7 @@ class _SportsNeoNotificationsScreenState
         return;
       }
       setState(() {
-        _notifications = items
-            .map(_SportsNeoNotificationItem.fromMap)
-            .toList();
+        _notifications = items.map(_SportsNeoNotificationItem.fromMap).toList();
         _isLoading = false;
       });
     } catch (_) {
@@ -55,7 +53,7 @@ class _SportsNeoNotificationsScreenState
         return;
       }
       setState(() {
-        _notifications = _fallbackNotifications;
+        _notifications = <_SportsNeoNotificationItem>[];
         _isLoading = false;
       });
     }
@@ -73,8 +71,7 @@ class _SportsNeoNotificationsScreenState
     return _notifications;
   }
 
-  int get _pendingCount =>
-      _notifications.where((item) => !item.isRead).length;
+  int get _pendingCount => _notifications.where((item) => !item.isRead).length;
 
   Future<void> _markRead(_SportsNeoNotificationItem item) async {
     final String? ownerId = ApiSession.instance.ownerId;
@@ -103,6 +100,16 @@ class _SportsNeoNotificationsScreenState
     if (!mounted) {
       return;
     }
+
+    if (item.type == 'booking') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const SportsNeoBookingHistoryScreen(),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => SportsNeoReplyScreen(
@@ -121,9 +128,10 @@ class _SportsNeoNotificationsScreenState
     if (!mounted) {
       return;
     }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => const SportsNeoBookingCartScreen(),
+        builder: (_) => const SportsNeoBookingHistoryScreen(),
       ),
     );
   }
@@ -144,7 +152,9 @@ class _SportsNeoNotificationsScreenState
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF2563EB),
+                      ),
                     )
                   : SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
@@ -161,7 +171,8 @@ class _SportsNeoNotificationsScreenState
                           if (items.isEmpty)
                             const _EmptyStateCard(
                               title: 'No notifications yet',
-                              subtitle: 'Updates about matches and payments will show here.',
+                              subtitle:
+                                  'Updates about matches and payments will show here.',
                             )
                           else
                             ...items.map(
@@ -170,7 +181,6 @@ class _SportsNeoNotificationsScreenState
                                 child: _NotificationCard(
                                   item: item,
                                   onReply: () => _openReply(item),
-                                  onPrimaryTap: () => _markRead(item),
                                   onPaymentTap: () => _openPayment(item),
                                 ),
                               ),
@@ -187,10 +197,7 @@ class _SportsNeoNotificationsScreenState
 }
 
 class _SportsNeoTopHeader extends StatelessWidget {
-  const _SportsNeoTopHeader({
-    required this.title,
-    this.subtitle,
-  });
+  const _SportsNeoTopHeader({required this.title, this.subtitle});
 
   final String title;
   final String? subtitle;
@@ -287,7 +294,9 @@ class _NotificationsTabBar extends StatelessWidget {
                   borderRadius: index == 0
                       ? const BorderRadius.horizontal(left: Radius.circular(12))
                       : index == labels.length - 1
-                      ? const BorderRadius.horizontal(right: Radius.circular(12))
+                      ? const BorderRadius.horizontal(
+                          right: Radius.circular(12),
+                        )
                       : BorderRadius.zero,
                   border: index != labels.length - 1
                       ? const Border(
@@ -317,205 +326,139 @@ class _NotificationCard extends StatelessWidget {
   const _NotificationCard({
     required this.item,
     required this.onReply,
-    required this.onPrimaryTap,
     required this.onPaymentTap,
   });
 
   final _SportsNeoNotificationItem item;
   final VoidCallback onReply;
-  final VoidCallback onPrimaryTap;
   final VoidCallback onPaymentTap;
 
   @override
   Widget build(BuildContext context) {
     final bool isPayment = item.type == 'payment';
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x1FFFFFFF)),
-        color: const Color(0x0AFFFFFF),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Icon(
-                  isPayment ? Icons.payments_outlined : Icons.sports_cricket,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      item.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.relativeTime,
-                      style: const TextStyle(
-                        color: Color(0x99FFFFFF),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (!item.isRead)
-                Container(
-                  width: 10,
-                  height: 10,
-                  margin: const EdgeInsets.only(top: 6),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF2563EB),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            item.message,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              height: 1.35,
-            ),
-          ),
-          if (item.amount != null) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              item.amount!,
-              style: const TextStyle(
-                color: Color(0xFF2563EB),
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
-          const SizedBox(height: 16),
-          Row(
-            children: <Widget>[
-              if (!isPayment) ...<Widget>[
-                _StatusButton(
-                  label: item.primaryLabel,
-                  foreground: const Color(0xFF08B36A),
-                  background: item.primaryFilled
-                      ? const Color(0xFF08B36A)
-                      : const Color(0x1408B36A),
-                  border: const Color(0xFF08B36A),
-                  textColor: item.primaryFilled
-                      ? Colors.white
-                      : const Color(0xFF08B36A),
-                  onTap: onPrimaryTap,
-                ),
-                const SizedBox(width: 12),
-                _StatusButton(
-                  label: item.secondaryLabel,
-                  foreground: const Color(0xFFE3220D),
-                  background: const Color(0x14E3220D),
-                  border: const Color(0xFFE3220D),
-                  textColor: const Color(0xFFE3220D),
-                  onTap: onPrimaryTap,
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: InkWell(
-                  onTap: isPayment ? onPaymentTap : onReply,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    height: isPayment ? 42 : 38,
-                    decoration: BoxDecoration(
-                      color: isPayment ? const Color(0xFF2563EB) : null,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isPayment
-                            ? const Color(0xFF2563EB)
-                            : const Color(0x3DFFFFFF),
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      isPayment ? 'Pay Now' : 'Reply',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusButton extends StatelessWidget {
-  const _StatusButton({
-    required this.label,
-    required this.foreground,
-    required this.background,
-    required this.border,
-    required this.textColor,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color foreground;
-  final Color background;
-  final Color border;
-  final Color textColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: isPayment ? onPaymentTap : onReply,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: background,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: border),
+          border: Border.all(color: const Color(0x1FFFFFFF)),
+          color: const Color(0x0AFFFFFF),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: textColor,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Icon(
+                    isPayment ? Icons.payments_outlined : Icons.sports_cricket,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.relativeTime,
+                        style: const TextStyle(
+                          color: Color(0x99FFFFFF),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!item.isRead)
+                  Container(
+                    width: 10,
+                    height: 10,
+                    margin: const EdgeInsets.only(top: 6),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF2563EB),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              item.message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.35,
+              ),
+            ),
+            if (item.amount != null) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                item.amount!,
+                style: const TextStyle(
+                  color: Color(0xFF2563EB),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
+            const SizedBox(height: 16),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: InkWell(
+                    onTap: isPayment ? onPaymentTap : onReply,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      height: isPayment ? 42 : 38,
+                      decoration: BoxDecoration(
+                        color: isPayment ? const Color(0xFF2563EB) : null,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isPayment
+                              ? const Color(0xFF2563EB)
+                              : const Color(0x3DFFFFFF),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        isPayment ? 'Pay Now' : 'View',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -581,11 +524,13 @@ class _SportsNeoNotificationItem {
     required this.primaryLabel,
     required this.primaryFilled,
     required this.secondaryLabel,
+    required this.bookingId,
     this.amount,
   });
 
   factory _SportsNeoNotificationItem.fromMap(Map<String, dynamic> map) {
-    final String type = map['type']?.toString().trim().toLowerCase() ?? 'system';
+    final String type =
+        map['type']?.toString().trim().toLowerCase() ?? 'system';
     final String title = map['title']?.toString().trim().isNotEmpty == true
         ? map['title'].toString().trim()
         : type == 'payment'
@@ -605,6 +550,7 @@ class _SportsNeoNotificationItem {
       primaryLabel: type == 'payment' ? 'Available' : 'Available',
       primaryFilled: false,
       secondaryLabel: type == 'payment' ? 'Not available' : 'Not available',
+      bookingId: _extractBookingId(map),
     );
   }
 
@@ -617,6 +563,7 @@ class _SportsNeoNotificationItem {
   final String primaryLabel;
   final bool primaryFilled;
   final String secondaryLabel;
+  final String bookingId;
   final String? amount;
 
   _SportsNeoNotificationItem copyWith({bool? isRead}) {
@@ -630,17 +577,29 @@ class _SportsNeoNotificationItem {
       primaryLabel: primaryLabel,
       primaryFilled: primaryFilled,
       secondaryLabel: secondaryLabel,
+      bookingId: bookingId,
       amount: amount,
     );
   }
 
+  static String _extractBookingId(Map<String, dynamic> map) {
+    final dynamic metadata = map['metadata'];
+    if (metadata is Map<String, dynamic>) {
+      return metadata['bookingId']?.toString() ?? '';
+    }
+    if (metadata is Map) {
+      return metadata['bookingId']?.toString() ?? '';
+    }
+    return '';
+  }
+
   static String _relativeTime(String? raw) {
     if (raw == null || raw.isEmpty) {
-      return '2 hours ago';
+      return '--';
     }
     final DateTime? timestamp = DateTime.tryParse(raw)?.toLocal();
     if (timestamp == null) {
-      return '2 hours ago';
+      return '--';
     }
     final Duration diff = DateTime.now().difference(timestamp);
     if (diff.inMinutes < 60) {
@@ -654,38 +613,12 @@ class _SportsNeoNotificationItem {
   }
 
   static String? _extractAmount(String text) {
-    final RegExpMatch? match = RegExp(r'₹\s*([0-9]+(?:\.[0-9]+)?)').firstMatch(text);
+    final RegExpMatch? match = RegExp(
+      r'₹\s*([0-9]+(?:\.[0-9]+)?)',
+    ).firstMatch(text);
     if (match == null) {
       return null;
     }
     return '₹${match.group(1)}';
   }
 }
-
-const List<_SportsNeoNotificationItem> _fallbackNotifications =
-    <_SportsNeoNotificationItem>[
-  _SportsNeoNotificationItem(
-    id: '',
-    title: 'Match Invitation',
-    message:
-        'Thunderbolts XI VS Manu Xi\nSector 118, Mohali (1.8 km)\nApr 8, 6:00 AM - 8:00 AM\nWhite Ball\nOne team one dress code',
-    type: 'booking',
-    relativeTime: '2 hours ago',
-    isRead: false,
-    primaryLabel: 'Available',
-    primaryFilled: true,
-    secondaryLabel: 'Not available',
-  ),
-  _SportsNeoNotificationItem(
-    id: '',
-    title: 'Payment Request',
-    message: 'Split Payment for victory cricket stadium',
-    type: 'payment',
-    relativeTime: '1 hours ago',
-    isRead: false,
-    primaryLabel: 'Available',
-    primaryFilled: false,
-    secondaryLabel: 'Not available',
-    amount: '₹350',
-  ),
-];

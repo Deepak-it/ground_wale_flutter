@@ -8,9 +8,11 @@ class BoxCricketUpcomingBookingsScreen extends StatefulWidget {
   const BoxCricketUpcomingBookingsScreen({
     super.key,
     this.showBottomNav = true,
+    this.initialTabIndex = 1,
   });
 
   final bool showBottomNav;
+  final int initialTabIndex;
 
   @override
   State<BoxCricketUpcomingBookingsScreen> createState() =>
@@ -19,7 +21,7 @@ class BoxCricketUpcomingBookingsScreen extends StatefulWidget {
 
 class _BoxCricketUpcomingBookingsScreenState
     extends State<BoxCricketUpcomingBookingsScreen> {
-  int _tabIndex = 0;
+  int _tabIndex = 1;
   bool _isLoading = true;
   bool _hasLoadError = false;
   List<Map<String, dynamic>> _grounds = <Map<String, dynamic>>[];
@@ -88,20 +90,40 @@ class _BoxCricketUpcomingBookingsScreenState
     return source.where((Map<String, dynamic> booking) {
       final String status = _bookingStatus(booking);
       if (tab == 0) {
-        return status != 'cancelled' &&
-            status != 'rejected' &&
-            status != 'completed';
+        return status == 'pending';
       }
       if (tab == 1) {
+        return status == 'confirmed';
+      }
+      if (tab == 2) {
         return status == 'completed';
       }
       return status == 'cancelled' || status == 'rejected';
     }).toList();
   }
 
+  Map<String, dynamic> _summaryFromBookings(List<Map<String, dynamic>> bookings) {
+    final int totalBookings = bookings.length;
+    int totalRevenue = 0;
+    for (final Map<String, dynamic> booking in bookings) {
+      final String paymentStatus =
+          (booking['paymentStatus']?.toString() ?? '').trim().toLowerCase();
+      final String bookingStatus =
+          (booking['bookingStatus']?.toString() ?? '').trim().toLowerCase();
+      if (paymentStatus == 'paid' && bookingStatus != 'cancelled') {
+        totalRevenue += _toInt(booking['amount']);
+      }
+    }
+    return <String, dynamic>{
+      'totalBookings': totalBookings,
+      'totalRevenue': totalRevenue,
+    };
+  }
+
   @override
   void initState() {
     super.initState();
+    _tabIndex = widget.initialTabIndex.clamp(0, 3);
     _load();
   }
 
@@ -215,10 +237,6 @@ class _BoxCricketUpcomingBookingsScreenState
     final List<Map<String, dynamic>> cancelled =
       (results[3] as List<Map<String, dynamic>>?) ?? <Map<String, dynamic>>[];
 
-    final Map<String, dynamic> upcomingSummary =
-      (results[4] as Map<String, dynamic>?) ?? <String, dynamic>{};
-    final Map<String, dynamic> completedSummary =
-      (results[5] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final Map<String, dynamic> rejectedSummary =
       (results[6] as Map<String, dynamic>?) ?? <String, dynamic>{};
     final Map<String, dynamic> cancelledSummary =
@@ -233,11 +251,13 @@ class _BoxCricketUpcomingBookingsScreenState
     );
 
     _cachedBookings[0] = _sanitizeForTab(0, upcoming);
-    _cachedBookings[1] = _sanitizeForTab(1, completed);
-    _cachedBookings[2] = _sanitizeForTab(2, rejectedCombined);
-    _cachedSummaries[0] = upcomingSummary;
-    _cachedSummaries[1] = completedSummary;
-    _cachedSummaries[2] = rejectedCombinedSummary;
+    _cachedBookings[1] = _sanitizeForTab(1, upcoming);
+    _cachedBookings[2] = _sanitizeForTab(2, completed);
+    _cachedBookings[3] = _sanitizeForTab(3, rejectedCombined);
+    _cachedSummaries[0] = _summaryFromBookings(_cachedBookings[0]!);
+    _cachedSummaries[1] = _summaryFromBookings(_cachedBookings[1]!);
+    _cachedSummaries[2] = _summaryFromBookings(_cachedBookings[2]!);
+    _cachedSummaries[3] = _summaryFromBookings(_cachedBookings[3]!);
 
     setState(() {
       _bookings = _cachedBookings[_tabIndex] ?? <Map<String, dynamic>>[];
@@ -330,11 +350,13 @@ class _BoxCricketUpcomingBookingsScreenState
                   const SizedBox(height: 12),
                   Row(
                     children: <Widget>[
-                      Expanded(child: _tabChip('Upcoming', 0)),
+                      Expanded(child: _tabChip('Request', 0)),
                       const SizedBox(width: 12),
-                      Expanded(child: _tabChip('Complete', 1)),
+                      Expanded(child: _tabChip('Upcoming', 1)),
                       const SizedBox(width: 12),
-                      Expanded(child: _tabChip('Reject', 2)),
+                      Expanded(child: _tabChip('Complete', 2)),
+                      const SizedBox(width: 12),
+                      Expanded(child: _tabChip('Reject', 3)),
                     ],
                   ),
 Padding(
@@ -510,8 +532,8 @@ Padding(
         .toLowerCase();
     final int amount = _toInt(booking['amount']);
 
-    final bool isRejected = status == 'cancelled' || _tabIndex == 2;
-    final bool isCompleted = status == 'completed' || _tabIndex == 1;
+    final bool isRejected = status == 'cancelled' || _tabIndex == 3;
+    final bool isCompleted = status == 'completed' || _tabIndex == 2;
     final bool isPending = status == 'pending';
 
     return Container(
@@ -630,7 +652,7 @@ Padding(
             const SizedBox(height: 10),
             Container(height: 1, color: const Color(0x33FFFFFF)),
             const SizedBox(height: 10),
-            if (_tabIndex == 0)
+            if (_tabIndex == 0 || _tabIndex == 1)
               Row(
                 children: <Widget>[
                   Expanded(
@@ -708,7 +730,7 @@ Padding(
                   ),
                 ],
               ),
-            if (_tabIndex == 1)
+            if (_tabIndex == 2)
               Container(
                 height: 48,
                 decoration: BoxDecoration(

@@ -74,13 +74,13 @@ class SportsNeoMatchDetailsScreen extends StatelessWidget {
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
-                                    Icons.sports_cricket,
+                                    Icons.send_rounded,
                                     color: Colors.white,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
                                 const Text(
-                                  'Booking Confirmed',
+                                  'Booking Request',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 18,
@@ -89,7 +89,7 @@ class SportsNeoMatchDetailsScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 6),
                                 const Text(
-                                  'Your Ground has been booked successfully',
+                                  'Your booking request has been submitted successfully',
                                   style: TextStyle(
                                     color: Color(0x99FFFFFF),
                                     fontSize: 14,
@@ -117,43 +117,43 @@ class SportsNeoMatchDetailsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           _DetailRow(
-                            icon: Icons.sports_cricket,
-                            title: 'Cricket Match',
-                            subtitle: amount > 0 ? 'Amount: ₹$amount' : '',
+                            icon: Icons.currency_rupee,
+                            title: 'Amount',
+                            subtitle: amount > 0 ? '$amount' : '',
                           ),
                         ],
                       ),
                     ),
-                    const Spacer(),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => SportsNeoChooseTeamScreen(
-                                amount: amount,
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Let’s Play',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
+                    // const Spacer(),
+                    // SizedBox(
+                    //   width: double.infinity,
+                    //   height: 52,
+                    //   child: ElevatedButton(
+                    //     onPressed: () {
+                    //       Navigator.of(context).push(
+                    //         MaterialPageRoute<void>(
+                    //           builder: (_) => SportsNeoChooseTeamScreen(
+                    //             amount: amount,
+                    //           ),
+                    //         ),
+                    //       );
+                    //     },
+                    //     style: ElevatedButton.styleFrom(
+                    //       backgroundColor: const Color(0xFF2563EB),
+                    //       shape: RoundedRectangleBorder(
+                    //         borderRadius: BorderRadius.circular(12),
+                    //       ),
+                    //     ),
+                    //     child: const Text(
+                    //       'Let’s Play',
+                    //       style: TextStyle(
+                    //         color: Colors.white,
+                    //         fontSize: 16,
+                    //         fontWeight: FontWeight.w600,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -171,7 +171,7 @@ class SportsNeoMatchDetailsScreen extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'Skip For Now',
+                          'Done',
                           style: TextStyle(
                             color: Color(0xFF2563EB),
                             fontSize: 16,

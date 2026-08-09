@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'sports_neo_payment_screen.dart';
+import '../../../core/api/api_session.dart';
+import '../../../core/api/ground_wale_api.dart';
+import 'sports_neo_match_details_screen.dart';
 
 class SportsNeoBookingSummaryScreen extends StatefulWidget {
   const SportsNeoBookingSummaryScreen({
@@ -31,22 +33,109 @@ class SportsNeoBookingSummaryScreen extends StatefulWidget {
 
 class _SportsNeoBookingSummaryScreenState
     extends State<SportsNeoBookingSummaryScreen> {
+  final GroundWaleApi _api = GroundWaleApi.instance;
+
   int _balls = 1;
   int _umpires = 0;
+  bool _isSubmitting = false;
 
   String _formatDate(String isoDate) {
     try {
       final DateTime d = DateTime.parse(isoDate);
       const List<String> months = <String>[
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       const List<String> weekdays = <String>[
-        'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+        'Mon',
+        'Tue',
+        'Wed',
+        'Thu',
+        'Fri',
+        'Sat',
+        'Sun',
       ];
       return '${weekdays[d.weekday - 1]}, ${months[d.month - 1]} ${d.day}';
     } catch (_) {
       return isoDate;
+    }
+  }
+
+  Future<void> _submitBookingRequest(int totalAmount) async {
+    if (_isSubmitting) {
+      return;
+    }
+
+    if (widget.groundId.trim().isEmpty || widget.slotId.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ground or slot details are missing.')),
+      );
+      return;
+    }
+
+    final String playerName =
+        (ApiSession.instance.ownerName ?? '').trim().isEmpty
+        ? 'Sports Neo Player'
+        : ApiSession.instance.ownerName!.trim();
+    final String playerPhone = (ApiSession.instance.contactNumber ?? '').trim();
+
+    setState(() => _isSubmitting = true);
+    try {
+      await _api.createBooking(widget.groundId, <String, dynamic>{
+        'slotId': widget.slotId,
+        'teamName': playerName,
+        'captainName': playerName,
+        'captainPhone': playerPhone,
+        'date': widget.date,
+        'startTime': widget.startTime,
+        'endTime': widget.endTime,
+        'amount': totalAmount,
+        'paymentMethod': 'cod',
+        'notes': 'User booking request',
+        'playerCount': 0,
+        'source': 'player',
+        'requestedByUserId': ApiSession.instance.ownerId,
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => SportsNeoMatchDetailsScreen(
+            amount: totalAmount,
+            groundName: widget.groundName,
+            location: widget.location,
+            date: widget.date,
+            startTime: widget.startTime,
+            endTime: widget.endTime,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -105,7 +194,8 @@ class _SportsNeoBookingSummaryScreenState
                         children: <Widget>[
                           _slotRow(
                             _formatDate(widget.date),
-                            widget.startTime.isNotEmpty && widget.endTime.isNotEmpty
+                            widget.startTime.isNotEmpty &&
+                                    widget.endTime.isNotEmpty
                                 ? '${widget.startTime} - ${widget.endTime}'
                                 : '—',
                             widget.amount > 0 ? '₹${widget.amount}' : '—',
@@ -157,20 +247,16 @@ class _SportsNeoBookingSummaryScreenState
                       title: 'Payment Summary',
                       child: Column(
                         children: <Widget>[
-                          _payRow('Ground Fee', groundFee > 0 ? '₹$groundFee' : '—'),
+                          _payRow(
+                            'Ground Fee',
+                            groundFee > 0 ? '₹$groundFee' : '—',
+                          ),
                           _payRow('Red ball ($_balls)', '₹$ballCost'),
                           _payRow('Discount', '-₹0'),
                           const SizedBox(height: 8),
-                          Container(
-                            height: 1,
-                            color: const Color(0x33FFFFFF),
-                          ),
+                          Container(height: 1, color: const Color(0x33FFFFFF)),
                           const SizedBox(height: 8),
-                          _payRow(
-                            'Total Amount',
-                            '₹$total',
-                            strong: true,
-                          ),
+                          _payRow('Total Amount', '₹$total', strong: true),
                         ],
                       ),
                     ),
@@ -192,7 +278,9 @@ class _SportsNeoBookingSummaryScreenState
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0x1FFFFFFF)),
+                              border: Border.all(
+                                color: const Color(0x1FFFFFFF),
+                              ),
                             ),
                             alignment: Alignment.centerLeft,
                             child: const Text(
@@ -236,34 +324,35 @@ class _SportsNeoBookingSummaryScreenState
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => SportsNeoPaymentScreen(
-                        amount: total,
-                        groundName: widget.groundName,
-                        location: widget.location,
-                        date: widget.date,
-                        startTime: widget.startTime,
-                        endTime: widget.endTime,
-                      ),
-                      ),
-                    );
-                  },
+                  onPressed: _isSubmitting
+                      ? null
+                      : () {
+                          _submitBookingRequest(total);
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
+                    disabledBackgroundColor: const Color(0x662563EB),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Proceed to Pay',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Request Booking',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -505,7 +594,11 @@ class _AddonItem extends StatelessWidget {
               children: <Widget>[
                 InkWell(
                   onTap: onMinus,
-                  child: const Icon(Icons.remove, color: Colors.white, size: 22),
+                  child: const Icon(
+                    Icons.remove,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
                 Text(
                   '$count',

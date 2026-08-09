@@ -271,6 +271,10 @@ class _BoxCricketBookingCollectionScreenState
     return due < 0 ? 0 : due;
   }
 
+  int _receivedAmount(Map<String, dynamic> booking) {
+    return _paidAmount(booking);
+  }
+
   String _paymentStatus(Map<String, dynamic> booking) {
     final String raw =
         booking['paymentStatus']?.toString().trim().toLowerCase() ?? 'pending';
@@ -900,201 +904,82 @@ class _BoxCricketBookingCollectionScreenState
                       ),
                     )
                   else
-                    ...visible.map((Map<String, dynamic> booking) {
-                      final String status = _paymentStatus(booking);
-                      final bool canCollect = _canCollect(booking);
-
-                      final Color tagBg = status == 'paid'
-                          ? const Color(0x1F08B36A)
-                          : status == 'partial'
-                          ? const Color(0x1FF59E0B)
-                          : const Color(0x35F59E0B);
-
-                      final Color tagFg = status == 'paid'
-                          ? const Color(0xFF08B36A)
-                          : const Color(0xFFF59E0B);
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0x1FFFFFFF)),
-                          color: const Color(0x0AFFFFFF),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columnSpacing: 24,
+                        headingRowColor: WidgetStateProperty.all(
+                          const Color(0xFF17313A),
                         ),
-                        child: Column(
-                          children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
+                        columns: const [
+                          DataColumn(label: Text("Payer")),
+                          DataColumn(label: Text("Date")),
+                          DataColumn(label: Text("Amount")),
+                          DataColumn(label: Text("Action")),
+                        ],
+                        rows: visible.map((booking) {
+                          final status = _paymentStatus(booking);
+                          final canCollect = _canCollect(booking);
 
-InkWell(
-  onTap: () {
-    // Handle payer click
-  },
-  child: Text(
-    '${_captainName(booking)}',
-    style: const TextStyle(
-      color: Color.fromARGB(153, 26, 226, 189),
-      fontSize: 18,
-      fontWeight: FontWeight.w600,
-      decoration: TextDecoration.underline,
-      decorationColor: Color(0x99E6F7F4),
-      decorationThickness: 1.5,
-    ),
-  ),
-),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _teamName(booking),
-                                        style: const TextStyle(
-                                          color: Color(0xFFE6F7F4),
-                                          fontSize: 14,
-                                        ),
-                                      ),
+                          String date = '-';
 
-const SizedBox(height: 3),
-Text(
-  '${booking['date'] != null ? DateFormat('dd MMM yyyy').format(DateTime.parse(booking['date'].toString()).toLocal()) : '-'}, '
-  '${booking['startTime'] ?? '--'} - ${booking['endTime'] ?? '--'}',
-  style: const TextStyle(
-    color: Color(0x99FFFFFF),
-    fontSize: 13,
-    fontWeight: FontWeight.w600,
-  ),
-),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        _bookingGroundName(booking),
-                                        style: const TextStyle(
-                                          color: Color(0x99FFFFFF),
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: <Widget>[
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(4),
-                                        color: tagBg,
-                                      ),
-                                      child: Text(
-                                        _statusLabel(status),
-                                        style: TextStyle(
-                                          color: tagFg,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '${_currency(_paidAmount(booking))} / ${_currency(_amount(booking))}',
-                                      style: const TextStyle(
-                                        color: Color(0x99FFFFFF),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: <Widget>[
+                          if (booking['date'] != null) {
+                            try {
+                              date = DateFormat('dd/MM/yy').format(
+                                DateTime.parse(
+                                  booking['date'].toString(),
+                                ).toLocal(),
+                              );
+                            } catch (_) {
+                              date = booking['date'].toString();
+                            }
+                          }
+
+                          return DataRow(
+                            cells: [
+                              DataCell(
                                 InkWell(
-                                  onTap: () => _showNumberHint(
-                                    'WhatsApp',
-                                    _captainPhone(booking),
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      color: const Color(0x1400C9A7),
-                                      border: Border.all(
-                                        color: const Color(0x3300C9A7),
-                                      ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.chat,
+                                  onTap: () {},
+                                  child: Text(
+                                    _captainName(booking),
+                                    style: const TextStyle(
                                       color: Color(0xFF00C9A7),
-                                      size: 18,
+                                      decoration: TextDecoration.underline,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                InkWell(
-                                  onTap: () => _showNumberHint(
-                                    'Phone',
-                                    _captainPhone(booking),
+                              ),
+
+                              DataCell(Text(date)),
+
+                              DataCell(
+                                Text(
+                                  '${_currency(_receivedAmount(booking))} / ${_currency(_amount(booking))}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      color: const Color(0x140B84FF),
-                                      border: Border.all(
-                                        color: const Color(0x330B84FF),
+                                ),
+                              ),
+
+
+                              DataCell(
+                                canCollect
+                                    ? TextButton(
+                                        onPressed: () =>
+                                            _showAddPaymentSheet(booking),
+                                        child: const Text('Collect'),
+                                      )
+                                    : TextButton(
+                                        onPressed: () =>
+                                            _openBookingDetails(booking),
+                                        child: const Text('View'),
                                       ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.phone,
-                                      color: Color(0xFF0B84FF),
-                                      size: 18,
-                                    ),
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (canCollect)
-                                  TextButton(
-                                    onPressed: _isSavingPayment
-                                        ? null
-                                        : () => _showAddPaymentSheet(booking),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: const Color(0xFF22C55E),
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: Size.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    child: const Text('Add Payment'),
-                                  ),
-                                if (canCollect) const SizedBox(width: 10),
-                                TextButton(
-                                  onPressed: () => _openBookingDetails(booking),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFF00C9A7),
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: const Text('View Details'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
                 ],
               ),
             ),

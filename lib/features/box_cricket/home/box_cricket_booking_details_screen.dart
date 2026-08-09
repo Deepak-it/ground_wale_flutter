@@ -451,7 +451,7 @@ class _BoxCricketBookingDetailsScreenState
               spacing: 8,
               runSpacing: 8,
               // children: <String>['upi', 'cod', 'cash', 'netbanking'].map((String method) {
-              children: <String>['Paid', 'Pending'].map((String method) {
+              children: <String>['COD', 'Cash'].map((String method) {
 
                 final bool selected = _paymentMethod == method;
                 return GestureDetector(

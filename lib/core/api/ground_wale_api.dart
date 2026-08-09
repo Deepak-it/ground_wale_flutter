@@ -446,13 +446,26 @@ class GroundWaleApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> listGrounds({String? ownerId}) async {
+  Future<List<Map<String, dynamic>>> listGrounds({
+    String? ownerId,
+    String? city,
+    String? sport,
+  }) async {
     try {
+      final Map<String, dynamic> query = <String, dynamic>{};
+      if (ownerId != null && ownerId.trim().isNotEmpty) {
+        query['ownerId'] = ownerId.trim();
+      }
+      if (city != null && city.trim().isNotEmpty) {
+        query['city'] = city.trim();
+      }
+      if (sport != null && sport.trim().isNotEmpty) {
+        query['sport'] = sport.trim();
+      }
+
       final Response<dynamic> response = await _dio.get<dynamic>(
         '/grounds',
-        queryParameters: ownerId == null
-            ? null
-            : <String, dynamic>{'ownerId': ownerId},
+        queryParameters: query.isEmpty ? null : query,
       );
       return (response.data as List<dynamic>)
           .map((dynamic item) => Map<String, dynamic>.from(item as Map))
