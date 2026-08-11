@@ -57,5 +57,6 @@ Widget buildBase64OrNetworkImage({
     bytes,
     fit: fit,
     errorBuilder: (_, error, stackTrace) => fallback,
+    gaplessPlayback: true
   );
 }
