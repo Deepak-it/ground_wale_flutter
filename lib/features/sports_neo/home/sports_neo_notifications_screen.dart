@@ -44,8 +44,12 @@ class _SportsNeoNotificationsScreenState
       if (!mounted) {
         return;
       }
+
       setState(() {
-        _notifications = items.map(_SportsNeoNotificationItem.fromMap).toList();
+        _notifications = items
+            .where((item) => item['isRead'] != true)
+            .map(_SportsNeoNotificationItem.fromMap)
+            .toList();
         _isLoading = false;
       });
     } catch (_) {

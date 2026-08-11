@@ -75,17 +75,19 @@ class _BoxCricketOwnerNotificationsScreenState
       });
     }
   }
-
   List<_OwnerNotificationItem> get _visibleItems {
-    if (_selectedTab == 1) {
-      return _items.where((item) => item.type == 'booking').toList();
-    }
-    if (_selectedTab == 2) {
-      return _items.where((item) => item.type != 'booking').toList();
-    }
-    return _items;
-  }
+    final unread = _items.where((item) => !item.isRead);
 
+    if (_selectedTab == 1) {
+      return unread.where((item) => item.type == 'booking').toList();
+    }
+
+    if (_selectedTab == 2) {
+      return unread.where((item) => item.type != 'booking').toList();
+    }
+
+    return unread.toList();
+  }
   int get _unreadCount => _items.where((item) => !item.isRead).length;
 
   Future<void> _markRead(_OwnerNotificationItem item) async {
