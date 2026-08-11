@@ -61,7 +61,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/crick/
     - assets/images/offer_1.png
     - assets/images/offer_2.png
     - assets/images/offer_3.png

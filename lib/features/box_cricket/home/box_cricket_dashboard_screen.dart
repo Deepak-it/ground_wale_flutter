@@ -23,6 +23,7 @@ class BoxCricketDashboardScreen extends StatefulWidget {
     this.onOpenBookings,
     this.onOpenSlots,
     this.onOpenProfile,
+    this.onOpenNotificationsScreen,
     this.refreshKey = 0,
   });
 
@@ -30,6 +31,7 @@ class BoxCricketDashboardScreen extends StatefulWidget {
   final VoidCallback? onOpenBookings;
   final VoidCallback? onOpenSlots;
   final VoidCallback? onOpenProfile;
+  final VoidCallback? onOpenNotificationsScreen;
   final int refreshKey;
 
   @override
@@ -321,7 +323,6 @@ class _BoxCricketDashboardScreenState extends State<BoxCricketDashboardScreen> {
 
   String _groundSport(Map<String, dynamic> ground) {
     // ignore: avoid_print
-    print('Extracting sport for ground: $ground');
     String fromItem(dynamic item) {
       if (item is Map) {
         final String mapped =

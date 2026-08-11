@@ -36,6 +36,8 @@ class _GroundCourtOwnerShellScreenState
   bool _isLoadingCounts = true;
   int _groundCount = 0;
   int _academyCount = 0;
+  int _shellPage = 0;
+  int _unreadNotifications = 0;
 
   @override
   void initState() {
@@ -51,6 +53,7 @@ class _GroundCourtOwnerShellScreenState
           _isLoadingCounts = false;
           _groundCount = 0;
           _academyCount = 0;
+          
         });
       }
       return;
@@ -58,12 +61,17 @@ class _GroundCourtOwnerShellScreenState
 
     setState(() => _isLoadingCounts = true);
     try {
-      final List<dynamic> results =
-          await Future.wait<dynamic>(<Future<dynamic>>[
-            GroundWaleApi.instance.listGrounds(ownerId: ownerId),
-            GroundWaleApi.instance.listAcademies(ownerId),
-          ]);
+      final List<dynamic> results = await Future.wait<dynamic>([
+        GroundWaleApi.instance.listGrounds(ownerId: ownerId),
+        GroundWaleApi.instance.listAcademies(ownerId),
+        GroundWaleApi.instance.listNotifications(ownerId),
+      ]);
+  final List<Map<String, dynamic>> notifications =
+      results[2] as List<Map<String, dynamic>>;
 
+  final int unreadCount = notifications
+      .where((e) => e['isRead'] != true)
+      .length;
       final List<Map<String, dynamic>> grounds =
           results[0] as List<Map<String, dynamic>>;
       final List<Map<String, dynamic>> academies =
@@ -75,6 +83,7 @@ class _GroundCourtOwnerShellScreenState
       setState(() {
         _groundCount = grounds.length;
         _academyCount = academies.length;
+        _unreadNotifications = unreadCount;
         _isLoadingCounts = false;
       });
     } catch (error) {
@@ -253,7 +262,12 @@ class _GroundCourtOwnerShellScreenState
                   onOpenBookings: () => setState(() => _groundNavIndex = 1),
                   onOpenSlots: () => setState(() => _groundNavIndex = 2),
                   onOpenProfile: () => setState(() => _groundNavIndex = 3),
-                ),
+                    onOpenNotificationsScreen: () {
+                      setState(() {
+                        _shellPage = 1;
+                      });
+                    },                
+                  ),
                 BoxCricketUpcomingBookingsScreen(showBottomNav: false),
                 BoxCricketManageSlotsScreen(showBottomNav: false),
                 BoxCricketProfileScreen(showBottomNav: false),
@@ -461,8 +475,11 @@ class _GroundCourtOwnerShellScreenState
       ),
     );
   }
-
-  Widget _headerIconChip(IconData icon, {VoidCallback? onTap}) {
+    Widget _headerIconChip(
+      IconData icon, {
+      VoidCallback? onTap,
+      int badgeCount = 0,
+    }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -529,19 +546,17 @@ class _GroundCourtOwnerShellScreenState
                   ),
                   Row(
                     children: <Widget>[
-                      _headerIconChip(Icons.campaign_outlined),
-                      const SizedBox(width: 10),
-                      _headerIconChip(
-                        Icons.notifications_none_rounded,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  const BoxCricketOwnerNotificationsScreen(),
-                            ),
-                          );
-                        },
-                      ),
+                    _headerIconChip(
+                      Icons.notifications_none_rounded,
+                      badgeCount: _unreadNotifications,
+                      onTap: () async {
+                        setState(() {
+                          _shellPage = 1;
+                        });
+
+                        await _loadOwnerEntities();
+                      },
+                    ),
                     ],
                   ),
                 ],
@@ -566,31 +581,52 @@ class _GroundCourtOwnerShellScreenState
               ),
             ),
             Expanded(
-              child: _isLoadingCounts
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF00C9A7),
-                      ),
-                    )
-                  : _topTabIndex == 0
-                  ? (_groundCount == 0
-                        ? _emptyCta(
-                            title: 'No Grounds/Courts Yet',
-                            subtitle:
-                                'Create your first ground or court to start managing bookings and slots.',
-                            buttonLabel: 'Add Ground/Court',
-                            onTap: _addGround,
-                          )
-                        : _groundBody())
-                  : (_academyCount == 0
-                        ? _emptyCta(
-                            title: 'No Academies Yet',
-                            subtitle:
-                                'Create your first academy to manage students, batches, and attendance.',
-                            buttonLabel: 'Add Academy',
-                            onTap: _addAcademy,
-                          )
-                        : _academyBody()),
+              child: IndexedStack(
+                index: _shellPage,
+                children: <Widget>[
+                  _isLoadingCounts
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF00C9A7),
+                          ),
+                        )
+                      : (_topTabIndex == 0
+                            ? (_groundCount == 0
+                                  ? _emptyCta(
+                                      title: 'No Grounds/Courts Yet',
+                                      subtitle:
+                                          'Create your first ground or court to start managing bookings and slots.',
+                                      buttonLabel: 'Add Ground/Court',
+                                      onTap: _addGround,
+                                    )
+                                  : _groundBody())
+                            : (_academyCount == 0
+                                  ? _emptyCta(
+                                      title: 'No Academies Yet',
+                                      subtitle:
+                                          'Create your first academy to manage students, batches, and attendance.',
+                                      buttonLabel: 'Add Academy',
+                                      onTap: _addAcademy,
+                                    )
+                                  : _academyBody())),
+                  BoxCricketOwnerNotificationsScreen(
+                    showBottomNav: false,
+                    onNotificationsChanged: _loadOwnerEntities,
+
+                    onBack: () {
+                      setState(() {
+                        _shellPage = 0;
+                      });
+                    },
+                    onOpenBookings: () {
+                      setState(() {
+                        _shellPage = 0;
+                        _groundNavIndex = 1;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
