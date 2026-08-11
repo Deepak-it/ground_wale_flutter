@@ -36,7 +36,8 @@ class _SportsNeoGroundDetailScreenState
   bool _isLoadingSlots = false;
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
   String? _selectedSlotId;
-
+  Set<String> _activeBookedSlotKeys = <String>{};
+  bool _hasBookingLookup = false;
   @override
   void initState() {
     super.initState();
@@ -112,30 +113,120 @@ class _SportsNeoGroundDetailScreenState
     final String d = date.day.toString().padLeft(2, '0');
     return '${date.year}-$m-$d';
   }
+  String _bookingStatus(Map<String, dynamic> booking) {
+    return (booking['bookingStatus']?.toString() ?? '')
+        .trim()
+        .toLowerCase();
+  }
 
+  String _bookingDateKey(Map<String, dynamic> booking) {
+    for (final String key in <String>[
+      'date',
+      'bookingDate',
+      'slotDate',
+    ]) {
+      final String raw = booking[key]?.toString().trim() ?? '';
+
+      if (raw.isEmpty) continue;
+
+      final RegExpMatch? ymd =
+          RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(raw);
+
+      if (ymd != null) {
+        return '${ymd.group(1)}-${ymd.group(2)}-${ymd.group(3)}';
+      }
+
+      final DateTime? parsed = DateTime.tryParse(raw);
+
+      if (parsed != null) {
+        return _apiDate(parsed.toLocal());
+      }
+    }
+
+    return _apiDate(_selectedDate);
+  }
+
+  String _slotDateKey(String slotId, String dateKey) {
+    return '$slotId|$dateKey';
+  }
+
+  String _effectiveSlotStatus(Map<String, dynamic> slot) {
+    final String baseStatus =
+        (slot['status']?.toString() ?? 'available')
+            .trim()
+            .toLowerCase();
+
+    if (baseStatus != 'booked' || !_hasBookingLookup) {
+      return baseStatus;
+    }
+
+    final String slotId = _slotId(slot);
+
+    if (slotId.isEmpty) {
+      return baseStatus;
+    }
+
+    final String slotDate = _apiDate(_selectedDate);
+
+    final bool hasActiveBooking = _activeBookedSlotKeys.contains(
+      _slotDateKey(slotId, slotDate),
+    );
+
+    return hasActiveBooking ? 'booked' : 'available';
+  }
   Future<void> _loadSlots() async {
     if (widget.groundId.isEmpty) {
       return;
     }
+
     setState(() => _isLoadingSlots = true);
+
     try {
+      final List<dynamic> results = await Future.wait<dynamic>([
+        GroundWaleApi.instance.listSlots(
+          widget.groundId,
+          date: _apiDate(_selectedDate),
+        ),
+        GroundWaleApi.instance.listBookings(widget.groundId),
+      ]);
+
       final List<Map<String, dynamic>> slots =
-          await GroundWaleApi.instance.listSlots(
-        widget.groundId,
-        date: _apiDate(_selectedDate),
-      );
-      if (!mounted) {
-        return;
+          results[0] as List<Map<String, dynamic>>;
+      final List<Map<String, dynamic>> bookings =
+          results[1] as List<Map<String, dynamic>>;
+
+      final String selectedDateKey = _apiDate(_selectedDate);
+      final Set<String> activeBookedKeys = <String>{};
+
+      for (final Map<String, dynamic> booking in bookings) {
+        final String status = _bookingStatus(booking);
+
+        if (status == 'cancelled' || status == 'rejected') {
+          continue;
+        }
+
+        final String slotId = booking['slotId']?.toString() ?? '';
+        if (slotId.isEmpty) continue;
+
+        final String bookingDateKey = _bookingDateKey(booking);
+
+        if (bookingDateKey != selectedDateKey) continue;
+
+        activeBookedKeys.add(_slotDateKey(slotId, bookingDateKey));
       }
+
+      if (!mounted) return;
+
       setState(() {
         _slots = slots;
+        _activeBookedSlotKeys = activeBookedKeys;
+        _hasBookingLookup = true;
         _selectedSlotId = null;
         _isLoadingSlots = false;
       });
     } catch (_) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
+
       setState(() => _isLoadingSlots = false);
     }
   }
@@ -182,8 +273,8 @@ class _SportsNeoGroundDetailScreenState
   }
 
   _SlotItem _toSlotItem(Map<String, dynamic> slot) {
-    final String status =
-        (slot['status']?.toString() ?? 'available').toLowerCase();
+
+    final String status = _effectiveSlotStatus(slot);
     final String statusLabel = status == 'booked'
         ? 'Booked'
         : status == 'blocked'
@@ -279,7 +370,7 @@ class _SportsNeoGroundDetailScreenState
           slotIds:
               entry.value.map((Map<String, dynamic> s) => _slotId(s)).toList(),
           onSlotTap: (String id, String status) {
-            if (status == 'Available') {
+            if (status.toLowerCase() == 'available') {
               setState(
                 () => _selectedSlotId = _selectedSlotId == id ? null : id,
               );
@@ -735,10 +826,6 @@ class _TopHeader extends StatelessWidget {
               ),
             ],
           ),
-          const Spacer(),
-          _RoundIcon(icon: Icons.notifications_none_rounded),
-          const SizedBox(width: 8),
-          _RoundIcon(icon: Icons.shopping_cart_outlined),
         ],
       ),
     );

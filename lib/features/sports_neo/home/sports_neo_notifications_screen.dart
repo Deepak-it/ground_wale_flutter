@@ -149,10 +149,14 @@ class _SportsNeoNotificationsScreenState
       body: SafeArea(
         child: Column(
           children: <Widget>[
-            _SportsNeoTopHeader(
-              title: 'Notifications',
-              subtitle: '$_pendingCount Pending',
-            ),
+        _SportsNeoTopHeader(
+          title: 'Notifications',
+          subtitle: '$_pendingCount Pending',
+          onRefresh: () async {
+            setState(() => _isLoading = true);
+            await _loadNotifications();
+          },
+        ),
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -201,10 +205,15 @@ class _SportsNeoNotificationsScreenState
 }
 
 class _SportsNeoTopHeader extends StatelessWidget {
-  const _SportsNeoTopHeader({required this.title, this.subtitle});
+  const _SportsNeoTopHeader({
+    required this.title,
+    this.subtitle,
+    this.onRefresh,
+  });
 
   final String title;
   final String? subtitle;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -252,6 +261,23 @@ class _SportsNeoTopHeader extends StatelessWidget {
                     ),
                   ),
               ],
+            ),
+          ),
+          InkWell(
+            onTap: onRefresh,
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Icon(
+                Icons.refresh_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
           ),
         ],
