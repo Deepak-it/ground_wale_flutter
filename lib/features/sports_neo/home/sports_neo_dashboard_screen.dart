@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:ground_wale/features/sports_neo/home/sports_neo_side_bar_screen.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
@@ -43,8 +44,6 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
   final GroundWaleApi _api = GroundWaleApi.instance;
 
-  int _selectedTab = 0;
-
   String _profileName = '';
   String _profilePhone = '';
   String? _profileImage;
@@ -67,20 +66,12 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   int _unreadNotifications = 0;
 
   String _filterCity = '';
-  String? _manualSportFilter;
   bool _isGroundsLoading = false;
+  String _selectedSport = _sportsTabs.first;
+  String get _selectedSportLabel => _selectedSport;
 
-  String get _selectedSportLabel {
-    final String? customSport = _manualSportFilter?.trim();
-    if (customSport != null && customSport.isNotEmpty) {
-      return customSport;
-    }
-
-    return _sportsTabs[_selectedTab];
-  }
-
-  String get _selectedSportFilter => _selectedSportLabel.toLowerCase();
-
+  String get _selectedSportFilter => _selectedSport.toLowerCase();
+  bool get isViewMoreSelected => !_sportsTabs.contains(_selectedSport);
   String? get _selectedCityFilter {
     final String city = _filterCity.trim();
     return city.isEmpty ? null : city;
@@ -353,10 +344,8 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     }
 
     setState(() {
-      _selectedTab = index;
-      _manualSportFilter = null;
+      _selectedSport = _sportsTabs[index];
     });
-
     await _refreshGroundsForCurrentFilters();
   }
 
@@ -418,12 +407,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     );
 
     setState(() {
-      if (existingIndex >= 0) {
-        _selectedTab = existingIndex;
-        _manualSportFilter = null;
-      } else {
-        _manualSportFilter = trimmedSport;
-      }
+      _selectedSport = trimmedSport;
     });
 
     await _refreshGroundsForCurrentFilters();
@@ -443,7 +427,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
       backgroundColor: const Color(0xFF07111F),
       drawerScrimColor: const Color(0x99000000),
 
-      drawer: _SportsNeoSidebar(
+      drawer: SportsNeoSidebar(
         menuItems: _drawerMenuItems,
         profileName: _profileName,
         profilePhone: _profilePhone,
@@ -452,8 +436,17 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         teamsCount: _teamsCount,
         bookingsCount: _bookingsCount,
         onMenuTap: _handleDrawerMenu,
-      ),
+        onLogout: () {
+          ApiSession.instance.clear();
 
+          if (!context.mounted) return;
+
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const SportsNeoWelcomeScreen()),
+            (_) => false,
+          );
+        },
+      ),
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -466,7 +459,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                 children: [
                   _buildHeroHeader(context),
 
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 0),
 
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -577,8 +570,6 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                 ],
               ),
             ),
-
-            _buildBottomNavigation(context),
           ],
         ),
       ),
@@ -651,13 +642,13 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
   Widget _buildHeroHeader(BuildContext context) {
     return SizedBox(
-      height: 235,
+      height: 200,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
             width: double.infinity,
-            height: 190,
+            height: 180,
             decoration: const BoxDecoration(
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
               gradient: LinearGradient(
@@ -727,7 +718,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                                   'Find Your Ground',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 25,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: -.7,
                                   ),
@@ -819,7 +810,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
             ),
           ),
 
-          Positioned(left: 16, right: 16, bottom: 0, child: _buildSearchBar()),
+          Positioned(left: 16, right: 16, bottom: 25, child: _buildSearchBar()),
         ],
       ),
     );
@@ -874,30 +865,35 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   // SPORTS / ACADEMIES
   // ---------------------------------------------------------------------------
 
-  Widget _buildSportsAcademySwitcher(BuildContext context) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(17),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x12000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
+Widget _buildSportsAcademySwitcher(BuildContext context) {
+  return Container(
+    height: 58,
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(17),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: 8,
+                horizontal: 12,
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
@@ -918,44 +914,44 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
               ),
             ),
           ),
-
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => SportsNeoAcademyDetailScreen(
-                      selectedCity: _selectedCityFilter,
-                    ),
+        ),
+        Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SportsNeoAcademyDetailScreen(
+                    selectedCity: _selectedCityFilter,
                   ),
-                );
-              },
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.school_outlined,
+                ),
+              );
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.school_outlined,
+                  color: Color(0xFF475569),
+                  size: 22,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Academies',
+                  style: TextStyle(
                     color: Color(0xFF475569),
-                    size: 22,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Academies',
-                    style: TextStyle(
-                      color: Color(0xFF475569),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   // ---------------------------------------------------------------------------
   // SPORTS
@@ -981,12 +977,12 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                     : () => _applySportFilter(index),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: _selectedTab == index
+                    color: _selectedSport == _sportsTabs[index]
                         ? const Color(0xFF315CF4)
                         : const Color(0xFF101C2D),
                     borderRadius: BorderRadius.circular(15),
                     border: Border.all(
-                      color: _selectedTab == index
+                      color: _selectedSport == _sportsTabs[index]
                           ? const Color(0xFF4F74FF)
                           : const Color(0x1FFFFFFF),
                     ),
@@ -1020,31 +1016,35 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
               onTap: _isGroundsLoading ? null : _showMoreSports,
               child: Container(
                 decoration: BoxDecoration(
-                  color: _manualSportFilter == null
-                      ? const Color(0xFF101C2D)
-                      : const Color(0xFF315CF4),
+                  color: isViewMoreSelected
+                      ? const Color(0xFF315CF4)
+                      : const Color(0xFF101C2D),
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(
-                    color: _manualSportFilter == null
-                        ? const Color(0x1FFFFFFF)
-                        : const Color(0xFF4F74FF),
+                    color: isViewMoreSelected
+                        ? const Color(0xFF4F74FF)
+                        : const Color(0x1FFFFFFF),
                   ),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
+                  children: <Widget>[
+                    Icon(
                       Icons.grid_view_rounded,
-                      color: Color(0xFFCBD5E1),
+                      color: isViewMoreSelected
+                          ? Colors.white
+                          : const Color(0xFFCBD5E1),
                       size: 27,
                     ),
                     const SizedBox(height: 9),
                     Text(
-                      'View More',
+                      isViewMoreSelected ? _selectedSport : 'View More',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF60A5FA),
+                      style: TextStyle(
+                        color: isViewMoreSelected
+                            ? Colors.white
+                            : const Color(0xFF60A5FA),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1249,106 +1249,6 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
             ),
           )
           .toList(),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // BOTTOM NAVIGATION
-  // ---------------------------------------------------------------------------
-
-  Widget _buildBottomNavigation(BuildContext context) {
-    return Positioned(
-      left: 12,
-      right: 12,
-      bottom: 10,
-      child: Container(
-        height: 72,
-        decoration: BoxDecoration(
-          color: const Color(0xF20A1628),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: const Color(0x20FFFFFF)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x55000000),
-              blurRadius: 22,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _BottomNavItem(
-                  icon: Icons.home_rounded,
-                  label: 'Home',
-                  active: true,
-                  onTap: () {},
-                ),
-
-                const SizedBox(width: 65),
-
-                _BottomNavItem(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Bookings',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const SportsNeoBookingHistoryScreen(),
-                      ),
-                    );
-                  },
-                ),
-
-                _BottomNavItem(
-                  icon: Icons.person_outline_rounded,
-                  label: 'Profile',
-                  onTap: () {},
-                ),
-              ],
-            ),
-
-            Positioned(
-              top: -18,
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const SportsNeoManageTeamsScreen(),
-                    ),
-                  );
-                },
-                child: Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF2563EB),
-                    border: Border.all(
-                      color: const Color(0xFF07111F),
-                      width: 4,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x662563EB),
-                        blurRadius: 16,
-                        offset: Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    color: Colors.white,
-                    size: 34,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1852,271 +1752,6 @@ class _HeaderCircleButton extends StatelessWidget {
           child: Icon(icon, color: Colors.white, size: 22),
         ),
       ),
-    );
-  }
-}
-
-// =============================================================================
-// DRAWER
-// =============================================================================
-
-class _SportsNeoSidebar extends StatelessWidget {
-  const _SportsNeoSidebar({
-    required this.menuItems,
-    required this.profileName,
-    required this.profilePhone,
-    required this.profileImage,
-    required this.matchesCount,
-    required this.teamsCount,
-    required this.bookingsCount,
-    required this.onMenuTap,
-  });
-
-  final List<String> menuItems;
-  final String profileName;
-  final String profilePhone;
-  final String? profileImage;
-
-  final int matchesCount;
-  final int teamsCount;
-  final int bookingsCount;
-
-  final ValueChanged<String> onMenuTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      width: 290,
-      backgroundColor: const Color(0xFF000B2A),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF001651), Color(0xFF091E67)],
-                ),
-                borderRadius: BorderRadius.vertical(
-                  bottom: Radius.circular(24),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0x40FFFFFF),
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(
-                            Icons.arrow_back_rounded,
-                            size: 20,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-
-                      const Spacer(),
-
-                      Container(
-                        width: 46,
-                        height: 46,
-                        clipBehavior: Clip.antiAlias,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE5E7EB),
-                          shape: BoxShape.circle,
-                        ),
-                        child: buildBase64OrNetworkImage(
-                          value: profileImage,
-                          fit: BoxFit.cover,
-                          fallback: const Icon(
-                            Icons.person_outline,
-                            color: Color(0xFF111827),
-                            size: 22,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      profileName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 2),
-
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      profilePhone,
-                      style: const TextStyle(
-                        color: Color(0xCCFFFFFF),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  const Divider(color: Color(0x2EFFFFFF), height: 1),
-
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _DrawerStat(
-                          number: '$matchesCount',
-                          label: 'Matches',
-                        ),
-                      ),
-                      Expanded(
-                        child: _DrawerStat(
-                          number: '$teamsCount',
-                          label: 'Teams',
-                        ),
-                      ),
-                      Expanded(
-                        child: _DrawerStat(
-                          number: '$bookingsCount',
-                          label: 'Bookings',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
-                itemCount: menuItems.length,
-                itemBuilder: (context, index) {
-                  return _SidebarMenuTile(
-                    label: menuItems[index],
-                    onTap: () {
-                      Navigator.of(context).pop();
-
-                      onMenuTap(menuItems[index]);
-                    },
-                  );
-                },
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 26),
-              child: SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF11A07),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (_) => const SportsNeoWelcomeScreen(),
-                      ),
-                      (Route<dynamic> route) => false,
-                    );
-                  },
-                  child: const Text(
-                    'Log Out',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DrawerStat extends StatelessWidget {
-  const _DrawerStat({required this.number, required this.label});
-
-  final String number;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          number,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xD9FFFFFF),
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SidebarMenuTile extends StatelessWidget {
-  const _SidebarMenuTile({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-      title: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xD9FFFFFF),
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Color(0xD9FFFFFF),
-        size: 20,
-      ),
-      onTap: onTap,
     );
   }
 }

@@ -1,13 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/utils/base64_image.dart';
+import '../../../core/widgets/google_city_picker_sheet.dart';
+import '../../ground/flow/controllers/ground_flow_controller.dart';
+import '../../ground/flow/screens/choose_sports_screen.dart';
+import 'sports_neo_booking_history_screen.dart';
+import 'sports_neo_choose_team_screen.dart';
+import 'sports_neo_dashboard_screen.dart';
+import 'sports_neo_ledger_payments_screen.dart';
+import 'sports_neo_manage_teams_screen.dart';
+import 'sports_neo_onboarding_flow.dart';
+import 'sports_neo_settings_screen.dart';
+import 'sports_neo_side_bar_screen.dart';
+import 'sports_neo_split_payment_flow_screens.dart';
 
 class SportsNeoAcademyDetailScreen extends StatefulWidget {
-  const SportsNeoAcademyDetailScreen({
-    super.key,
-    this.selectedCity,
-  });
+  const SportsNeoAcademyDetailScreen({super.key, this.selectedCity});
 
   final String? selectedCity;
 
@@ -18,26 +30,73 @@ class SportsNeoAcademyDetailScreen extends StatefulWidget {
 
 class _SportsNeoAcademyDetailScreenState
     extends State<SportsNeoAcademyDetailScreen> {
+  static const List<String> _sportsTabs = <String>[
+    'Cricket',
+    'Football',
+    'Badminton',
+  ];
+
+  static const List<String> _drawerMenuItems = <String>[
+    'Ledger & Payments',
+    'Booking History',
+    'Create Team',
+    'My Teams',
+    'My Matches',
+    'Add a Match',
+    'Settings',
+  ];
+
   final GroundWaleApi _api = GroundWaleApi.instance;
 
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _enrollments = <Map<String, dynamic>>[];
+  String _selectedSport = 'Cricket';
+  String _filterCity = '';
+
+  String _profileName = '';
+  String _profilePhone = '';
+  String? _profileImage;
+
+  int _matchesCount = 0;
+  int _teamsCount = 0;
+  int _bookingsCount = 0;
 
   String? get _playerId => ApiSession.instance.ownerId;
-  String? get _cityFilter {
-    final String explicit = widget.selectedCity?.trim() ?? '';
-    if (explicit.isNotEmpty) {
-      return explicit;
-    }
-    final String sessionCity = ApiSession.instance.city?.trim() ?? '';
-    return sessionCity.isEmpty ? null : sessionCity;
+
+
+  String get _selectedSportLabel => _selectedSport;
+  String? get _selectedCityFilter {
+    final String city = _filterCity.trim();
+    return city.isEmpty ? null : city;
   }
+  bool isTabSelected(int index) {
+    return _normalizeSportKey(_selectedSport) ==
+        _normalizeSportKey(_sportsTabs[index]);
+  }
+
+  bool get isViewMoreSelected {
+    return !_sportsTabs.any(
+      (sport) =>
+          _normalizeSportKey(sport) ==
+          _normalizeSportKey(_selectedSport),
+    );
+  }
+  String get _selectedSportFilter => _selectedSportLabel.toLowerCase();
 
   @override
   void initState() {
     super.initState();
+
+    final String explicit = widget.selectedCity?.trim() ?? '';
+    if (explicit.isNotEmpty) {
+      _filterCity = explicit;
+    } else {
+      final String sessionCity = ApiSession.instance.city?.trim() ?? '';
+      _filterCity = sessionCity;
+    }
+
     _load();
   }
 
@@ -49,22 +108,53 @@ class _SportsNeoAcademyDetailScreenState
 
     try {
       final String? playerId = _playerId;
-      final List<dynamic> results = await Future.wait<dynamic>(<Future<dynamic>>[
-        _api.discoverAcademies(
-          playerId: playerId,
-          city: _cityFilter,
-        ),
-        if (playerId != null && playerId.isNotEmpty)
-          _api.listPlayerAcademyEnrollments(playerId)
-        else
-          Future<List<Map<String, dynamic>>>.value(<Map<String, dynamic>>[]),
-      ]);
+      final List<dynamic> results = await Future.wait<dynamic>(
+        <Future<dynamic>>[
+          _api.discoverAcademies(
+            playerId: playerId,
+            city: _selectedCityFilter,
+            sport: _selectedSportFilter,
+          ),
+          if (playerId != null && playerId.isNotEmpty)
+            _api.listPlayerAcademyEnrollments(playerId)
+          else
+            Future<List<Map<String, dynamic>>>.value(<Map<String, dynamic>>[]),
+          if (playerId != null && playerId.isNotEmpty)
+            _api.getOwnerProfile(playerId)
+          else
+            Future<Map<String, dynamic>?>.value(null),
+          if (playerId != null && playerId.isNotEmpty)
+            _api.getDashboard(playerId)
+          else
+            Future<Map<String, dynamic>?>.value(null),
+        ],
+      );
 
       if (!mounted) {
         return;
       }
 
       setState(() {
+        final Map<String, dynamic>? profile =
+            results[2] as Map<String, dynamic>?;
+        final Map<String, dynamic>? dashboard =
+            results[3] as Map<String, dynamic>?;
+
+        final String profileName =
+            _stringFromAny(profile, <String>[
+              'ownerName',
+              'name',
+              'fullName',
+            ]) ??
+            (ApiSession.instance.ownerName ?? _profileName);
+        final String profilePhone =
+            _stringFromAny(profile, <String>[
+              'contactNumber',
+              'phone',
+              'mobile',
+            ]) ??
+            (ApiSession.instance.contactNumber ?? _profilePhone);
+
         _academies = (results[0] as List<dynamic>)
             .whereType<Map>()
             .map((Map item) => Map<String, dynamic>.from(item))
@@ -73,6 +163,22 @@ class _SportsNeoAcademyDetailScreenState
             .whereType<Map>()
             .map((Map item) => Map<String, dynamic>.from(item))
             .toList();
+
+        _profileName = profileName;
+        _profilePhone = profilePhone;
+        _profileImage = _stringFromAny(profile, <String>[
+          'profileImage',
+          'image',
+        ]);
+
+        _matchesCount =
+            _intFromAny(dashboard, <String>['matchesCount', 'matches']) ??
+            _matchesCount;
+        _teamsCount =
+            _intFromAny(dashboard, <String>['teamsCount']) ?? _teamsCount;
+        _bookingsCount =
+            _intFromAny(dashboard, <String>['bookingsCount']) ?? _bookingsCount;
+
         _isLoading = false;
       });
     } catch (error) {
@@ -85,6 +191,684 @@ class _SportsNeoAcademyDetailScreenState
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _showLocationFilterSheet() async {
+    final GoogleCitySelection? selection = await showGoogleCityPickerSheet(
+      context: context,
+      title: 'Select City',
+      initialQuery: _filterCity,
+      allowClear: true,
+    );
+
+    if (!mounted || selection == null) {
+      return;
+    }
+
+    await _applyCityFilter(selection.city);
+  }
+
+  Future<void> _applyCityFilter(String city) async {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _filterCity = city.trim();
+    });
+
+    await _load();
+  }
+
+  Future<void> _applySportFilter(int index) async {
+    if (!mounted) return;
+
+    setState(() {
+      _selectedSport = _sportsTabs[index];
+    });
+
+    await _load();
+  }
+
+  Future<void> _showMoreSports() async {
+    if (!mounted) {
+      return;
+    }
+
+    final GroundFlowController controller = GroundFlowController();
+    controller.data.selectedSports
+      ..clear()
+      ..add(_selectedSportLabel);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          top: false,
+          child: SizedBox(
+            height: MediaQuery.of(sheetContext).size.height * 0.92,
+            child: ChooseSportsScreen(
+              controller: controller,
+              singleSelection: true,
+              onDone: (List<String> selectedSports) {
+                Navigator.of(sheetContext).pop();
+
+                if (selectedSports.isEmpty) {
+                  return;
+                }
+
+                _applyCustomSportFilter(selectedSports.first);
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+  Future<void> _applyCustomSportFilter(String sport) async {
+    if (!mounted) return;
+
+    setState(() {
+      _selectedSport = sport.trim();
+    });
+
+    await _load();
+  }
+
+  String _normalizeSportKey(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  String? _stringFromAny(Map<String, dynamic>? map, List<String> keys) {
+    if (map == null) {
+      return null;
+    }
+
+    for (final String key in keys) {
+      final dynamic value = map[key];
+      if (value == null) {
+        continue;
+      }
+
+      final String text = value.toString().trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+
+    return null;
+  }
+
+  int? _intFromAny(Map<String, dynamic>? map, List<String> keys) {
+    if (map == null) {
+      return null;
+    }
+
+    for (final String key in keys) {
+      final dynamic value = map[key];
+
+      if (value is int) {
+        return value;
+      }
+
+      if (value is num) {
+        return value.toInt();
+      }
+
+      if (value is String) {
+        final int? parsed = int.tryParse(value.trim());
+        if (parsed != null) {
+          return parsed;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  void _handleDrawerMenu(String label) {
+    if (label == 'Ledger & Payments') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const SportsNeoLedgerPaymentsScreen(),
+        ),
+      );
+      return;
+    }
+
+    if (label == 'Booking History') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const SportsNeoBookingHistoryScreen(),
+        ),
+      );
+      return;
+    }
+
+    if (label == 'Settings') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const SportsNeoSettingsScreen()),
+      );
+      return;
+    }
+
+    if (label == 'Add a Match') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SportsNeoAddMatchScreen(
+            myTeam: const SportsNeoTeamInfo(
+              name: 'My Team',
+              players: 0,
+              color: Color(0xFF0EA5E9),
+            ),
+            opponentTeam: const SportsNeoTeamInfo(
+              name: 'Opponent Team',
+              players: 0,
+              color: Color(0xFF2563EB),
+            ),
+            amount: 0,
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (label == 'My Teams' ||
+        label == 'My Matches' ||
+        label == 'Create Team') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const SportsNeoManageTeamsScreen()),
+      );
+    }
+  }
+
+  Widget _buildTopShell(BuildContext context) {
+    return SizedBox(
+      height: 200,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: double.infinity,
+            height: 180,
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF06142B),
+                  Color(0xFF0A2550),
+                  Color(0xFF07152B),
+                ],
+              ),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -20,
+                  bottom: -15,
+                  child: Container(
+                    width: 330,
+                    height: 160,
+                    decoration: const BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [Color(0x551D73E8), Color(0x001D73E8)],
+                      ),
+                    ),
+                  ),
+                ),
+
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Opacity(
+                    opacity: .6,
+                    child: Container(
+                      height: 105,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: <Color>[
+                            Color(0x002563EB),
+                            Color(0x552563EB),
+                            Color(0x9920A95C),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Builder(
+                            builder: (drawerContext) {
+                              return InkWell(
+                                borderRadius: BorderRadius.circular(22),
+                                onTap: () {
+                                  Scaffold.of(drawerContext).openDrawer();
+                                },
+                                child: Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x22FFFFFF),
+                                    borderRadius: BorderRadius.circular(22),
+                                  ),
+                                  child: const Icon(
+                                    Icons.menu_rounded,
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Find Your Academy',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -.7,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                InkWell(
+                                  onTap: _showLocationFilterSheet,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.location_on_outlined,
+                                        color: Colors.white,
+                                        size: 17,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Flexible(
+                                        child: Text(
+                                          _filterCity.isEmpty
+                                              ? 'All cities'
+                                              : _filterCity,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Color(0xE6FFFFFF),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.keyboard_arrow_down,
+                                        color: Colors.white,
+                                        size: 17,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          InkWell(
+                            borderRadius: BorderRadius.circular(22),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const SportsNeoBookingHistoryScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0x25FFFFFF),
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                              child: const Icon(
+                                Icons.shopping_cart_outlined,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 11),
+
+                      const Text(
+                        'Train. Improve. Repeat.',
+                        style: TextStyle(
+                          color: Color(0x99FFFFFF),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Positioned(left: 16, right: 16, bottom: 25, child: _buildSearchBar()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          decoration: BoxDecoration(
+            color: const Color(0xFF101C2D),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0x35FFFFFF)),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x55000000),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Row(
+            children: <Widget>[
+              Icon(Icons.search_rounded, color: Color(0xFFCBD5E1), size: 22),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Search sports, academies or grounds',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(Icons.tune_rounded, color: Color(0xFFCBD5E1), size: 21),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+Widget _buildSportsAcademySwitcher(BuildContext context) {
+  return Container(
+    height: 58,
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(17),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => const SportsNeoDashboardScreen(),
+                ),
+              );
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.sports_soccer_rounded,
+                  color: Color(0xFF475569),
+                  size: 22,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Sports',
+                  style: TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: 8,
+                horizontal: 12,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.school_outlined,
+                    color: Color(0xFF2563EB),
+                    size: 22,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Academies',
+                    style: TextStyle(
+                      color: Color(0xFF2563EB),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+  Widget _buildSportSelector() {
+    const List<IconData> icons = <IconData>[
+      Icons.sports_cricket_rounded,
+      Icons.sports_soccer_rounded,
+      Icons.sports_tennis_rounded,
+    ];
+
+    return SizedBox(
+      height: 92,
+      child: Row(
+        children: <Widget>[
+          for (int index = 0; index < 3; index++) ...<Widget>[
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(15),
+                onTap: _isLoading ? null : () => _applySportFilter(index),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isTabSelected(index)
+                        ? const Color(0xFF315CF4)
+                        : const Color(0xFF101C2D),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                      color: isTabSelected(index)
+                          ? const Color(0xFF4F74FF)
+                          : const Color(0x1FFFFFFF),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Icon(icons[index], color: Colors.white, size: 31),
+                      const SizedBox(height: 7),
+                      Text(
+                        _sportsTabs[index],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (index != 2) const SizedBox(width: 9),
+          ],
+          const SizedBox(width: 9),
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(15),
+              onTap: _isLoading ? null : _showMoreSports,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isViewMoreSelected
+                      ? const Color(0xFF315CF4)
+                      : const Color(0xFF101C2D),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: isViewMoreSelected
+                        ? const Color(0xFF4F74FF)
+                        : const Color(0x1FFFFFFF),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(
+                      Icons.grid_view_rounded,
+                      color: isViewMoreSelected
+                          ? Colors.white
+                          : const Color(0xFFCBD5E1),
+                      size: 27,
+                    ),
+                    const SizedBox(height: 9),
+                    Text(
+                      isViewMoreSelected ? _selectedSport : 'View More',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isViewMoreSelected
+                            ? Colors.white
+                            : const Color(0xFF60A5FA),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCityFilter() {
+    return InkWell(
+      onTap: _showLocationFilterSheet,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 13),
+        decoration: BoxDecoration(
+          color: const Color(0xFF101C2D),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: const Color(0x1FFFFFFF)),
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0x202563EB),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.location_city_rounded,
+                color: Color(0xFF5C8FFF),
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text(
+                    'City filter',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _filterCity.isEmpty ? 'All cities' : _filterCity,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0x99FFFFFF),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xCCFFFFFF)),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _openAcademy(Map<String, dynamic> academy) async {
@@ -109,8 +893,9 @@ class _SportsNeoAcademyDetailScreenState
         .map((Map<String, dynamic> item) {
           final dynamic academy = item['academy'];
           if (academy is Map) {
-            final Map<String, dynamic> normalized =
-                Map<String, dynamic>.from(academy);
+            final Map<String, dynamic> normalized = Map<String, dynamic>.from(
+              academy,
+            );
             normalized['enrollment'] = item;
             normalized['isEnrolled'] = true;
             return normalized;
@@ -127,97 +912,139 @@ class _SportsNeoAcademyDetailScreenState
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF121C3E),
-        foregroundColor: Colors.white,
-        title: const Text('Academies'),
+      drawerScrimColor: const Color(0x99000000),
+      drawer: SportsNeoSidebar(
+        menuItems: _drawerMenuItems,
+        profileName: _profileName,
+        profilePhone: _profilePhone,
+        profileImage: _profileImage,
+        matchesCount: _matchesCount,
+        teamsCount: _teamsCount,
+        bookingsCount: _bookingsCount,
+        onMenuTap: _handleDrawerMenu,
+        onLogout: () {
+          ApiSession.instance.clear();
+
+          if (!context.mounted) {
+            return;
+          }
+
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const SportsNeoWelcomeScreen()),
+            (_) => false,
+          );
+        },
       ),
+
       body: SafeArea(
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF2563EB)),
-              )
-            : _error != null
+        bottom: false,
+        child: _error != null
             ? _AcademyErrorState(message: _error!, onRetry: _load)
             : RefreshIndicator(
                 color: const Color(0xFF2563EB),
                 onRefresh: _load,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 24),
                   children: <Widget>[
-                    _AcademySectionHeader(
-                      title: 'Academies',
-                      subtitle: _cityFilter == null
-                          ? 'Discover academies across all cities'
-                          : 'Discover academies in ${_cityFilter!}',
-                      actionText: 'See all',
-                      onTap: _academies.isEmpty
-                          ? null
-                          : () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => _AcademyListScreen(
-                                    academies: _academies,
-                                    cityLabel: _cityFilter,
-                                    onOpenAcademy: _openAcademy,
-                                  ),
+                    _buildTopShell(context),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          _buildSportsAcademySwitcher(context),
+                          const SizedBox(height: 14),
+                          _buildSportSelector(),
+                          const SizedBox(height: 16),
+                          _buildCityFilter(),
+                          const SizedBox(height: 18),
+                          if (_isLoading)
+                            const _AcademiesLoadingNotice()
+                          else ...<Widget>[
+                            _AcademySectionHeader(
+                              title: 'Nearby Academies',
+                              subtitle: _selectedCityFilter == null
+                                  ? 'Discover $_selectedSportLabel academies across all cities'
+                                  : 'Discover $_selectedSportLabel academies in ${_selectedCityFilter!}',
+                              actionText: 'See all',
+                              onTap: _academies.isEmpty
+                                  ? null
+                                  : () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => _AcademyListScreen(
+                                            academies: _academies,
+                                            cityLabel: _selectedCityFilter,
+                                            sportLabel: _selectedSportLabel,
+                                            onOpenAcademy: _openAcademy,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                            ),
+                            const SizedBox(height: 12),
+                            if (_academies.isEmpty)
+                              const _AcademyEmptyCard(
+                                message:
+                                    'No academies found for the selected city.',
+                              )
+                            else
+                              SizedBox(
+                                height: 360,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _academies.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(width: 12),
+                                  itemBuilder: (_, int index) {
+                                    final Map<String, dynamic> academy =
+                                        _academies[index];
+                                    return SizedBox(
+                                      width: 270,
+                                      child: _AcademyListCard(
+                                        academy: academy,
+                                        enrolled: academy['isEnrolled'] == true,
+                                        onTap: () => _openAcademy(academy),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                    ),
-                    const SizedBox(height: 12),
-                    if (_academies.isEmpty)
-                      const _AcademyEmptyCard(
-                        message: 'No academies found for the selected city.',
-                      )
-                    else
-                      SizedBox(
-                        height: 360,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _academies.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 12),
-                          itemBuilder: (_, int index) {
-                            final Map<String, dynamic> academy = _academies[index];
-                            return SizedBox(
-                              width: 270,
-                              child: _AcademyListCard(
-                                academy: academy,
-                                enrolled: academy['isEnrolled'] == true,
-                                onTap: () => _openAcademy(academy),
                               ),
-                            );
-                          },
-                        ),
+                            const SizedBox(height: 22),
+                            _AcademySectionHeader(
+                              title: 'My Academies',
+                              subtitle: enrolledAcademies.isEmpty
+                                  ? 'Your joined academies will appear here'
+                                  : 'Your enrolled academies',
+                            ),
+                            const SizedBox(height: 12),
+                            if (enrolledAcademies.isEmpty)
+                              const _AcademyEmptyCard(
+                                message: 'You have not joined any academy yet.',
+                              )
+                            else
+                              SizedBox(
+                                height: 146,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: enrolledAcademies.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(width: 10),
+                                  itemBuilder: (_, int index) {
+                                    final Map<String, dynamic> academy =
+                                        enrolledAcademies[index];
+                                    return _MyAcademyCard(
+                                      academy: academy,
+                                      onTap: () => _openAcademy(academy),
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
+                        ],
                       ),
-                    const SizedBox(height: 22),
-                    _AcademySectionHeader(
-                      title: 'My Academies',
-                      subtitle: enrolledAcademies.isEmpty
-                          ? 'Your joined academies will appear here'
-                          : 'Your enrolled academies',
                     ),
-                    const SizedBox(height: 12),
-                    if (enrolledAcademies.isEmpty)
-                      const _AcademyEmptyCard(
-                        message: 'You have not joined any academy yet.',
-                      )
-                    else
-                      SizedBox(
-                        height: 146,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: enrolledAcademies.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 10),
-                          itemBuilder: (_, int index) {
-                            final Map<String, dynamic> academy = enrolledAcademies[index];
-                            return _MyAcademyCard(
-                              academy: academy,
-                              onTap: () => _openAcademy(academy),
-                            );
-                          },
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -230,11 +1057,13 @@ class _AcademyListScreen extends StatelessWidget {
   const _AcademyListScreen({
     required this.academies,
     required this.cityLabel,
+    required this.sportLabel,
     required this.onOpenAcademy,
   });
 
   final List<Map<String, dynamic>> academies;
   final String? cityLabel;
+  final String sportLabel;
   final Future<void> Function(Map<String, dynamic> academy) onOpenAcademy;
 
   @override
@@ -244,7 +1073,11 @@ class _AcademyListScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF121C3E),
         foregroundColor: Colors.white,
-        title: Text(cityLabel == null ? 'All Academies' : '$cityLabel Academies'),
+        title: Text(
+          cityLabel == null
+              ? '$sportLabel Academies'
+              : '$cityLabel $sportLabel Academies',
+        ),
       ),
       body: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -333,7 +1166,8 @@ class _SportsNeoAcademyOverviewScreenState
 
   bool get _isEnrolled => _academy['isEnrolled'] == true;
 
-  List<Map<String, dynamic>> get _feePlans => _mapList(_selectedBatch['feePlans']);
+  List<Map<String, dynamic>> get _feePlans =>
+      _mapList(_selectedBatch['feePlans']);
 
   Future<void> _joinAcademy() async {
     final String? playerId = widget.playerId;
@@ -349,18 +1183,16 @@ class _SportsNeoAcademyOverviewScreenState
 
     setState(() => _isJoining = true);
     try {
-      final Map<String, dynamic> student = await _api.joinAcademy(
-        playerId,
-        <String, dynamic>{
-          'academyId': _text(_academy['_id']),
-          if (_text(_selectedBatch['_id']).isNotEmpty)
-            'batchId': _text(_selectedBatch['_id']),
-          'batchName': _text(_selectedBatch['name']),
-          'planIndex': 0,
-          'fullName': widget.playerName,
-          'phone': widget.playerPhone,
-        },
-      );
+      final Map<String, dynamic> student = await _api
+          .joinAcademy(playerId, <String, dynamic>{
+            'academyId': _text(_academy['_id']),
+            if (_text(_selectedBatch['_id']).isNotEmpty)
+              'batchId': _text(_selectedBatch['_id']),
+            'batchName': _text(_selectedBatch['name']),
+            'planIndex': 0,
+            'fullName': widget.playerName,
+            'phone': widget.playerPhone,
+          });
 
       if (!mounted) {
         return;
@@ -467,8 +1299,9 @@ class _SportsNeoAcademyOverviewScreenState
   @override
   Widget build(BuildContext context) {
     final Map<String, dynamic> batch = _selectedBatch;
-    final Map<String, dynamic> primaryPlan =
-        _feePlans.isNotEmpty ? _feePlans.first : <String, dynamic>{};
+    final Map<String, dynamic> primaryPlan = _feePlans.isNotEmpty
+        ? _feePlans.first
+        : <String, dynamic>{};
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
@@ -524,11 +1357,14 @@ class _SportsNeoAcademyOverviewScreenState
                 : Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: List<Widget>.generate(_batches.length, (int index) {
+                    children: List<Widget>.generate(_batches.length, (
+                      int index,
+                    ) {
                       final Map<String, dynamic> item = _batches[index];
                       final bool active = index == _selectedBatchIndex;
                       return GestureDetector(
-                        onTap: () => setState(() => _selectedBatchIndex = index),
+                        onTap: () =>
+                            setState(() => _selectedBatchIndex = index),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -613,10 +1449,7 @@ class _SportsNeoAcademyOverviewScreenState
                       ? '${_toInt(batch['capacity'])} players'
                       : '--',
                 ),
-                _InfoRow(
-                  label: 'Coaching Days',
-                  value: _daysLabel(batch),
-                ),
+                _InfoRow(label: 'Coaching Days', value: _daysLabel(batch)),
                 _InfoRow(
                   label: 'Timing',
                   value: _timeRange(batch),
@@ -730,20 +1563,14 @@ class _AcademySectionHeader extends StatelessWidget {
           ),
         ),
         if (actionText != null && onTap != null)
-          TextButton(
-            onPressed: onTap,
-            child: Text(actionText!),
-          ),
+          TextButton(onPressed: onTap, child: Text(actionText!)),
       ],
     );
   }
 }
 
 class _MyAcademyCard extends StatelessWidget {
-  const _MyAcademyCard({
-    required this.academy,
-    required this.onTap,
-  });
+  const _MyAcademyCard({required this.academy, required this.onTap});
 
   final Map<String, dynamic> academy;
   final VoidCallback onTap;
@@ -786,7 +1613,9 @@ class _MyAcademyCard extends StatelessWidget {
             ),
             const Spacer(),
             Text(
-              _text(academy['name']).isEmpty ? 'Academy' : _text(academy['name']),
+              _text(academy['name']).isEmpty
+                  ? 'Academy'
+                  : _text(academy['name']),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -829,15 +1658,26 @@ class _AcademyListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> batches = _mapList(academy['batches']);
-    final Map<String, dynamic> firstBatch =
-        batches.isNotEmpty ? batches.first : <String, dynamic>{};
-    final List<Map<String, dynamic>> feePlans = _mapList(firstBatch['feePlans']);
-    final Map<String, dynamic> firstPlan =
-        feePlans.isNotEmpty ? feePlans.first : <String, dynamic>{};
-    final List<String> facilities = _academyFacilities(academy, firstBatch);
+    final Map<String, dynamic> firstBatch = batches.isNotEmpty
+        ? batches.first
+        : <String, dynamic>{};
+    final List<Map<String, dynamic>> feePlans = _mapList(
+      firstBatch['feePlans'],
+    );
+    final Map<String, dynamic> firstPlan = feePlans.isNotEmpty
+        ? feePlans.first
+        : <String, dynamic>{};
+
+        final List<String> facilities =
+    _academyFacilities(academy, firstBatch).take(2).toList();
     final String headerLabel = _academyHeaderLabel(academy, firstBatch);
-    final String statusLabel = _academyStatusLabel(academy, firstBatch, enrolled);
+    final String statusLabel = _academyStatusLabel(
+      academy,
+      firstBatch,
+      enrolled,
+    );
     final String location = _locationLabel(academy);
+    final List<String> imageValues = _academyImageValues(academy);
     final String price = _priceLabel(
       _text(firstPlan['price']).isEmpty
           ? firstBatch['monthlyFee']
@@ -864,14 +1704,19 @@ class _AcademyListCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
               child: SizedBox(
-                height: 176,
+                height: 152,
                 width: double.infinity,
                 child: Stack(
                   fit: StackFit.expand,
                   children: <Widget>[
-                    _AcademyImage(imageUrl: _coverImage(academy)),
+                    _AcademyImageCarousel(
+                      imageValues: imageValues,
+                      fallback: const _AcademyImageFallback(),
+                    ),
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -975,9 +1820,7 @@ class _AcademyListCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.only(top: 14),
                     decoration: const BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: Color(0x1FFFFFFF)),
-                      ),
+                      border: Border(top: BorderSide(color: Color(0x1FFFFFFF))),
                     ),
                     child: Row(
                       children: <Widget>[
@@ -1015,7 +1858,9 @@ class _AcademyListCard extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF2563EB),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 18),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -1049,6 +1894,8 @@ class _AcademyHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final List<String> imageValues = _academyImageValues(academy);
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
@@ -1063,7 +1910,10 @@ class _AcademyHeroCard extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               height: 220,
-              child: _AcademyImage(imageUrl: _coverImage(academy)),
+              child: _AcademyImageCarousel(
+                imageValues: imageValues,
+                fallback: const _AcademyImageFallback(),
+              ),
             ),
           ),
           Padding(
@@ -1093,9 +1943,9 @@ class _AcademyHeroCard extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _textList(academy['sports'])
-                      .map((String sport) => _MiniChip(label: sport))
-                      .toList(),
+                  children: _textList(
+                    academy['sports'],
+                  ).map((String sport) => _MiniChip(label: sport)).toList(),
                 ),
               ],
             ),
@@ -1106,39 +1956,173 @@ class _AcademyHeroCard extends StatelessWidget {
   }
 }
 
-class _AcademyImage extends StatelessWidget {
-  const _AcademyImage({required this.imageUrl});
-
-  final String imageUrl;
+class _AcademyImageFallback extends StatelessWidget {
+  const _AcademyImageFallback();
 
   @override
   Widget build(BuildContext context) {
-    if (imageUrl.isEmpty) {
-      return Container(
-        color: const Color(0xFF1E293B),
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.school_rounded,
-          color: Color(0xFF93C5FD),
-          size: 52,
-        ),
-      );
+    return Container(
+      color: const Color(0xFF1E293B),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.school_rounded,
+        color: Color(0xFF93C5FD),
+        size: 52,
+      ),
+    );
+  }
+}
+
+class _AcademyImageCarousel extends StatefulWidget {
+  const _AcademyImageCarousel({
+    required this.imageValues,
+    required this.fallback,
+  });
+
+  final List<String> imageValues;
+  final Widget fallback;
+
+  @override
+  State<_AcademyImageCarousel> createState() => _AcademyImageCarouselState();
+}
+
+class _AcademyImageCarouselState extends State<_AcademyImageCarousel> {
+  late final PageController _pageController;
+  Timer? _autoSlideTimer;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoSlideIfNeeded();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _precacheImages(widget.imageValues);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AcademyImageCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.imageValues != widget.imageValues) {
+      _precacheImages(widget.imageValues);
     }
 
-    return Image.network(
-      imageUrl,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          color: const Color(0xFF1E293B),
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.school_rounded,
-            color: Color(0xFF93C5FD),
-            size: 52,
+    if (oldWidget.imageValues.length != widget.imageValues.length) {
+      _currentIndex = 0;
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+      _restartAutoSlide();
+    }
+  }
+
+  void _precacheImages(List<String> imageValues) {
+    for (final String value in imageValues) {
+      if (value.isEmpty) {
+        continue;
+      }
+
+      if (value.startsWith('http://') || value.startsWith('https://')) {
+        precacheImage(NetworkImage(value), context);
+        continue;
+      }
+
+      final bytes = decodeBase64ImageBytes(value);
+      if (bytes != null) {
+        precacheImage(MemoryImage(bytes), context);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoSlideIfNeeded() {
+    _autoSlideTimer?.cancel();
+    if (widget.imageValues.length <= 1) {
+      return;
+    }
+
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_pageController.hasClients) {
+        return;
+      }
+
+      final int next = (_currentIndex + 1) % widget.imageValues.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _restartAutoSlide() {
+    _autoSlideTimer?.cancel();
+    _startAutoSlideIfNeeded();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageValues.isEmpty) {
+      return widget.fallback;
+    }
+
+    return Stack(
+      children: <Widget>[
+        PageView.builder(
+          controller: _pageController,
+          itemCount: widget.imageValues.length,
+          onPageChanged: (int index) {
+            setState(() {
+              _currentIndex = index;
+            });
+            _restartAutoSlide();
+          },
+          itemBuilder: (_, int index) {
+            return buildBase64OrNetworkImage(
+              value: widget.imageValues[index],
+              fit: BoxFit.cover,
+              fallback: widget.fallback,
+            );
+          },
+        ),
+        if (widget.imageValues.length > 1)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List<Widget>.generate(widget.imageValues.length, (
+                int index,
+              ) {
+                final bool active = index == _currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: active ? 14 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: active
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xCCFFFFFF),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                );
+              }),
+            ),
           ),
-        );
-      },
+      ],
     );
   }
 }
@@ -1219,11 +2203,7 @@ class _AcademyFacilityChip extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.trailing,
-  });
+  const _SectionCard({required this.title, required this.child, this.trailing});
 
   final String title;
   final Widget child;
@@ -1353,12 +2333,49 @@ class _AcademyErrorState extends StatelessWidget {
               style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
+            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AcademiesLoadingNotice extends StatelessWidget {
+  const _AcademiesLoadingNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101C2D),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x18FFFFFF)),
+      ),
+      child: const Row(
+        children: <Widget>[
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF60A5FA)),
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Fetching academies for selected sport...',
+              style: TextStyle(
+                color: Color(0xB3FFFFFF),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1396,16 +2413,65 @@ int _toInt(dynamic value) {
   return int.tryParse(_text(value)) ?? 0;
 }
 
-String _coverImage(Map<String, dynamic> academy) {
-  final String primary = _text(academy['image']);
-  if (primary.isNotEmpty) {
-    return primary;
+List<String> _academyImageValues(Map<String, dynamic> academy) {
+  final List<String> values = <String>[];
+
+  void addIfValid(dynamic raw) {
+    final String value = _text(raw);
+    if (value.isEmpty || values.contains(value)) {
+      return;
+    }
+    values.add(value);
   }
-  final List<String> images = _textList(academy['groundImages']);
-  if (images.isNotEmpty) {
-    return images.first;
+
+  final dynamic groundImages = academy['groundImages'];
+  if (groundImages is List) {
+    for (final dynamic entry in groundImages) {
+      if (entry is Map) {
+        addIfValid(entry['url']);
+      } else {
+        addIfValid(entry);
+      }
+    }
   }
-  return '';
+
+  final dynamic imageUrls = academy['imageUrls'];
+  if (imageUrls is List) {
+    for (final dynamic entry in imageUrls) {
+      if (entry is Map) {
+        addIfValid(entry['url']);
+      } else {
+        addIfValid(entry);
+      }
+    }
+  }
+
+  final dynamic photos = academy['photos'];
+  if (photos is List) {
+    for (final dynamic entry in photos) {
+      if (entry is Map) {
+        addIfValid(entry['url']);
+      } else {
+        addIfValid(entry);
+      }
+    }
+  }
+
+  final dynamic images = academy['images'];
+  if (images is List) {
+    for (final dynamic entry in images) {
+      if (entry is Map) {
+        addIfValid(entry['url']);
+      } else {
+        addIfValid(entry);
+      }
+    }
+  }
+
+  addIfValid(academy['image']);
+  addIfValid(academy['imageUrl']);
+
+  return values;
 }
 
 String _priceLabel(dynamic value) {
@@ -1425,7 +2491,9 @@ String _locationLabel(Map<String, dynamic> academy) {
   if (city.isNotEmpty && state.isNotEmpty) {
     return '$city, $state';
   }
-  return city.isNotEmpty ? city : (state.isNotEmpty ? state : 'Location unavailable');
+  return city.isNotEmpty
+      ? city
+      : (state.isNotEmpty ? state : 'Location unavailable');
 }
 
 String _daysLabel(Map<String, dynamic> batch) {
