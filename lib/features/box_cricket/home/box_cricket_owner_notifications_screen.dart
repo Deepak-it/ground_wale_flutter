@@ -47,7 +47,147 @@ class _BoxCricketOwnerNotificationsScreenState
   }
 
   // ── EXACT SAME LOGIC ──────────────────────────────────────────
+Future<void> _showRejectDialog(_OwnerNotificationItem item) async {
+  final TextEditingController reasonController = TextEditingController();
 
+  final bool? rejected = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext dialogContext) {
+      bool processing = false;
+
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1B1F1B),
+            title: const Text(
+              'Reject Booking',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Reason for rejection',
+                  style: TextStyle(
+                    color: Color(0xCCFFFFFF),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 4,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Enter rejection reason',
+                    hintStyle: const TextStyle(color: Color(0x66FFFFFF)),
+                    filled: true,
+                    fillColor: const Color(0x10FFFFFF),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: Color(0x1FFFFFFF)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: Color(0xFF08B36A)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: processing
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE3220D),
+                ),
+                onPressed: processing
+                    ? null
+                    : () async {
+                        final String reason =
+                            reasonController.text.trim();
+
+                        if (reason.isEmpty) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(
+                              content:
+                                  Text('Please enter a rejection reason.'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() => processing = true);
+
+                        try {
+                          await _api.rejectBooking(
+                            item.bookingId,
+                            reason: reason,
+                          );
+
+                          await _markRead(item);
+
+                          if (!mounted) return;
+
+                          await _load();
+
+                          widget.onNotificationsChanged?.call();
+
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop(true);
+                          }
+                        } catch (error) {
+                          if (dialogContext.mounted) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  error
+                                      .toString()
+                                      .replaceFirst('Exception: ', ''),
+                                ),
+                              ),
+                            );
+                          }
+
+                          setDialogState(() => processing = false);
+                        }
+                      },
+                child: processing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Reject'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  reasonController.dispose();
+
+  if (rejected == true && mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Booking rejected successfully.'),
+      ),
+    );
+  }
+}
   Future<void> _load() async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
@@ -112,34 +252,37 @@ class _BoxCricketOwnerNotificationsScreenState
 
       widget.onOpenBookings?.call();
     }
-  Future<void> _handleAction(
-      _OwnerNotificationItem item, bool accept) async {
-    if (item.bookingId.isEmpty) return;
-    try {
-      if (accept) {
-        await _api.acceptBooking(item.bookingId);
-      } else {
-        await _api.rejectBooking(item.bookingId, reason: 'Not Available');
-      }
-      await _markRead(item);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(accept ? 'Request accepted' : 'Request rejected'),
+
+  Future<void> _handleAction(_OwnerNotificationItem item, bool accept) async {
+  if (!accept || item.bookingId.isEmpty) return;
+
+  try {
+    await _api.acceptBooking(item.bookingId);
+
+    await _markRead(item);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Request accepted'),
+      ),
+    );
+
+    await _load();
+    widget.onNotificationsChanged?.call();
+  } catch (error) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error.toString().replaceFirst('Exception: ', ''),
         ),
-      );
-      await _load();
-      widget.onNotificationsChanged?.call();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
-    }
+      ),
+    );
   }
+}
 
   // ── UI ────────────────────────────────────────────────────────
 
@@ -191,8 +334,7 @@ class _BoxCricketOwnerNotificationsScreenState
                                     : () => _markRead(items[i]),
                                 onAccept: () =>
                                     _handleAction(items[i], true),
-                                onReject: () =>
-                                    _handleAction(items[i], false),
+                                onReject: () => _showRejectDialog(items[i]),
                                 onOpenRequests: () =>
                                     _openRequests(items[i]),
                               ),
