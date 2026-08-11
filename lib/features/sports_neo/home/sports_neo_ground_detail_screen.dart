@@ -32,7 +32,6 @@ class SportsNeoGroundDetailScreen extends StatefulWidget {
 class _SportsNeoGroundDetailScreenState
     extends State<SportsNeoGroundDetailScreen> {
   late DateTime _selectedDate;
-  late DateTime _visibleMonth;
   bool _isLoadingSlots = false;
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
   String? _selectedSlotId;
@@ -43,71 +42,67 @@ class _SportsNeoGroundDetailScreenState
     super.initState();
     final DateTime now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
-    _visibleMonth = DateTime(now.year, now.month, 1);
     _loadSlots();
   }
 
   DateTime _dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
   }
+  Future<void> _selectCalendarDate(DateTime date) async {
+    final DateTime normalized = _dateOnly(date);
 
-  String _monthLabel(DateTime month) {
-    const List<String> names = <String>[
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${names[month.month - 1]} ${month.year}';
-  }
+    if (DateUtils.isSameDay(normalized, _selectedDate)) {
+      return;
+    }
 
-  List<DateTime> _calendarGridDays(DateTime month) {
-    final DateTime first = DateTime(month.year, month.month, 1);
-    final int leading = first.weekday - DateTime.monday;
-    final DateTime start = first.subtract(Duration(days: leading));
-    return List<DateTime>.generate(
-      42,
-      (int index) => _dateOnly(start.add(Duration(days: index))),
-    );
-  }
-
-  void _selectCalendarDate(DateTime date) {
     setState(() {
-      _selectedDate = _dateOnly(date);
-      _visibleMonth = DateTime(date.year, date.month, 1);
+      _selectedDate = normalized;
       _selectedSlotId = null;
     });
-    _loadSlots();
-  }
 
-  void _goToPreviousMonth() {
-    final DateTime today = _dateOnly(DateTime.now());
-    final DateTime previous = DateTime(_visibleMonth.year, _visibleMonth.month - 1, 1);
-    final DateTime firstAllowed = DateTime(today.year, today.month, 1);
-    if (previous.isBefore(firstAllowed)) {
-      return;
-    }
-    setState(() => _visibleMonth = previous);
+    await _loadSlots();
   }
+  String _weekDay(DateTime date) {
+    const List<String> days = [
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
 
-  void _goToNextMonth() {
-    final DateTime today = _dateOnly(DateTime.now());
-    final DateTime lastAllowed = DateTime(today.year, today.month + 12, 1);
-    final DateTime next = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 1);
-    if (next.isAfter(lastAllowed)) {
-      return;
-    }
-    setState(() => _visibleMonth = next);
+    return days[date.weekday - 1];
   }
+  String _formatSelectedDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
 
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+
+    return '${date.day} ${months[date.month - 1]} ${date.year} (${weekdays[date.weekday - 1]})';
+  }
   String _apiDate(DateTime date) {
     final String m = date.month.toString().padLeft(2, '0');
     final String d = date.day.toString().padLeft(2, '0');
@@ -178,7 +173,6 @@ class _SportsNeoGroundDetailScreenState
     if (widget.groundId.isEmpty) {
       return;
     }
-
     setState(() => _isLoadingSlots = true);
 
     try {
@@ -729,21 +723,178 @@ class _SportsNeoGroundDetailScreenState
                                         ),
                                       ),
                                       const SizedBox(height: 16),
+
                                       const _SectionTitle(title: 'Select Date'),
                                       const SizedBox(height: 12),
-                                      _MonthCalendarCard(
-                                        monthLabel: _monthLabel(_visibleMonth),
-                                        days: _calendarGridDays(_visibleMonth),
-                                        selectedDate: _selectedDate,
-                                        visibleMonth: _visibleMonth,
-                                        minDate: _dateOnly(DateTime.now()),
-                                        maxDate: _dateOnly(
-                                          DateTime.now().add(const Duration(days: 365)),
+
+                                      SizedBox(
+                                        height: 78,
+                                        child: ListView.separated(
+                                          scrollDirection: Axis.horizontal,
+                                          itemCount: 8,
+                                          separatorBuilder: (_, _) => const SizedBox(width: 10),
+                                          itemBuilder: (BuildContext context, int index) {
+                                            final DateTime today = DateTime.now();
+                                            final DateTime start = DateTime(today.year, today.month, today.day);
+                                            final DateTime end = start.add(const Duration(days: 6));
+
+                                            final bool calendarSelected = _selectedDate.isAfter(end);
+                                            if (index == 7) {
+
+                                              return InkWell(
+                                                onTap: () async {
+                                                  final DateTime now = DateTime.now();
+
+                                                  final DateTime? picked = await showDatePicker(
+                                                    context: context,
+                                                    initialDate:
+                                                        _selectedDate.isBefore(now)
+                                                            ? now
+                                                            : _selectedDate,
+                                                    firstDate: DateTime(
+                                                      now.year,
+                                                      now.month,
+                                                      now.day,
+                                                    ),
+                                                    lastDate: DateTime(now.year + 2, 12, 31),
+                                                    builder: (context, child) {
+                                                      return Theme(
+                                                        data: Theme.of(context).copyWith(
+                                                          colorScheme: const ColorScheme.dark(
+                                                            primary: Color(0xFF2563EB),
+                                                            onPrimary: Colors.white,
+                                                            surface: Color(0xFF0A0F1E),
+                                                          ),
+                                                        ),
+                                                        child: child!,
+                                                      );
+                                                    },
+                                                  );
+
+                                                  if (picked == null) return;
+
+                                                  await _selectCalendarDate(picked);
+                                                },
+                                                borderRadius: BorderRadius.circular(12),
+                                                child: Container(
+                                                  width: 92,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    color: calendarSelected
+                                                    ? const Color(0xFF2563EB)
+                                                    : const Color(0x0DFFFFFF),
+                                                    border: Border.all(
+                                                      color: const Color(0x1FFFFFFF),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.calendar_month_rounded,
+                                                        color: calendarSelected
+                                                            ? Colors.white
+                                                            : const Color(0xCCFFFFFF),
+                                                      ),
+                                                      const SizedBox(height: 6),
+                                                      Text(
+                                                        'Calendar',
+                                                        style: TextStyle(
+                                                          color: calendarSelected
+                                                              ? Colors.white
+                                                              : const Color(0xCCFFFFFF),
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            }
+
+                                            final DateTime date = DateTime.now().add(
+                                              Duration(days: index),
+                                            );
+
+                                            final bool selected =
+                                                DateUtils.isSameDay(date, _selectedDate);
+
+                                            return InkWell(
+                                              onTap: () async {
+                                                await _selectCalendarDate(date);
+                                              },
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: Container(
+                                                width: 62,
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  color: selected
+                                                      ? const Color(0xFF2563EB)
+                                                      : const Color(0x0DFFFFFF),
+                                                  border: Border.all(
+                                                    color: const Color(0x1FFFFFFF),
+                                                  ),
+                                                ),
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      _weekDay(date),
+                                                      style: TextStyle(
+                                                        color: selected
+                                                            ? Colors.white
+                                                            : const Color(0xCCFFFFFF),
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Text(
+                                                      date.day.toString().padLeft(2, '0'),
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 20,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
                                         ),
-                                        onPreviousMonth: _goToPreviousMonth,
-                                        onNextMonth: _goToNextMonth,
-                                        onSelectDate: _selectCalendarDate,
                                       ),
+
+                                    const SizedBox(height: 12),
+
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0x0AFFFFFF),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: const Color(0x1FFFFFFF)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.calendar_today_rounded,
+                                            color: Color(0xFF2563EB),
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            'Selected Date: ${_formatSelectedDate(_selectedDate)}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                       const SizedBox(height: 16),
                                       const _SlotLegend(),
                                       const SizedBox(height: 16),
@@ -921,156 +1072,6 @@ class _SectionTitle extends StatelessWidget {
           fontSize: 18,
           fontWeight: FontWeight.w500,
         ),
-      ),
-    );
-  }
-}
-
-class _MonthCalendarCard extends StatelessWidget {
-  const _MonthCalendarCard({
-    required this.monthLabel,
-    required this.days,
-    required this.selectedDate,
-    required this.visibleMonth,
-    required this.minDate,
-    required this.maxDate,
-    required this.onPreviousMonth,
-    required this.onNextMonth,
-    required this.onSelectDate,
-  });
-
-  final String monthLabel;
-  final List<DateTime> days;
-  final DateTime selectedDate;
-  final DateTime visibleMonth;
-  final DateTime minDate;
-  final DateTime maxDate;
-  final VoidCallback onPreviousMonth;
-  final VoidCallback onNextMonth;
-  final ValueChanged<DateTime> onSelectDate;
-
-  bool _isSameDay(DateTime first, DateTime second) {
-    return first.year == second.year &&
-        first.month == second.month &&
-        first.day == second.day;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const List<String> weekLabels = <String>['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final DateTime firstAllowedMonth = DateTime(minDate.year, minDate.month, 1);
-    final DateTime lastAllowedMonth = DateTime(maxDate.year, maxDate.month, 1);
-    final bool canGoPrevious = !visibleMonth.isBefore(firstAllowedMonth) &&
-        visibleMonth != firstAllowedMonth;
-    final bool canGoNext = !visibleMonth.isAfter(lastAllowedMonth) &&
-        visibleMonth != lastAllowedMonth;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: const Color(0x0AFFFFFF),
-        border: Border.all(color: const Color(0x1FFFFFFF)),
-      ),
-      child: Column(
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              IconButton(
-                onPressed: canGoPrevious ? onPreviousMonth : null,
-                icon: const Icon(Icons.chevron_left_rounded),
-                color: Colors.white,
-              ),
-              Expanded(
-                child: Text(
-                  monthLabel,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: canGoNext ? onNextMonth : null,
-                icon: const Icon(Icons.chevron_right_rounded),
-                color: Colors.white,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: weekLabels
-                .map(
-                  (String label) => Expanded(
-                    child: Center(
-                      child: Text(
-                        label,
-                        style: const TextStyle(
-                          color: Color(0x99FFFFFF),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 10),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: days.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1,
-            ),
-            itemBuilder: (BuildContext context, int index) {
-              final DateTime day = days[index];
-              final bool inMonth = day.month == visibleMonth.month &&
-                  day.year == visibleMonth.year;
-              final bool disabled = day.isBefore(minDate) || day.isAfter(maxDate) || !inMonth;
-              final bool selected = _isSameDay(day, selectedDate);
-
-              return InkWell(
-                onTap: disabled ? null : () => onSelectDate(day),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: selected
-                        ? const Color(0xFF2563EB)
-                        : disabled
-                            ? const Color(0x05000000)
-                            : const Color(0x12FFFFFF),
-                    border: Border.all(
-                      color: selected
-                          ? const Color(0xFF2563EB)
-                          : const Color(0x1FFFFFFF),
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${day.day}',
-                    style: TextStyle(
-                      color: selected
-                          ? Colors.white
-                          : disabled
-                              ? const Color(0x55FFFFFF)
-                              : const Color(0xFFDDDDDD),
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
       ),
     );
   }
