@@ -866,25 +866,27 @@ class _DarkTextField extends StatelessWidget {
         border: Border.all(color: const Color(0x1FFFFFFF)),
         color: const Color(0x0FFFFFFF),
       ),
-      child: AppTextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        textAlignVertical: TextAlignVertical.center,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: hint,
-          hintStyle: const TextStyle(
-            color: Color(0x99FFFFFF),
+      child: Center(
+        child: AppTextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          textAlignVertical: TextAlignVertical.center,
+          style: const TextStyle(
+            color: Colors.white,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
-          contentPadding: EdgeInsets.zero,
-          isDense: true,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: hint,
+            hintStyle: const TextStyle(
+              color: Color(0x99FFFFFF),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+            contentPadding: EdgeInsets.zero,
+            isDense: true,
+          ),
         ),
       ),
     );

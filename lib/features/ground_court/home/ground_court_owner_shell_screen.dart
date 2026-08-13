@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
@@ -38,13 +40,51 @@ class _GroundCourtOwnerShellScreenState
   int _academyCount = 0;
   int _shellPage = 0;
   int _unreadNotifications = 0;
+  Timer? _notificationRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadOwnerEntities();
-  }
 
+    _notificationRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        _refreshUnreadNotifications();
+      },
+    );
+  }
+  Future<void> _refreshUnreadNotifications() async {
+    final String? ownerId = ApiSession.instance.ownerId;
+
+    if (ownerId == null || ownerId.isEmpty || !mounted) {
+      return;
+    }
+
+    try {
+      final List<Map<String, dynamic>> notifications =
+          await GroundWaleApi.instance.listNotifications(ownerId);
+
+      final int unreadCount = notifications
+          .where((notification) => notification['isRead'] != true)
+          .length;
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _unreadNotifications = unreadCount;
+      });
+    } catch (_) {
+      // Silently ignore background refresh errors.
+    }
+  }
+  @override
+  void dispose() {
+    _notificationRefreshTimer?.cancel();
+    super.dispose();
+  }
   Future<void> _loadOwnerEntities() async {
     final String? ownerId = ApiSession.instance.ownerId;
     if (ownerId == null || ownerId.isEmpty) {
@@ -611,7 +651,7 @@ class _GroundCourtOwnerShellScreenState
                                   : _academyBody())),
                   BoxCricketOwnerNotificationsScreen(
                     showBottomNav: false,
-                    onNotificationsChanged: _loadOwnerEntities,
+                    onNotificationsChanged: _refreshUnreadNotifications,
 
                     onBack: () {
                       setState(() {

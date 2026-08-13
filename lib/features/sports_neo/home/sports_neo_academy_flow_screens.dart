@@ -1122,6 +1122,7 @@ class _SportsNeoAcademyOverviewScreenState
 
   late Map<String, dynamic> _academy;
   late int _selectedBatchIndex;
+  int _selectedPlanIndex = 0;
   bool _isJoining = false;
   bool _didChange = false;
 
@@ -1147,7 +1148,16 @@ class _SportsNeoAcademyOverviewScreenState
   }
 
   List<Map<String, dynamic>> get _batches => _mapList(_academy['batches']);
+  Map<String, dynamic> get _selectedFeePlan {
+    if (_feePlans.isEmpty) {
+      return <String, dynamic>{};
+    }
 
+    final int safeIndex =
+        _selectedPlanIndex.clamp(0, _feePlans.length - 1);
+
+    return _feePlans[safeIndex];
+  }
   Map<String, dynamic> get _selectedBatch {
     if (_batches.isEmpty) {
       return <String, dynamic>{};
@@ -1189,7 +1199,7 @@ class _SportsNeoAcademyOverviewScreenState
             if (_text(_selectedBatch['_id']).isNotEmpty)
               'batchId': _text(_selectedBatch['_id']),
             'batchName': _text(_selectedBatch['name']),
-            'planIndex': 0,
+            'planIndex': _selectedPlanIndex,
             'fullName': widget.playerName,
             'phone': widget.playerPhone,
           });
@@ -1224,84 +1234,115 @@ class _SportsNeoAcademyOverviewScreenState
     }
   }
 
-  Future<void> _showAllPlans() async {
-    final List<Map<String, dynamic>> plans = _feePlans;
-    if (plans.isEmpty) {
-      return;
-    }
+Future<void> _showAllPlans() async {
+  final List<Map<String, dynamic>> plans = _feePlans;
 
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF0F172A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  if (plans.isEmpty) {
+    return;
+  }
+
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: const Color(0xFF0F172A),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(24),
       ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'All Plans',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
+    ),
+    builder: (BuildContext sheetContext) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'All Plans',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: 16),
-                for (final Map<String, dynamic> plan in plans) ...<Widget>[
-                  Container(
+              ),
+              const SizedBox(height: 16),
+
+              for (int index = 0; index < plans.length; index++) ...<Widget>[
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedPlanIndex = index;
+                    });
+
+                    Navigator.of(sheetContext).pop();
+                  },
+                  child: Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0x0AFFFFFF),
+                      color: index == _selectedPlanIndex
+                          ? const Color(0x332563EB)
+                          : const Color(0x0AFFFFFF),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0x1FFFFFFF)),
+                      border: Border.all(
+                        color: index == _selectedPlanIndex
+                            ? const Color(0xFF2563EB)
+                            : const Color(0x1FFFFFFF),
+                        width: index == _selectedPlanIndex ? 1.5 : 1,
+                      ),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: <Widget>[
-                        Text(
-                          _text(plan['duration']).isEmpty
-                              ? 'Plan'
-                              : _text(plan['duration']),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                _text(plans[index]['duration']).isEmpty
+                                    ? 'Plan ${index + 1}'
+                                    : _text(plans[index]['duration']),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _priceLabel(plans[index]['price']),
+                                style: const TextStyle(
+                                  color: Color(0xFF93C5FD),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          _priceLabel(plan['price']),
-                          style: const TextStyle(
-                            color: Color(0xFF93C5FD),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
+                        if (index == _selectedPlanIndex)
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF2563EB),
+                            size: 24,
                           ),
-                        ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
     final Map<String, dynamic> batch = _selectedBatch;
-    final Map<String, dynamic> primaryPlan = _feePlans.isNotEmpty
-        ? _feePlans.first
-        : <String, dynamic>{};
+    final Map<String, dynamic> primaryPlan = _selectedFeePlan;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
@@ -1363,8 +1404,12 @@ class _SportsNeoAcademyOverviewScreenState
                       final Map<String, dynamic> item = _batches[index];
                       final bool active = index == _selectedBatchIndex;
                       return GestureDetector(
-                        onTap: () =>
-                            setState(() => _selectedBatchIndex = index),
+                        onTap: () {
+                          setState(() {
+                            _selectedBatchIndex = index;
+                            _selectedPlanIndex = 0;
+                          });
+                        },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,

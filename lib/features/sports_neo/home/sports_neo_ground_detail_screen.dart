@@ -48,6 +48,49 @@ class _SportsNeoGroundDetailScreenState
   DateTime _dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
   }
+  bool _isSlotPassed(Map<String, dynamic> slot) {
+    // Past slots only matter when viewing today.
+    final DateTime today = DateTime.now();
+
+    if (!DateUtils.isSameDay(_selectedDate, today)) {
+      return false;
+    }
+
+    final String startTime = slot['startTime']?.toString().trim() ?? '';
+
+    if (startTime.isEmpty) {
+      return false;
+    }
+
+    final RegExpMatch? match = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*(AM|PM)?',
+      caseSensitive: false,
+    ).firstMatch(startTime);
+
+    if (match == null) {
+      return false;
+    }
+
+    int hour = int.tryParse(match.group(1) ?? '') ?? 0;
+    final int minute = int.tryParse(match.group(2) ?? '') ?? 0;
+    final String period = (match.group(3) ?? '').toUpperCase();
+
+    if (period == 'PM' && hour < 12) {
+      hour += 12;
+    } else if (period == 'AM' && hour == 12) {
+      hour = 0;
+    }
+
+    final DateTime slotStart = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      hour,
+      minute,
+    );
+
+    return !slotStart.isAfter(today);
+  }
   Future<void> _selectCalendarDate(DateTime date) async {
     final DateTime normalized = _dateOnly(date);
 
@@ -146,6 +189,11 @@ class _SportsNeoGroundDetailScreenState
   }
 
   String _effectiveSlotStatus(Map<String, dynamic> slot) {
+    // A slot whose start time has passed cannot be selected.
+    if (_isSlotPassed(slot)) {
+      return 'passed';
+    }
+
     final String baseStatus =
         (slot['status']?.toString() ?? 'available')
             .trim()
@@ -273,15 +321,21 @@ class _SportsNeoGroundDetailScreenState
         ? 'Booked'
         : status == 'blocked'
             ? 'Blocked'
-            : 'Available';
+            : status == 'passed'
+                ? 'Passed'
+                : 'Available';
 
     Color colorA, colorB;
+
     if (status == 'booked') {
       colorA = const Color(0xFFE5C28F);
       colorB = const Color(0xFFDE8E19);
     } else if (status == 'blocked') {
       colorA = const Color(0xFF629CDD);
       colorB = const Color(0xFF1F5C9F);
+    } else if (status == 'passed') {
+      colorA = const Color(0xFF4B5563);
+      colorB = const Color(0xFF374151);
     } else {
       colorA = const Color(0xFF77A2C4);
       colorB = const Color(0xFF7FC2F9);
@@ -445,7 +499,7 @@ class _SportsNeoGroundDetailScreenState
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: selSlot == null
+                  onPressed: selSlot == null || _isSlotPassed(selSlot)
                       ? null
                       : () {
                           Navigator.of(context).push(
@@ -744,13 +798,18 @@ class _SportsNeoGroundDetailScreenState
                                               return InkWell(
                                                 onTap: () async {
                                                   final DateTime now = DateTime.now();
+                                                  final DateTime today = DateTime(
+                                                    now.year,
+                                                    now.month,
+                                                    now.day,
+                                                  );
+
 
                                                   final DateTime? picked = await showDatePicker(
                                                     context: context,
-                                                    initialDate:
-                                                        _selectedDate.isBefore(now)
-                                                            ? now
-                                                            : _selectedDate,
+                                                    initialDate: _selectedDate.isBefore(today)
+                                                        ? today
+                                                        : _selectedDate,
                                                     firstDate: DateTime(
                                                       now.year,
                                                       now.month,
@@ -1203,12 +1262,14 @@ class _SlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color statusColor = slot.status == 'Available'
-        ? const Color(0xFF08B36A)
-        : slot.status == 'Booked'
-        ? const Color(0xFF6B7280)
-        : const Color(0xFFDB3220);
 
+  final Color statusColor = slot.status == 'Available'
+      ? const Color(0xFF08B36A)
+      : slot.status == 'Booked'
+          ? const Color(0xFF6B7280)
+          : slot.status == 'Passed'
+              ? const Color(0xFF6B7280)
+              : const Color(0xFFDB3220);
     return Container(
       width: double.infinity,
       height: 88,
