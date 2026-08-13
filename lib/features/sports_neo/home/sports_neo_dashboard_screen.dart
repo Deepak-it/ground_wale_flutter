@@ -43,6 +43,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   ];
 
   final GroundWaleApi _api = GroundWaleApi.instance;
+  Timer? _notificationRefreshTimer;
 
   String _profileName = '';
   String _profilePhone = '';
@@ -88,7 +89,56 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     }
 
     _loadSportsNeoData();
+
+    _startNotificationRefreshTimer();
   }
+  void _startNotificationRefreshTimer() {
+    _notificationRefreshTimer?.cancel();
+
+    _notificationRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshNotificationCount(),
+    );
+  }
+
+  Future<void> _refreshNotificationCount() async {
+    if (!mounted) {
+      return;
+    }
+
+    final String? ownerId = ApiSession.instance.ownerId;
+
+    if (ownerId == null || ownerId.isEmpty) {
+      return;
+    }
+
+    try {
+      final List<Map<String, dynamic>> notifications =
+          await _api.listNotifications(ownerId);
+
+      if (!mounted) {
+        return;
+      }
+
+      final int unreadCount = notifications
+          .where((Map<String, dynamic> item) => item['isRead'] != true)
+          .length;
+
+      if (_unreadNotifications != unreadCount) {
+        setState(() {
+          _unreadNotifications = unreadCount;
+        });
+      }
+    } catch (_) {
+      // Keep the existing badge count if the refresh fails.
+    }
+  }
+  @override
+  void dispose() {
+    _notificationRefreshTimer?.cancel();
+    super.dispose();
+  }
+
 
   Future<void> _loadSportsNeoData() async {
     _isGroundsLoading = true;
@@ -765,13 +815,15 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
                             badgeCount: _unreadNotifications,
                             backgroundColor: const Color(0x25FFFFFF),
                             iconColor: Colors.white,
-                            onTap: () {
-                              Navigator.of(context).push(
+                            onTap: () async {
+                              await Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      const SportsNeoNotificationsScreen(),
+                                  builder: (_) => const SportsNeoNotificationsScreen(),
                                 ),
                               );
+
+                              // Notifications may have been marked read.
+                              await _refreshNotificationCount();
                             },
                           ),
 

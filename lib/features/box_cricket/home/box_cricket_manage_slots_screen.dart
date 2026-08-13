@@ -374,27 +374,48 @@ class _BoxCricketManageSlotsScreenState
   }
 
   String _statusForDay(Map<String, dynamic> slot, DateTime day) {
-    final String baseStatus = (slot['status']?.toString() ?? 'available')
-        .toLowerCase();
+    final String baseStatus =
+        (slot['status']?.toString() ?? 'available').toLowerCase();
+
     if (baseStatus == 'blocked') {
       return 'blocked';
     }
 
     final String dayKey = _dateKey(day);
+
     final Set<String> blockedKeys = <String>{
       ..._dayKeysFrom(slot['blockedDateKeys']),
       ..._dayKeysFrom(slot['blockedDates']),
     };
+
     if (blockedKeys.contains(dayKey)) {
       return 'blocked';
     }
 
-    final Set<String> bookedKeys = <String>{
-      ..._dayKeysFrom(slot['bookedDateKeys']),
-      ..._dayKeysFrom(slot['bookedDates']),
-    };
-    if (bookedKeys.contains(dayKey)) {
-      return 'booked';
+    // Check actual booking status instead of trusting bookedDateKeys alone.
+    final String slotId = _slotId(slot);
+
+    for (final Map<String, dynamic> booking in _bookings) {
+      final String bookingSlotId = booking['slotId']?.toString() ?? '';
+
+      if (bookingSlotId != slotId) {
+        continue;
+      }
+
+      final DateTime bookingDate = _parseDate(booking['date']);
+
+      if (_dateKey(bookingDate) != dayKey) {
+        continue;
+      }
+
+      final String bookingStatus =
+          (booking['bookingStatus']?.toString() ?? '').toLowerCase();
+
+      if (bookingStatus != 'rejected' &&
+          bookingStatus != 'cancelled' &&
+          bookingStatus != 'canceled') {
+        return 'booked';
+      }
     }
 
     return 'available';

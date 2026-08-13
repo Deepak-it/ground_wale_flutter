@@ -515,25 +515,71 @@ class _GroundCourtOwnerShellScreenState
       ),
     );
   }
-    Widget _headerIconChip(
-      IconData icon, {
-      VoidCallback? onTap,
-      int badgeCount = 0,
-    }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0x14FFFFFF)),
-        ),
-        child: Icon(icon, color: const Color(0xFFDDF730), size: 20),
+Widget _headerIconChip(
+  IconData icon, {
+  VoidCallback? onTap,
+  int badgeCount = 0,
+}) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x14FFFFFF)),
       ),
-    );
-  }
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Center(
+            child: Icon(
+              icon,
+              color: const Color(0xFFDDF730),
+              size: 20,
+            ),
+          ),
+
+          if (badgeCount > 0)
+            Positioned(
+              right: -5,
+              top: -5,
+              child: Container(
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _topTabIndex == 0
+                        ? const Color(0xFF1B1F1B)
+                        : const Color(0xFF0F2027),
+                    width: 2,
+                  ),
+                ),
+                child: Text(
+                  badgeCount > 99 ? '99+' : '$badgeCount',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

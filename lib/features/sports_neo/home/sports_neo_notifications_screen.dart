@@ -20,7 +20,6 @@ class _SportsNeoNotificationsScreenState
   bool _isLoading = true;
   List<_SportsNeoNotificationItem> _notifications =
       <_SportsNeoNotificationItem>[];
-
   @override
   void initState() {
     super.initState();
