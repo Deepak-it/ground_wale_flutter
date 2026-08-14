@@ -1,6 +1,7 @@
+
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
-
 import '../../../core/api/ground_wale_api.dart';
 import 'box_cricket_booking_flow_models.dart';
 import 'box_cricket_payment_screen.dart';
@@ -466,7 +467,11 @@ class _BoxCricketBookingDetailsScreenState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Date: ${booking['date']?.toString() ?? '-'}',
+                          'Date: ${booking['date'] != null
+                              ? DateFormat('dd MMM yyyy').format(
+                                  DateTime.parse(booking['date']).toLocal(),
+                                )
+                              : '-'}',
                           style: const TextStyle(color: Color(0x99FFFFFF)),
                         ),
                       ],

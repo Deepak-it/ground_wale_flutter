@@ -143,7 +143,7 @@ class _SportsNeoBookingSummaryScreenState
   Widget build(BuildContext context) {
     final int groundFee = widget.amount > 0 ? widget.amount : 0;
     final int ballCost = _balls * 150;
-    final int total = groundFee + ballCost;
+    final int total = groundFee;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
@@ -203,45 +203,45 @@ class _SportsNeoBookingSummaryScreenState
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _Card(
-                      title: 'Paid add-ons',
-                      child: Column(
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: _AddonItem(
-                                  title: 'Balls',
-                                  count: _balls,
-                                  active: true,
-                                  onMinus: () {
-                                    if (_balls > 0) {
-                                      setState(() => _balls -= 1);
-                                    }
-                                  },
-                                  onPlus: () => setState(() => _balls += 1),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _AddonItem(
-                                  title: 'Umpires',
-                                  count: _umpires,
-                                  active: false,
-                                  onMinus: () {
-                                    if (_umpires > 0) {
-                                      setState(() => _umpires -= 1);
-                                    }
-                                  },
-                                  onPlus: () => setState(() => _umpires += 1),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                    // const SizedBox(height: 16),
+                    // _Card(
+                    //   title: 'Paid add-ons',
+                    //   child: Column(
+                    //     children: <Widget>[
+                    //       Row(
+                    //         children: <Widget>[
+                    //           Expanded(
+                    //             child: _AddonItem(
+                    //               title: 'Balls',
+                    //               count: _balls,
+                    //               active: true,
+                    //               onMinus: () {
+                    //                 if (_balls > 0) {
+                    //                   setState(() => _balls -= 1);
+                    //                 }
+                    //               },
+                    //               onPlus: () => setState(() => _balls += 1),
+                    //             ),
+                    //           ),
+                    //           const SizedBox(width: 12),
+                    //           Expanded(
+                    //             child: _AddonItem(
+                    //               title: 'Umpires',
+                    //               count: _umpires,
+                    //               active: false,
+                    //               onMinus: () {
+                    //                 if (_umpires > 0) {
+                    //                   setState(() => _umpires -= 1);
+                    //                 }
+                    //               },
+                    //               onPlus: () => setState(() => _umpires += 1),
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                     const SizedBox(height: 16),
                     _Card(
                       title: 'Payment Summary',
@@ -251,7 +251,6 @@ class _SportsNeoBookingSummaryScreenState
                             'Ground Fee',
                             groundFee > 0 ? '₹$groundFee' : '—',
                           ),
-                          _payRow('Red ball ($_balls)', '₹$ballCost'),
                           _payRow('Discount', '-₹0'),
                           const SizedBox(height: 8),
                           Container(height: 1, color: const Color(0x33FFFFFF)),

@@ -284,6 +284,43 @@ class _SportsNeoBookingHistoryScreenState
                                     ),
                                   ],
                                 ),
+                                if (item.bookingStatus.toLowerCase() == 'cancelled' &&
+                                  item.cancellationReason.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x14E3220D),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0x33E3220D),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      const Text(
+                                        'Rejection Reason',
+                                        style: TextStyle(
+                                          color: Color(0xFFE3220D),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 5),
+                                      Text(
+                                        item.cancellationReason,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               ],
                             ),
                           );
@@ -410,30 +447,38 @@ class _UserBookingItem {
     required this.bookingStatus,
     required this.paymentStatus,
     required this.sortTime,
+    required this.cancellationReason,
   });
 
-  factory _UserBookingItem.fromMaps({
-    required Map<String, dynamic> booking,
-    required String groundName,
-    required String location,
-  }) {
-    final String rawDate = booking['date']?.toString() ?? '';
-    final DateTime parsedDate =
-        DateTime.tryParse(rawDate)?.toLocal() ?? DateTime(1970);
-    final String start = booking['startTime']?.toString() ?? '-';
-    final String end = booking['endTime']?.toString() ?? '-';
+factory _UserBookingItem.fromMaps({
+  required Map<String, dynamic> booking,
+  required String groundName,
+  required String location,
+}) {
+  final String rawDate = booking['date']?.toString() ?? '';
+  final DateTime parsedDate =
+      DateTime.tryParse(rawDate)?.toLocal() ?? DateTime(1970);
 
-    return _UserBookingItem(
-      groundName: groundName,
-      location: location,
-      dateLabel: _formatDate(rawDate),
-      timeRange: '$start - $end',
-      amount: _toDouble(booking['amount']),
-      bookingStatus: booking['bookingStatus']?.toString() ?? 'pending',
-      paymentStatus: booking['paymentStatus']?.toString() ?? 'pending',
-      sortTime: DateTime(parsedDate.year, parsedDate.month, parsedDate.day),
-    );
-  }
+  final String start = booking['startTime']?.toString() ?? '-';
+  final String end = booking['endTime']?.toString() ?? '-';
+
+  return _UserBookingItem(
+    groundName: groundName,
+    location: location,
+    dateLabel: _formatDate(rawDate),
+    timeRange: '$start - $end',
+    amount: _toDouble(booking['amount']),
+    bookingStatus: booking['bookingStatus']?.toString() ?? 'pending',
+    paymentStatus: booking['paymentStatus']?.toString() ?? 'pending',
+    cancellationReason:
+        booking['cancellationReason']?.toString().trim() ?? '',
+    sortTime: DateTime(
+      parsedDate.year,
+      parsedDate.month,
+      parsedDate.day,
+    ),
+  );
+}
 
   final String groundName;
   final String location;
@@ -442,6 +487,7 @@ class _UserBookingItem {
   final double amount;
   final String bookingStatus;
   final String paymentStatus;
+  final String cancellationReason;
   final DateTime sortTime;
 
   static double _toDouble(dynamic value) {

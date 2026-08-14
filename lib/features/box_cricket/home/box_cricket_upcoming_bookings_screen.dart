@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
@@ -488,8 +489,10 @@ Padding(
     final String code = booking['bookingCode']?.toString() ?? '#BK-9821';
     final String team = booking['teamName']?.toString() ?? 'Team';
     final String captain = booking['captainName']?.toString() ?? '-';
-    final String status = (booking['bookingStatus']?.toString() ?? '')
-        .toLowerCase();
+    final String status = (booking['bookingStatus']?.toString() ?? '').toLowerCase();
+    final DateTime? date = booking['date'] != null
+        ? DateTime.parse(booking['date']).toLocal()
+        : null;
     final String paymentStatus = (booking['paymentStatus']?.toString() ?? '')
         .toLowerCase();
     final bool isRefunded = paymentStatus == 'refunded';
@@ -512,7 +515,7 @@ Padding(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               Text(
-                '$start - $end',
+                '$start - $end (${date != null ? DateFormat('dd MMM yyyy').format(date) : '-'})',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
