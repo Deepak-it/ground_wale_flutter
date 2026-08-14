@@ -31,6 +31,8 @@ class _GroundCourtOwnerShellScreenState
       GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _academyNavigatorKey =
       GlobalKey<NavigatorState>();
+  final GlobalKey<BoxCricketUpcomingBookingsScreenState> _bookingKey =
+      GlobalKey<BoxCricketUpcomingBookingsScreenState>();
   int _topTabIndex = 0;
   int _groundNavIndex = 0;
   int _academyNavIndex = 0;
@@ -308,7 +310,7 @@ class _GroundCourtOwnerShellScreenState
                       });
                     },                
                   ),
-                BoxCricketUpcomingBookingsScreen(showBottomNav: false),
+                BoxCricketUpcomingBookingsScreen(key: _bookingKey, showBottomNav: false),
                 BoxCricketManageSlotsScreen(showBottomNav: false),
                 BoxCricketProfileScreen(showBottomNav: false),
               ],
@@ -708,6 +710,10 @@ Widget _headerIconChip(
                       setState(() {
                         _shellPage = 0;
                         _groundNavIndex = 1;
+                      });
+
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _bookingKey.currentState?.switchToTab(0);
                       });
                     },
                   ),

@@ -16,10 +16,10 @@ class BoxCricketUpcomingBookingsScreen extends StatefulWidget {
 
   @override
   State<BoxCricketUpcomingBookingsScreen> createState() =>
-      _BoxCricketUpcomingBookingsScreenState();
+      BoxCricketUpcomingBookingsScreenState();
 }
 
-class _BoxCricketUpcomingBookingsScreenState
+class BoxCricketUpcomingBookingsScreenState
     extends State<BoxCricketUpcomingBookingsScreen> {
   int _tabIndex = 1;
   bool _isLoading = true;
@@ -37,7 +37,6 @@ class _BoxCricketUpcomingBookingsScreenState
   String _bookingStatus(Map<String, dynamic> booking) {
     return (booking['bookingStatus']?.toString() ?? '').trim().toLowerCase();
   }
-
   List<Map<String, dynamic>> _dedupeByBookingId(
     List<Map<String, dynamic>> input,
   ) {
@@ -147,7 +146,13 @@ class _BoxCricketUpcomingBookingsScreenState
     ApiSession.instance.setGroundId(selected);
     return selected;
   }
-
+  void switchToTab(int index) {
+    setState(() {
+      _tabIndex = index;
+      _bookings = _cachedBookings[index] ?? [];
+      _summary = _cachedSummaries[index] ?? {};
+    });
+  }
   Future<void> _load() async {
     final String? groundId = await _resolveGroundId();
     if (groundId == null || groundId.isEmpty) {
