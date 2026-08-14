@@ -35,7 +35,99 @@ class _BoxCricketBookingDetailsScreenState
   String _paymentMethod = 'upi';
 
   bool get _isCreateMode => widget.bookingId == null;
+Future<String?> _showCancelReasonDialog() async {
+  final TextEditingController controller = TextEditingController();
 
+  final String? result = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) {
+      bool processing = false;
+
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1B1F1B),
+            title: const Text(
+              'Cancel Booking',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Reason for cancellation',
+                  style: TextStyle(
+                    color: Color(0xCCFFFFFF),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: controller,
+                  maxLines: 4,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Enter cancellation reason',
+                    hintStyle:
+                        const TextStyle(color: Color(0x66FFFFFF)),
+                    filled: true,
+                    fillColor: const Color(0x10FFFFFF),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: Color(0x1FFFFFFF)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          const BorderSide(color: Color(0xFF08B36A)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: processing
+                    ? null
+                    : () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD43827),
+                ),
+                onPressed: processing
+                    ? null
+                    : () {
+                        final reason = controller.text.trim();
+
+                        if (reason.isEmpty) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Cancellation reason is required.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        Navigator.pop(dialogContext, reason);
+                      },
+                child: const Text('Confirm'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  controller.dispose();
+  return result;
+}
   @override
   void initState() {
     super.initState();
@@ -520,12 +612,17 @@ class _BoxCricketBookingDetailsScreenState
                         onPressed: _submitting
                             ? null
                             : () async {
+
                                 if (isCodPending && isPending) {
-                                  await _reject('COD booking cancelled by owner');
+                                  final String? reason = await _showCancelReasonDialog();
+                                  if (reason != null && reason.isNotEmpty) {
+                                    await _reject(reason);
+                                  }
                                   return;
                                 }
                                 await _showRefundDialog(booking);
                               },
+
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFFD43827)),
                           foregroundColor: const Color(0xFFD43827),

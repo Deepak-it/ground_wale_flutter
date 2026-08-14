@@ -216,17 +216,26 @@ Future<void> _showRejectDialog(_OwnerNotificationItem item) async {
     }
   }
   List<_OwnerNotificationItem> get _visibleItems {
-    final unread = _items.where((item) => !item.isRead);
+    final visible = _items.where((item) {
+      if (item.isRead) return false;
 
+      if (item.type == 'booking') {
+        return item.bookingStatus == 'pending' ||
+              item.bookingStatus.isEmpty;
+      }
+
+      return true;
+    });
     if (_selectedTab == 1) {
-      return unread.where((item) => item.type == 'booking').toList();
+      return visible.where((item) => item.type == 'booking').toList();
     }
 
     if (_selectedTab == 2) {
-      return unread.where((item) => item.type != 'booking').toList();
+      return visible.where((item) => item.type != 'booking').toList();
     }
 
-    return unread.toList();
+    return visible.toList();
+
   }
   int get _unreadCount => _items.where((item) => !item.isRead).length;
 
@@ -750,10 +759,23 @@ class _OwnerNotificationItem {
     required this.message,
     required this.type,
     required this.bookingId,
+    required this.bookingStatus,
     required this.relativeTime,
     required this.isRead,
   });
+  static String _extractBookingStatus(Map<String, dynamic> map) {
+    final metadata = map['metadata'];
 
+    if (metadata is Map<String, dynamic>) {
+      return metadata['bookingStatus']?.toString().toLowerCase() ?? '';
+    }
+
+    if (metadata is Map) {
+      return metadata['bookingStatus']?.toString().toLowerCase() ?? '';
+    }
+
+    return '';
+  }
   factory _OwnerNotificationItem.fromMap(Map<String, dynamic> map) {
     final String type =
         map['type']?.toString().trim().toLowerCase() ?? 'system';
@@ -772,6 +794,7 @@ class _OwnerNotificationItem {
       bookingId: _extractBookingId(map),
       relativeTime: _relativeTime(map['createdAt']?.toString()),
       isRead: map['isRead'] == true,
+      bookingStatus: _extractBookingStatus(map),
     );
   }
 
@@ -781,15 +804,19 @@ class _OwnerNotificationItem {
   final String type;
   final String bookingId;
   final String relativeTime;
+  final String bookingStatus;
   final bool isRead;
 
-  _OwnerNotificationItem copyWith({bool? isRead}) {
+  _OwnerNotificationItem copyWith({
+    bool? isRead,
+  }) {
     return _OwnerNotificationItem(
       id: id,
       title: title,
       message: message,
       type: type,
       bookingId: bookingId,
+      bookingStatus: bookingStatus,
       relativeTime: relativeTime,
       isRead: isRead ?? this.isRead,
     );
