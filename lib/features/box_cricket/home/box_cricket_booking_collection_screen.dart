@@ -300,7 +300,8 @@ class _BoxCricketBookingCollectionScreenState
   }
 
   bool _canCollect(Map<String, dynamic> booking) {
-    if (_paymentStatus(booking) == 'refunded') {
+    print('booking details: $booking');
+    if (_paymentStatus(booking) == 'refunded' || booking['bookingStatus'] == 'cancelled') {
       return false;
     }
     if (_dueAmount(booking) <= 0) {
@@ -426,10 +427,10 @@ class _BoxCricketBookingCollectionScreenState
                   'Payment Status: ${_statusLabel(_paymentStatus(booking))}',
                   style: const TextStyle(color: Color(0xFF9FB9B3)),
                 ),
-                if (_paymentStatus(booking) == 'refunded') ...<Widget>[
+                if (_paymentStatus(booking) == 'refunded' || booking['bookingStatus'] == 'cancelled') ...<Widget>[
                   const SizedBox(height: 6),
                   Text(
-                    'Refund Reason: ${booking['refundReason'] ?? booking['cancellationReason'] ?? 'Not provided'}',
+                    'Refund Reason: ${booking['cancellationReason'] ?? booking['cancellationReason'] ?? 'Not provided'}',
                     style: const TextStyle(color: Color(0xFFE3220D)),
                   ),
                 ],
