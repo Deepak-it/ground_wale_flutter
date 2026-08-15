@@ -140,26 +140,30 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   }
 
 
-  Future<void> _loadSportsNeoData() async {
-    _isGroundsLoading = true;
+ Future<void> _loadSportsNeoData() async {
+  if (mounted) {
+    setState(() {
+      _isGroundsLoading = true;
+    });
+  }
 
+  try {
     final String? ownerId = ApiSession.instance.ownerId;
 
     Map<String, dynamic>? profile;
     Map<String, dynamic>? dashboard;
 
     List<Map<String, dynamic>> grounds = <Map<String, dynamic>>[];
-
     List<Map<String, dynamic>> teams = <Map<String, dynamic>>[];
-
     List<Map<String, dynamic>> ownerBookings = <Map<String, dynamic>>[];
-
     List<Map<String, dynamic>> ownerLedger = <Map<String, dynamic>>[];
 
     Future<T?> safely<T>(Future<T> Function() fn) async {
       try {
         return await fn();
-      } catch (_) {
+      } catch (e, st) {
+        debugPrint(e.toString());
+        debugPrint(st.toString());
         return null;
       }
     }
@@ -175,7 +179,6 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         safely(() => _api.getOwnerProfile(ownerId)),
         safely(() => _api.getDashboard(ownerId)),
         safely(() => _api.listTeams(ownerId)),
-        safely(() => _api.ensureGroundIdForOwner(ownerId)),
         safely(() => _api.listNotifications(ownerId)),
       ]);
 
@@ -191,65 +194,44 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
           (batch1[3] as List<Map<String, dynamic>>?) ??
           <Map<String, dynamic>>[];
 
-      final String? groundId = batch1[4] as String?;
-
       final List<Map<String, dynamic>>? notifications =
-          batch1[5] as List<Map<String, dynamic>>?;
+          batch1[4] as List<Map<String, dynamic>>?;
 
       if (notifications != null) {
         _unreadNotifications = notifications
-            .where((Map<String, dynamic> item) => item['isRead'] != true)
+            .where((item) => item['isRead'] != true)
             .length;
       }
-
-      if (groundId != null && groundId.isNotEmpty) {
-        final List<dynamic> batch2 = await Future.wait<dynamic>([
-          safely(() => _api.listBookings(groundId)),
-          safely(() => _api.getTransactions(groundId)),
-        ]);
-
-        ownerBookings =
-            (batch2[0] as List<Map<String, dynamic>>?) ??
-            <Map<String, dynamic>>[];
-
-        ownerLedger =
-            (batch2[1] as List<Map<String, dynamic>>?) ??
-            <Map<String, dynamic>>[];
-      }
     } else {
-      try {
-        grounds = await _api.listGrounds(
-          city: _selectedCityFilter,
-          sport: _selectedSportFilter,
-        );
-      } catch (_) {}
+      grounds = await _api.listGrounds(
+        city: _selectedCityFilter,
+        sport: _selectedSportFilter,
+      );
     }
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     final String profileName =
-        _stringValue(profile, <String>['ownerName', 'name', 'fullName']) ??
+        _stringValue(profile, ['ownerName', 'name', 'fullName']) ??
         _profileName;
 
     final String profilePhone =
-        _stringValue(profile, <String>['contactNumber', 'phone', 'mobile']) ??
+        _stringValue(profile, ['contactNumber', 'phone', 'mobile']) ??
         ApiSession.instance.contactNumber ??
         _profilePhone;
 
     final String location =
-        _stringValue(profile, <String>['address', 'city', 'location']) ??
+        _stringValue(profile, ['address', 'city', 'location']) ??
         _location;
 
     final String profileCity =
-        _stringValue(profile, <String>['city']) ??
+        _stringValue(profile, ['city']) ??
         location.split(',').first.trim();
 
     final List<_InfoCardData> mappedTeams = teams.isNotEmpty
         ? _mapTeamsFromOwnerEndpoint(teams)
         : _mapInfoCards(
-            _extractMapList(dashboard, <String>[
+            _extractMapList(dashboard, [
               'myTeams',
               'teams',
               'teamList',
@@ -261,7 +243,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     final List<_InfoCardData> mappedBookings = ownerBookings.isNotEmpty
         ? _mapBookingsFromGroundEndpoint(ownerBookings)
         : _mapInfoCards(
-            _extractMapList(dashboard, <String>[
+            _extractMapList(dashboard, [
               'myBookings',
               'bookings',
               'upcomingBookings',
@@ -273,7 +255,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
     final List<_LedgerCardData> mappedLedger = ownerLedger.isNotEmpty
         ? _mapLedgerCards(ownerLedger)
         : _mapLedgerCards(
-            _extractMapList(dashboard, <String>[
+            _extractMapList(dashboard, [
               'ledger',
               'transactions',
               'walletTransactions',
@@ -281,22 +263,22 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
           );
 
     final int teamsCount =
-        _intValue(dashboard, <String>['teamsCount']) ?? mappedTeams.length;
+        _intValue(dashboard, ['teamsCount']) ?? mappedTeams.length;
 
     final int bookingsCount =
-        _intValue(dashboard, <String>['bookingsCount']) ??
+        _intValue(dashboard, ['bookingsCount']) ??
         mappedBookings.length;
 
     final int matchesCount =
-        _intValue(dashboard, <String>['matchesCount']) ??
-        _intValue(dashboard, <String>['matches']) ??
+        _intValue(dashboard, ['matchesCount']) ??
+        _intValue(dashboard, ['matches']) ??
         _matchesCount;
 
     setState(() {
       _profileName = profileName;
       _profilePhone = profilePhone;
-
-      _profileImage = _stringValue(profile, <String>['profileImage', 'image']);
+      _profileImage =
+          _stringValue(profile, ['profileImage', 'image']);
 
       _location = location;
 
@@ -305,7 +287,6 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
       }
 
       _allGroundsRaw = grounds;
-
       _displayGrounds = _buildDisplayGrounds(grounds);
 
       _teams = mappedTeams;
@@ -315,9 +296,18 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
       _matchesCount = matchesCount;
       _teamsCount = teamsCount;
       _bookingsCount = bookingsCount;
-      _isGroundsLoading = false;
     });
+  } catch (e, st) {
+    debugPrint("Dashboard Load Error: $e");
+    debugPrintStack(stackTrace: st);
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isGroundsLoading = false;
+      });
+    }
   }
+}
 
   List<_GroundCardData> _buildDisplayGrounds(List<Map<String, dynamic>> raw) {
     return _mapGrounds(raw);
@@ -546,18 +536,25 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
                         _buildNearbyGrounds(),
 
+
+
                         const SizedBox(height: 22),
 
-                        _SectionHeader(title: 'Schedule Matches', onTap: () {}),
+                        _SectionHeader(
+                          title: 'My Bookings',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const SportsNeoBookingHistoryScreen(),
+                              ),
+                            );
+                          },
+                        ),
 
                         const SizedBox(height: 12),
 
-                        if (_bookings.isEmpty)
-                          const _EmptySectionNotice(
-                            message: 'No scheduled matches',
-                          )
-                        else
-                          _CompactBookingCard(item: _bookings.first),
+                        _buildBookings(),
 
                         const SizedBox(height: 22),
 
@@ -580,21 +577,16 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
                         const SizedBox(height: 22),
 
-                        _SectionHeader(
-                          title: 'My Bookings',
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const SportsNeoBookingHistoryScreen(),
-                              ),
-                            );
-                          },
-                        ),
+                        _SectionHeader(title: 'Schedule Matches', onTap: () {}),
 
                         const SizedBox(height: 12),
 
-                        _buildBookings(),
+                        if (_bookings.isEmpty)
+                          const _EmptySectionNotice(
+                            message: 'No scheduled matches',
+                          )
+                        else
+                          _CompactBookingCard(item: _bookings.first),
 
                         const SizedBox(height: 22),
 
