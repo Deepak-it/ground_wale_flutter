@@ -8,10 +8,22 @@ on:
 jobs:
   build:
     runs-on: self-hosted
+    
+    # Inject global environment paths for your self-hosted macOS environment
+    env:
+      ANDROID_HOME: /Users/ec2-user/Library/Android/sdk
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Force standard CLI environment paths into your self-hosted process shell
+      - name: Configure System Paths
+        run: |
+          echo "/opt/homebrew/bin" >> $GITHUB_PATH
+          echo "/usr/local/bin" >> $GITHUB_PATH
+          echo "${{ env.ANDROID_HOME }}/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "${{ env.ANDROID_HOME }}/platform-tools" >> $GITHUB_PATH
 
       - name: Flutter Version
         run: flutter --version
@@ -25,17 +37,19 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
+      # Remember to pass your verified --no-codesign flag here for automated workers
       - name: Build IPA
-        run: flutter build ipa --release
+        run: flutter build ipa --release --no-codesign
 
+      # Correct artifact output path configuration mapping for release builds
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/apk/release/app-release.apk
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: build/ios/ipa/*.ipa
+          path: build/ios/archive/Runner.xcarchive
