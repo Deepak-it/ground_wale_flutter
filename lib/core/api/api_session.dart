@@ -88,20 +88,52 @@ class ApiSession extends ChangeNotifier {
     }
   }
 
-  void updateFromAuth(Map<String, dynamic> user) {
-    ownerId = user['_id']?.toString() ?? user['id']?.toString() ?? ownerId;
-    ownerName = user['ownerName']?.toString() ?? ownerName;
-    contactNumber = user['contactNumber']?.toString() ?? contactNumber;
+
+  Future<void> updateFromAuth(
+    Map<String, dynamic> user, {
+    String? fallbackContactNumber,
+  }) async {
+    ownerId =
+        user['_id']?.toString() ??
+        user['id']?.toString() ??
+        ownerId;
+
+    final String? apiOwnerName = user['ownerName']?.toString().trim();
+    if (apiOwnerName != null && apiOwnerName.isNotEmpty) {
+      ownerName = apiOwnerName;
+    }
+
+    final String? apiContact =
+        user['contactNumber']?.toString().trim();
+
+    if (apiContact != null && apiContact.isNotEmpty) {
+      contactNumber = apiContact;
+    } else if (fallbackContactNumber != null &&
+        fallbackContactNumber.trim().isNotEmpty) {
+      contactNumber = fallbackContactNumber.trim();
+    }
+
     final String normalizedRole = _normalizeRole(user['role']);
-    role = normalizedRole.isEmpty ? role : normalizedRole;
+    if (normalizedRole.isNotEmpty) {
+      role = normalizedRole;
+    }
+
     final String? c = user['city']?.toString().trim();
-    if (c != null && c.isNotEmpty) city = c;
+    if (c != null && c.isNotEmpty) {
+      city = c;
+    }
+
     final String? s = user['state']?.toString().trim();
-    if (s != null && s.isNotEmpty) state = s;
+    if (s != null && s.isNotEmpty) {
+      state = s;
+    }
+
     isGuest = false;
-    _persist();
+
+    await _persist();
     notifyListeners();
   }
+
 
   String _normalizeRole(dynamic raw) {
     if (raw == null) {

@@ -968,7 +968,10 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
         otp: _otpValue,
       );
       final Map<String, dynamic> user = _extractUser(response);
-      ApiSession.instance.updateFromAuth(user);
+      await ApiSession.instance.updateFromAuth(
+        user,
+        fallbackContactNumber: widget.contactNumber,
+      );
       final bool routed = widget.isExistingUser
           ? await _routeExistingUserToDashboard(context, _api)
           : false;
@@ -979,7 +982,8 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
         MaterialPageRoute<void>(
           builder: (_) => SportsNeoCompleteProfileScreen(
             prefillEmail: user['email']?.toString(),
-          ),
+            contactNumber: widget.contactNumber,
+          )
         ),
       );
     } catch (error) {
@@ -1116,8 +1120,8 @@ class _SportsNeoOtpScreenState extends State<SportsNeoOtpScreen> {
 }
 
 class SportsNeoCompleteProfileScreen extends StatefulWidget {
-  const SportsNeoCompleteProfileScreen({super.key, this.prefillEmail});
-
+  const SportsNeoCompleteProfileScreen({super.key, this.prefillEmail, this.contactNumber = ''});
+  final String contactNumber;
   final String? prefillEmail;
 
   @override
@@ -1669,10 +1673,10 @@ class _SportsNeoCompleteProfileScreenState
                           final String normalizedRole = _selectedRole == 'Owner'
                               ? 'owner'
                               : 'player';
-                          final Map<String, dynamic> payload =
-                              <String, dynamic>{
+                              final Map<String, dynamic> payload = <String, dynamic>{
                                 'ownerName': _fullNameController.text.trim(),
                                 'email': widget.prefillEmail,
+                                'contactNumber': widget.contactNumber,
                                 'address': _cityController.text.trim(),
                                 'city': _cityController.text.trim(),
                                 'state': _stateController.text.trim(),
@@ -1687,6 +1691,13 @@ class _SportsNeoCompleteProfileScreenState
                             ApiSession.instance.ownerId!,
                             payload,
                           );
+                          ApiSession.instance.ownerName =
+                              _fullNameController.text.trim();
+
+                          ApiSession.instance.contactNumber =
+                              widget.contactNumber;
+
+                          ApiSession.instance.role = normalizedRole;
                           if (!context.mounted) {
                             return;
                           }
