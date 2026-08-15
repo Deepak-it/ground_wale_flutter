@@ -897,7 +897,7 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
               academy,
             );
             normalized['enrollment'] = item;
-            normalized['isEnrolled'] = true;
+            normalized['_isCurrentBatchEnrolled'] = true;
             return normalized;
           }
           return <String, dynamic>{};
@@ -1004,7 +1004,7 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
                                       width: 270,
                                       child: _AcademyListCard(
                                         academy: academy,
-                                        enrolled: academy['isEnrolled'] == true,
+                                        enrolled: academy['_isCurrentBatchEnrolled'] == true,
                                         onTap: () => _openAcademy(academy),
                                       ),
                                     );
@@ -1087,7 +1087,7 @@ class _AcademyListScreen extends StatelessWidget {
           final Map<String, dynamic> academy = academies[index];
           return _AcademyListCard(
             academy: academy,
-            enrolled: academy['isEnrolled'] == true,
+            enrolled: academy['_isCurrentBatchEnrolled'] == true,
             onTap: () async {
               await onOpenAcademy(academy);
             },
@@ -1135,10 +1135,13 @@ class _SportsNeoAcademyOverviewScreenState
 
   int _resolveInitialBatchIndex() {
     final List<Map<String, dynamic>> batches = _batches;
-    final String enrolledBatchId = _text(_enrollment['batchId']);
-    if (enrolledBatchId.isEmpty) {
+
+    if (_enrollments.isEmpty) {
       return 0;
     }
+
+    final String enrolledBatchId =
+        _text(_enrollments.first['batchId']);
     for (int index = 0; index < batches.length; index++) {
       if (_text(batches[index]['_id']) == enrolledBatchId) {
         return index;
@@ -1166,19 +1169,27 @@ class _SportsNeoAcademyOverviewScreenState
     return _batches[safeIndex];
   }
 
-  Map<String, dynamic> get _enrollment {
-    final dynamic data = _academy['enrollment'];
-    if (data is Map) {
-      return Map<String, dynamic>.from(data);
-    }
-    return <String, dynamic>{};
+
+  List<Map<String, dynamic>> get _enrollments {
+    return _mapList(_academy['enrollments']);
   }
+  Map<String, dynamic>? get _currentEnrollment {
+    final String batchId = _text(_selectedBatch['_id']);
 
-  bool get _isEnrolled => _academy['isEnrolled'] == true;
+    for (final enrollment in _enrollments) {
+      if (_text(enrollment['batchId']) == batchId &&
+          _text(enrollment['status']).toLowerCase() == 'active') {
+        return enrollment;
+      }
+    }
 
+    return null;
+  }
+  bool get _isCurrentBatchEnrolled {
+    return _currentEnrollment != null;
+  }
   List<Map<String, dynamic>> get _feePlans =>
       _mapList(_selectedBatch['feePlans']);
-
   Future<void> _joinAcademy() async {
     final String? playerId = widget.playerId;
     if (playerId == null || playerId.isEmpty) {
@@ -1187,33 +1198,83 @@ class _SportsNeoAcademyOverviewScreenState
       );
       return;
     }
-    if (_isEnrolled) {
+
+    if (_isCurrentBatchEnrolled) {
+      return;
+    }
+
+    final bool isBatchActive =
+        (_selectedBatch['status']?.toString().toLowerCase() ?? 'active') ==
+            'active';
+    if (!isBatchActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot join an inactive batch.'),
+        ),
+      );
       return;
     }
 
     setState(() => _isJoining = true);
-    try {
-      final Map<String, dynamic> student = await _api
-          .joinAcademy(playerId, <String, dynamic>{
-            'academyId': _text(_academy['_id']),
-            if (_text(_selectedBatch['_id']).isNotEmpty)
-              'batchId': _text(_selectedBatch['_id']),
-            'batchName': _text(_selectedBatch['name']),
-            'planIndex': _selectedPlanIndex,
-            'fullName': widget.playerName,
-            'phone': widget.playerPhone,
-          });
 
-      if (!mounted) {
-        return;
-      }
+    try {
+      final dynamic priceValue =
+          _selectedFeePlan['price'] ?? _selectedBatch['monthlyFee'];
+
+      final double monthlyFee =
+          double.tryParse(priceValue.toString()) ?? 0;
+
+      final DateTime joinDateOnly = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+
+      final String formattedDate =
+          '${joinDateOnly.year}-${joinDateOnly.month.toString().padLeft(2, '0')}-${joinDateOnly.day.toString().padLeft(2, '0')}';
+
+      final String monthKey =
+          '${joinDateOnly.year}-${joinDateOnly.month.toString().padLeft(2, '0')}';
+
+      final String planDuration =
+          _selectedFeePlan['duration']?.toString() ?? 'Monthly';
+
+      final Map<String, dynamic> student =
+          await GroundWaleApi.instance.joinAcademy(
+        playerId,
+        <String, dynamic>{
+          'academyId': _text(_academy['_id']),
+          'fullName': widget.playerName,
+          'phone': widget.playerPhone,
+          'batchId': _text(_selectedBatch['_id']),
+          'batchName': _text(_selectedBatch['name']),
+          'joinDate': formattedDate,
+          'monthlyFee': monthlyFee,
+          'planIndex': _selectedPlanIndex,
+
+          // These fields allow the backend to create the first fee record.
+          'monthKey': monthKey,
+          'planDuration': planDuration,
+          'subscriptionStartDate': formattedDate,
+
+          'status': 'active',
+        },
+      );
+
+      if (!mounted) return;
 
       setState(() {
-        _academy = <String, dynamic>{
+        final enrollments = List<Map<String, dynamic>>.from(_enrollments);
+
+        enrollments.add(student);
+
+        _academy = {
           ..._academy,
-          'isEnrolled': true,
+          'enrollments': enrollments,
+          '_isCurrentBatchEnrolled': true,
           'enrollment': student,
         };
+
         _didChange = true;
         _isJoining = false;
       });
@@ -1222,13 +1283,15 @@ class _SportsNeoAcademyOverviewScreenState
         const SnackBar(content: Text('Joined academy successfully')),
       );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
+
       setState(() => _isJoining = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          content: Text(
+            error.toString().replaceFirst('Exception: ', ''),
+          ),
         ),
       );
     }
@@ -1343,7 +1406,9 @@ Future<void> _showAllPlans() async {
   Widget build(BuildContext context) {
     final Map<String, dynamic> batch = _selectedBatch;
     final Map<String, dynamic> primaryPlan = _selectedFeePlan;
-
+    final bool isBatchActive =
+        (_text(batch['status']).toLowerCase().isEmpty ||
+            _text(batch['status']).toLowerCase() == 'active');
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
       appBar: AppBar(
@@ -1362,7 +1427,7 @@ Future<void> _showAllPlans() async {
         children: <Widget>[
           _AcademyHeroCard(academy: _academy),
           const SizedBox(height: 16),
-          if (_isEnrolled) ...<Widget>[
+          if (_isCurrentBatchEnrolled) ...<Widget>[
             _SectionCard(
               title: 'Membership',
               child: Column(
@@ -1374,13 +1439,15 @@ Future<void> _showAllPlans() async {
                   ),
                   _InfoRow(
                     label: 'Batch',
-                    value: _text(_enrollment['batchName']).isEmpty
-                        ? _text(batch['name'])
-                        : _text(_enrollment['batchName']),
+                  value: _text(_currentEnrollment?['batchName']).isEmpty
+                    ? _text(batch['name'])
+                    : _text(_currentEnrollment?['batchName']),
                   ),
                   _InfoRow(
                     label: 'Joined On',
-                    value: _formatDate(_text(_enrollment['joinDate'])),
+                    value: _formatDate(
+                        _text(_currentEnrollment?['joinDate']),
+                    ),
                     isLast: true,
                   ),
                 ],
@@ -1402,14 +1469,22 @@ Future<void> _showAllPlans() async {
                       int index,
                     ) {
                       final Map<String, dynamic> item = _batches[index];
+
                       final bool active = index == _selectedBatchIndex;
+
+                      final bool isBatchActive =
+                          (_text(item['status']).toLowerCase().isEmpty ||
+                              _text(item['status']).toLowerCase() == 'active');
+
                       return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedBatchIndex = index;
-                            _selectedPlanIndex = 0;
-                          });
-                        },
+                        onTap: isBatchActive
+                            ? () {
+                                setState(() {
+                                  _selectedBatchIndex = index;
+                                  _selectedPlanIndex = 0;
+                                });
+                              }
+                            : null,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -1418,37 +1493,65 @@ Future<void> _showAllPlans() async {
                           decoration: BoxDecoration(
                             color: active
                                 ? const Color(0xFF2563EB)
-                                : const Color(0x0AFFFFFF),
+                                : isBatchActive
+                                    ? const Color(0x0AFFFFFF)
+                                    : const Color(0xFF1F2937),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: active
                                   ? const Color(0xFF2563EB)
-                                  : const Color(0x1FFFFFFF),
+                                  : isBatchActive
+                                      ? const Color(0x1FFFFFFF)
+                                      : const Color(0x33EF4444),
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Text(
-                                _text(item['name']).isEmpty
-                                    ? 'Batch ${index + 1}'
-                                    : _text(item['name']),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _timeRange(item),
-                                style: const TextStyle(
-                                  color: Color(0xCCDBEAFE),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
+           child: Opacity(
+      opacity: isBatchActive ? 1 : .45,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            _text(item['name']).isEmpty
+                ? 'Batch ${index + 1}'
+                : _text(item['name']),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _timeRange(item),
+            style: const TextStyle(
+              color: Color(0xCCDBEAFE),
+              fontSize: 12,
+            ),
+          ),
+          if (!isBatchActive) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Admissions Closed',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
                         ),
                       );
                     }),
@@ -1491,7 +1594,7 @@ Future<void> _showAllPlans() async {
                 _InfoRow(
                   label: 'Capacity',
                   value: _toInt(batch['capacity']) > 0
-                      ? '${_toInt(batch['capacity'])} players'
+                      ? '${_toInt(batch['capacity'])} Admissions'
                       : '--',
                 ),
                 _InfoRow(label: 'Coaching Days', value: _daysLabel(batch)),
@@ -1537,8 +1640,12 @@ Future<void> _showAllPlans() async {
         child: SizedBox(
           height: 52,
           child: ElevatedButton(
-            onPressed: _isEnrolled || _isJoining ? null : _joinAcademy,
-            style: ElevatedButton.styleFrom(
+            onPressed: _isCurrentBatchEnrolled ||
+                    _isJoining ||
+                    !isBatchActive
+                ? null
+                : _joinAcademy,
+                style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
               disabledBackgroundColor: const Color(0xFF1E293B),
               shape: RoundedRectangleBorder(
@@ -1555,7 +1662,11 @@ Future<void> _showAllPlans() async {
                     ),
                   )
                 : Text(
-                    _isEnrolled ? 'Already Enrolled' : 'Join Batch',
+                  _isCurrentBatchEnrolled
+                    ? 'Already Enrolled'
+                    : isBatchActive
+                        ? 'Join Batch'
+                        : 'Admissions Closed',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
