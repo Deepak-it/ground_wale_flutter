@@ -44,7 +44,76 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
   final GroundWaleApi _api = GroundWaleApi.instance;
   Timer? _notificationRefreshTimer;
+Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
+  final String contact = ApiSession.instance.contactNumber?.trim() ?? '';
+  final String ownerName =
+      ApiSession.instance.ownerName?.trim().toLowerCase() ?? '';
 
+  if (contact.isEmpty && ownerName.isEmpty) {
+    return [];
+  }
+
+  final List<Map<String, dynamic>> grounds = await _api.listGrounds();
+
+  final List<Map<String, dynamic>> bookings = [];
+
+  for (final ground in grounds) {
+    final String groundId =
+        ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
+
+    if (groundId.isEmpty) continue;
+
+    try {
+      final List<Map<String, dynamic>> groundBookings =
+          await _api.listBookings(groundId);
+
+      final String groundName =
+          ground['groundName']?.toString() ??
+          ground['name']?.toString() ??
+          'Ground';
+
+      for (final booking in groundBookings) {
+        final String captainPhone =
+            booking['captainPhone']?.toString().trim() ?? '';
+
+        final String captainName =
+            booking['captainName']?.toString().trim().toLowerCase() ?? '';
+
+        final bool belongsToUser =
+            (contact.isNotEmpty && captainPhone == contact) ||
+            (ownerName.isNotEmpty && captainName == ownerName);
+
+        if (!belongsToUser) continue;
+
+        final String status =
+            (booking['bookingStatus'] ?? '')
+                .toString()
+                .toLowerCase();
+
+        if (status == 'cancelled' ||
+            status == 'completed' ||
+            status == 'refunded') {
+          continue;
+        }
+
+        booking['groundName'] = groundName;
+        bookings.add(booking);
+      }
+    } catch (_) {}
+  }
+
+  bookings.sort((a, b) {
+    final da =
+        DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime(2100);
+
+    final db =
+        DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime(2100);
+
+    return da.compareTo(db);
+  });
+
+  return bookings.take(3).toList();
+}
   String _profileName = '';
   String _profilePhone = '';
   String? _profileImage;
@@ -155,7 +224,8 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
     List<Map<String, dynamic>> grounds = <Map<String, dynamic>>[];
     List<Map<String, dynamic>> teams = <Map<String, dynamic>>[];
-    List<Map<String, dynamic>> ownerBookings = <Map<String, dynamic>>[];
+    List<Map<String, dynamic>> ownerBookings =
+        <Map<String, dynamic>>[];
     List<Map<String, dynamic>> ownerLedger = <Map<String, dynamic>>[];
 
     Future<T?> safely<T>(Future<T> Function() fn) async {
@@ -180,6 +250,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         safely(() => _api.getDashboard(ownerId)),
         safely(() => _api.listTeams(ownerId)),
         safely(() => _api.listNotifications(ownerId)),
+        safely(() => _loadUpcomingBookings()), // NEW
       ]);
 
       grounds =
@@ -193,7 +264,9 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
       teams =
           (batch1[3] as List<Map<String, dynamic>>?) ??
           <Map<String, dynamic>>[];
-
+      ownerBookings =
+          (batch1[5] as List<Map<String, dynamic>>?) ??
+          <Map<String, dynamic>>[];
       final List<Map<String, dynamic>>? notifications =
           batch1[4] as List<Map<String, dynamic>>?;
 
@@ -240,17 +313,8 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
             fallbackSubtitle: 'No details available',
           );
 
-    final List<_InfoCardData> mappedBookings = ownerBookings.isNotEmpty
-        ? _mapBookingsFromGroundEndpoint(ownerBookings)
-        : _mapInfoCards(
-            _extractMapList(dashboard, [
-              'myBookings',
-              'bookings',
-              'upcomingBookings',
-            ]),
-            defaultStatus: 'Upcoming',
-            fallbackSubtitle: 'No booking details available',
-          );
+        final List<_InfoCardData> mappedBookings =
+            _mapBookingsFromGroundEndpoint(ownerBookings);
 
     final List<_LedgerCardData> mappedLedger = ownerLedger.isNotEmpty
         ? _mapLedgerCards(ownerLedger)
@@ -1501,24 +1565,29 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
   List<_InfoCardData> _mapBookingsFromGroundEndpoint(
     List<Map<String, dynamic>> items,
   ) {
-    return items.take(3).map((Map<String, dynamic> item) {
+    return items.map((item) {
       final String title =
-          _stringFromAny(item, ['groundName', 'name', 'title']) ?? 'Booking';
+          item['groundName']?.toString() ?? 'Booking';
+
+      final String date =
+          item['date']?.toString() ?? '';
+
+      final String start =
+          item['startTime']?.toString() ?? '';
+
+      final String end =
+          item['endTime']?.toString() ?? '';
 
       final String subtitle =
-          _stringFromAny(item, [
-            'slotLabel',
-            'timeRange',
-            'slot',
-            'date',
-            'startTime',
-          ]) ??
-          'No booking details available';
+          [date, if (start.isNotEmpty) '$start - $end']
+              .where((e) => e.isNotEmpty)
+              .join(' • ');
 
-      final String amount = _amountText(item) ?? 'N/A';
+      final String amount =
+          _formatAmount((item['amount'] ?? 0).toDouble());
 
       final String status =
-          _stringFromAny(item, ['status', 'bookingStatus']) ?? 'Upcoming';
+          item['bookingStatus']?.toString() ?? 'Upcoming';
 
       return _InfoCardData(
         title: title,
