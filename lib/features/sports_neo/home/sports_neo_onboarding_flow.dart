@@ -1707,11 +1707,12 @@ class _SportsNeoCompleteProfileScreenState
                                 .trim();
                             ApiSession.instance.state = _stateController.text
                                 .trim();
-                            Navigator.of(context).push(
+                            Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute<void>(
                                 builder: (_) =>
                                     const SportsNeoDashboardScreen(),
                               ),
+                              (Route<dynamic> route) => false,
                             );
                             return;
                           }

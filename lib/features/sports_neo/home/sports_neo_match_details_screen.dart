@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'sports_neo_choose_team_screen.dart';
+import 'sports_neo_dashboard_screen.dart';
 
 class SportsNeoMatchDetailsScreen extends StatelessWidget {
   const SportsNeoMatchDetailsScreen({
@@ -160,9 +161,12 @@ class SportsNeoMatchDetailsScreen extends StatelessWidget {
                       height: 52,
                       child: OutlinedButton(
                         onPressed: () {
-                          Navigator.of(context).popUntil((Route<dynamic> route) {
-                            return route.isFirst;
-                          });
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const SportsNeoDashboardScreen(),
+                            ),
+                            (Route<dynamic> route) => false,
+                          );
                         },
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFF2563EB)),
