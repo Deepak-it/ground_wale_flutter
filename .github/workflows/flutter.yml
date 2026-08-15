@@ -11,7 +11,7 @@ jobs:
     
     # Inject global environment paths for your self-hosted macOS environment
     env:
-      ANDROID_HOME: /Users/ec2-user/Library/Android/sdk
+      ANDROID_HOME: /opt/homebrew/share/android-commandlinetools
 
     steps:
       - name: Checkout
