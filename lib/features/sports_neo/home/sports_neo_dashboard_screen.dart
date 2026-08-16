@@ -20,6 +20,7 @@ import 'sports_neo_notifications_screen.dart';
 import 'sports_neo_onboarding_flow.dart';
 import 'sports_neo_split_payment_flow_screens.dart';
 import 'sports_neo_settings_screen.dart';
+import '../../../core/utils/sport_icons_util.dart';
 
 class SportsNeoDashboardScreen extends StatefulWidget {
   const SportsNeoDashboardScreen({super.key});
@@ -45,7 +46,9 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   final GroundWaleApi _api = GroundWaleApi.instance;
   Timer? _notificationRefreshTimer;
 Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
-  final String contact = ApiSession.instance.contactNumber?.trim() ?? '';
+  final String contact =
+      ApiSession.instance.contactNumber?.trim() ?? '';
+
   final String ownerName =
       ApiSession.instance.ownerName?.trim().toLowerCase() ?? '';
 
@@ -53,15 +56,20 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
     return [];
   }
 
-  final List<Map<String, dynamic>> grounds = await _api.listGrounds();
+  final List<Map<String, dynamic>> grounds =
+      await _api.listGrounds();
 
   final List<Map<String, dynamic>> bookings = [];
 
   for (final ground in grounds) {
     final String groundId =
-        ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
+        ground['_id']?.toString() ??
+        ground['id']?.toString() ??
+        '';
 
-    if (groundId.isEmpty) continue;
+    if (groundId.isEmpty) {
+      continue;
+    }
 
     try {
       final List<Map<String, dynamic>> groundBookings =
@@ -71,6 +79,15 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
           ground['groundName']?.toString() ??
           ground['name']?.toString() ??
           'Ground';
+
+      final String groundSport =
+          ground['sports'] is List &&
+                  (ground['sports'] as List).isNotEmpty
+              ? (ground['sports'] as List)
+                  .first
+                  .toString()
+                  .trim()
+              : '';
 
       for (final booking in groundBookings) {
         final String captainPhone =
@@ -83,7 +100,9 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
             (contact.isNotEmpty && captainPhone == contact) ||
             (ownerName.isNotEmpty && captainName == ownerName);
 
-        if (!belongsToUser) continue;
+        if (!belongsToUser) {
+          continue;
+        }
 
         final String status =
             (booking['bookingStatus'] ?? '')
@@ -97,17 +116,27 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
         }
 
         booking['groundName'] = groundName;
+        booking['groundSport'] = groundSport;
+
         bookings.add(booking);
       }
-    } catch (_) {}
+    } catch (_) {
+      // Ignore failed ground booking requests.
+    }
   }
 
   bookings.sort((a, b) {
-    final da =
-        DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime(2100);
+    final DateTime da =
+        DateTime.tryParse(
+              a['date']?.toString() ?? '',
+            ) ??
+            DateTime(2100);
 
-    final db =
-        DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime(2100);
+    final DateTime db =
+        DateTime.tryParse(
+              b['date']?.toString() ?? '',
+            ) ??
+            DateTime(2100);
 
     return da.compareTo(db);
   });
@@ -645,12 +674,9 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
 
                         const SizedBox(height: 12),
 
-                        if (_bookings.isEmpty)
                           const _EmptySectionNotice(
                             message: 'No scheduled matches',
-                          )
-                        else
-                          _CompactBookingCard(item: _bookings.first),
+                          ),
 
                         const SizedBox(height: 22),
 
@@ -1562,41 +1588,59 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
     }).toList();
   }
 
-  List<_InfoCardData> _mapBookingsFromGroundEndpoint(
-    List<Map<String, dynamic>> items,
-  ) {
-    return items.map((item) {
-      final String title =
-          item['groundName']?.toString() ?? 'Booking';
+List<_InfoCardData> _mapBookingsFromGroundEndpoint(
+  List<Map<String, dynamic>> items,
+) {
+  return items.map((item) {
+    final String title =
+        item['groundName']?.toString() ?? 'Booking';
 
-      final String date =
-          item['date']?.toString() ?? '';
+    final String date =
+        item['date']?.toString() ?? '';
 
-      final String start =
-          item['startTime']?.toString() ?? '';
+    final String start =
+        item['startTime']?.toString() ?? '';
 
-      final String end =
-          item['endTime']?.toString() ?? '';
+    final String end =
+        item['endTime']?.toString() ?? '';
 
-      final String subtitle =
-          [date, if (start.isNotEmpty) '$start - $end']
-              .where((e) => e.isNotEmpty)
-              .join(' • ');
+    final String subtitle =
+        [
+          date,
+          if (start.isNotEmpty)
+            '$start${end.isNotEmpty ? ' - $end' : ''}',
+        ].where((e) => e.isNotEmpty).join(' • ');
 
-      final String amount =
-          _formatAmount((item['amount'] ?? 0).toDouble());
+    final dynamic rawAmount = item['amount'];
 
-      final String status =
-          item['bookingStatus']?.toString() ?? 'Upcoming';
+    final double amountValue = rawAmount is num
+        ? rawAmount.toDouble()
+        : double.tryParse(
+              rawAmount?.toString() ?? '',
+            ) ??
+            0;
 
-      return _InfoCardData(
-        title: title,
-        subtitle: subtitle,
-        amount: amount,
-        status: status,
-      );
-    }).toList();
-  }
+    final String amount = _formatAmount(amountValue);
+
+    final String status =
+        item['bookingStatus']?.toString() ?? 'Upcoming';
+
+    final String sport =
+        item['groundSport']?.toString() ??
+        item['sport']?.toString() ??
+        item['sportName']?.toString() ??
+        item['sports']?.toString() ??
+        '';
+
+    return _InfoCardData(
+      title: title,
+      subtitle: subtitle,
+      amount: amount,
+      status: status,
+      sportIcon: sportIcon(sport),
+    );
+  }).toList();
+}
 
   List<_LedgerCardData> _mapLedgerCards(List<Map<String, dynamic>> items) {
     return items.take(2).map((Map<String, dynamic> item) {
@@ -2202,10 +2246,13 @@ class _CompactBookingCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               color: const Color(0x202563EB),
             ),
-            child: const Icon(
-              Icons.sports_cricket_rounded,
-              color: Colors.white,
-              size: 22,
+            child: Center(
+              child: Text(
+                item.sportIcon,
+                style: const TextStyle(
+                  fontSize: 22,
+                ),
+              ),
             ),
           ),
 
@@ -2904,12 +2951,14 @@ class _InfoCardData {
     required this.subtitle,
     required this.amount,
     required this.status,
+    this.sportIcon = '',
   });
 
   final String title;
   final String subtitle;
   final String amount;
   final String status;
+final String sportIcon;
 }
 
 class _LedgerCardData {
