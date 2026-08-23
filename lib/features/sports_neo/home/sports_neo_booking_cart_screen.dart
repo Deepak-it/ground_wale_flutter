@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import 'sports_neo_booking_cart_store.dart';
+import 'sports_neo_booking_history_screen.dart';
 
 class SportsNeoBookingCartScreen extends StatefulWidget {
   const SportsNeoBookingCartScreen({super.key});
@@ -13,89 +16,99 @@ class SportsNeoBookingCartScreen extends StatefulWidget {
 class _SportsNeoBookingCartScreenState
     extends State<SportsNeoBookingCartScreen> {
   final GroundWaleApi _api = GroundWaleApi.instance;
-  bool _isLoading = true;
-  final List<_CartGroundItem> _items = <_CartGroundItem>[];
+  final SportsNeoBookingCartStore _cartStore =
+      SportsNeoBookingCartStore.instance;
+  bool _isSubmitting = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadCartData();
+  int _bookingTotal(List<SportsNeoBookingCartGround> items) {
+    return items.fold<int>(0, (int sum, SportsNeoBookingCartGround item) {
+      return sum + item.totalAmount;
+    });
   }
 
-  Future<void> _loadCartData() async {
-    try {
-      final List<Map<String, dynamic>> grounds = await _api.listGrounds();
-      final List<_CartGroundItem> mapped = <_CartGroundItem>[];
-
-      for (final Map<String, dynamic> ground in grounds.take(2)) {
-        final String? groundId =
-            ground['_id']?.toString() ?? ground['id']?.toString();
-        List<Map<String, dynamic>> slots = <Map<String, dynamic>>[];
-        if (groundId != null && groundId.isNotEmpty) {
-          try {
-            slots = await _api.listSlots(groundId);
-          } catch (_) {}
-        }
-        mapped.add(_CartGroundItem.fromApi(ground, slots));
-      }
-
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _items
-          ..clear()
-          ..addAll(mapped);
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _items.clear();
-        _isLoading = false;
-      });
+  Future<void> _submitCart(List<SportsNeoBookingCartGround> items) async {
+    if (_isSubmitting || items.isEmpty) {
+      return;
     }
-  }
 
-  double get _subtotal =>
-      _items.fold<double>(0, (sum, item) => sum + item.totalPrice);
+    final String playerName =
+        (ApiSession.instance.ownerName ?? '').trim().isEmpty
+        ? 'Sports Neo Player'
+        : ApiSession.instance.ownerName!.trim();
+    final String playerPhone = (ApiSession.instance.contactNumber ?? '').trim();
 
-  double get _discount => _items.isEmpty ? 0 : 100;
+    setState(() => _isSubmitting = true);
 
-  double get _total => (_subtotal - _discount).clamp(0, double.infinity);
+    final Set<String> successKeys = <String>{};
+    int successCount = 0;
+    int failedCount = 0;
+    String? firstError;
 
-  void _removeGround(_CartGroundItem item) {
-    setState(() => _items.remove(item));
-  }
+    try {
+      for (final SportsNeoBookingCartGround item in items) {
+        for (final SportsNeoBookingCartSlot slot in item.slots) {
+          try {
+            await _api.createBooking(item.groundId, <String, dynamic>{
+              'slotId': slot.slotId,
+              'teamName': playerName,
+              'captainName': playerName,
+              'captainPhone': playerPhone,
+              'date': slot.date,
+              'startTime': slot.startTime,
+              'endTime': slot.endTime,
+              'amount': slot.amount,
+              'paymentMethod': 'cod',
+              'notes': 'User booking request from cart',
+              'playerCount': 0,
+              'source': 'player',
+              'requestedByUserId': ApiSession.instance.ownerId,
+            });
+            successKeys.add('${item.groundId}|${slot.key}');
+            successCount += 1;
+          } catch (error) {
+            failedCount += 1;
+            firstError ??= error.toString().replaceFirst('Exception: ', '');
+          }
+        }
+      }
 
-  void _removeSlot(_CartGroundItem item, String slot) {
-    setState(() {
-      final int index = _items.indexOf(item);
-      if (index == -1) {
+      for (final SportsNeoBookingCartGround item in items) {
+        for (final SportsNeoBookingCartSlot slot in item.slots) {
+          final String key = '${item.groundId}|${slot.key}';
+          if (successKeys.contains(key)) {
+            _cartStore.removeSlot(item.groundId, slot.key);
+          }
+        }
+      }
+
+      if (!mounted) {
         return;
       }
-      final List<String> updatedSlots = List<String>.from(item.selectedSlots)
-        ..remove(slot);
-      if (updatedSlots.isEmpty) {
-        _items.removeAt(index);
-        return;
-      }
-      _items[index] = item.copyWith(selectedSlots: updatedSlots);
-    });
-  }
 
-  void _addSlot(_CartGroundItem item) {
-    setState(() {
-      final int index = _items.indexOf(item);
-      if (index == -1) {
-        return;
+      final String message;
+      if (failedCount == 0) {
+        message = 'Booked $successCount slot(s) successfully.';
+      } else {
+        message =
+            'Booked $successCount slot(s). Failed $failedCount slot(s)${firstError == null ? '' : ': $firstError'}';
       }
-      final List<String> updated = List<String>.from(item.selectedSlots)
-        ..add(item.suggestedNextSlot);
-      _items[index] = item.copyWith(selectedSlots: updated);
-    });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+
+      if (failedCount == 0) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => const SportsNeoBookingHistoryScreen(),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
@@ -103,90 +116,99 @@ class _SportsNeoBookingCartScreenState
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            _CartHeader(count: _items.length),
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF2563EB),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-                      child: Column(
-                        children: <Widget>[
-                          ..._items.map(
-                            (_CartGroundItem item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _CartGroundCard(
-                                item: item,
-                                onRemoveGround: () => _removeGround(item),
-                                onRemoveSlot: (String slot) =>
-                                    _removeSlot(item, slot),
-                                onAddSlot: () => _addSlot(item),
-                              ),
-                            ),
-                          ),
-                          _DashedActionRow(
-                            label: 'Apply Coupon',
-                            icon: Icons.confirmation_num_outlined,
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Coupon flow is not available yet',
+        child: ValueListenableBuilder<List<SportsNeoBookingCartGround>>(
+          valueListenable: _cartStore.notifier,
+          builder:
+              (
+                BuildContext context,
+                List<SportsNeoBookingCartGround> items,
+                _,
+              ) {
+                final int subtotal = _bookingTotal(items);
+
+                return Column(
+                  children: <Widget>[
+                    _CartHeader(count: items.length),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                        child: Column(
+                          children: <Widget>[
+                            if (items.isEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0x1FFFFFFF),
+                                  ),
+                                  color: const Color(0x0AFFFFFF),
+                                ),
+                                child: const Text(
+                                  'Your cart is empty. Add slots from ground details.',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          _PriceSummaryCard(
-                            subtotal: _subtotal,
-                            discount: _discount,
-                            total: _total,
-                          ),
-                        ],
+                              )
+                            else
+                              ...items.map(
+                                (SportsNeoBookingCartGround item) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _CartGroundCard(
+                                    item: item,
+                                    onRemoveGround: () =>
+                                        _cartStore.removeGround(item.groundId),
+                                    onRemoveSlot: (String slotKey) {
+                                      _cartStore.removeSlot(
+                                        item.groundId,
+                                        slotKey,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 24),
+                            _PriceSummaryCard(
+                              subtotal: subtotal.toDouble(),
+                              discount: 0,
+                              total: subtotal.toDouble(),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: _items.isEmpty
-                      ? null
-                      : () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Booking submission flow will be connected next',
-                              ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          );
-                        },
-                  child: const Text(
-                    'Book Now',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                          ),
+                          onPressed: items.isEmpty || _isSubmitting
+                              ? null
+                              : () => _submitCart(items),
+                          child: Text(
+                            _isSubmitting ? 'Booking...' : 'Book Now',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+                  ],
+                );
+              },
         ),
       ),
     );
@@ -243,13 +265,11 @@ class _CartGroundCard extends StatelessWidget {
     required this.item,
     required this.onRemoveGround,
     required this.onRemoveSlot,
-    required this.onAddSlot,
   });
 
-  final _CartGroundItem item;
+  final SportsNeoBookingCartGround item;
   final VoidCallback onRemoveGround;
   final ValueChanged<String> onRemoveSlot;
-  final VoidCallback onAddSlot;
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +284,7 @@ class _CartGroundCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            item.name,
+            item.groundName,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -307,11 +327,14 @@ class _CartGroundCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 7,
             children: <Widget>[
-              ...item.selectedSlots.map(
-                (String slot) =>
-                    _SlotChip(label: slot, onRemove: () => onRemoveSlot(slot)),
-              ),
-              _AddSlotChip(onTap: onAddSlot),
+              ...item.slots.map((SportsNeoBookingCartSlot slot) {
+                final String label =
+                    '${slot.startTime} - ${slot.endTime} (${slot.date})';
+                return _SlotChip(
+                  label: label,
+                  onRemove: () => onRemoveSlot(slot.key),
+                );
+              }),
             ],
           ),
           const SizedBox(height: 16),
@@ -364,7 +387,7 @@ class _CartGroundCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
                 Text(
-                  '₹${item.totalPrice.toStringAsFixed(0)}',
+                  '₹${item.totalAmount}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -472,55 +495,6 @@ class _AddSlotChip extends StatelessWidget {
   }
 }
 
-class _DashedActionRow extends StatelessWidget {
-  const _DashedActionRow({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: const Color(0xFF0EA5A4),
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            Icon(icon, color: const Color(0xFF0EA5A4), size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFF0EA5A4),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
-                ),
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Color(0xFF0EA5A4), size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _PriceSummaryCard extends StatelessWidget {
   const _PriceSummaryCard({
     required this.subtotal,
@@ -610,92 +584,5 @@ class _SummaryRow extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _CartGroundItem {
-  const _CartGroundItem({
-    required this.name,
-    required this.location,
-    required this.selectedSlots,
-    required this.facilities,
-    required this.pricePerSlot,
-    required this.suggestedNextSlot,
-  });
-
-  factory _CartGroundItem.fromApi(
-    Map<String, dynamic> ground,
-    List<Map<String, dynamic>> slots,
-  ) {
-    final List<String> selectedSlots = slots
-        .take(2)
-        .map((Map<String, dynamic> slot) => _slotLabel(slot))
-        .where((String text) => text.isNotEmpty)
-        .toList();
-
-    final List<String> facilities =
-        ((ground['facilities'] as List?) ?? <dynamic>[])
-            .take(3)
-            .map((dynamic item) => item.toString())
-            .toList();
-
-    final double price = _groundPrice(ground) ?? 400;
-
-    return _CartGroundItem(
-      name:
-          ground['groundName']?.toString() ??
-          ground['name']?.toString() ??
-          'Ground',
-      location:
-          ground['city']?.toString() ??
-          ground['location']?.toString() ??
-          ground['address']?.toString() ??
-          'Location unavailable',
-      selectedSlots: selectedSlots,
-      facilities: facilities,
-      pricePerSlot: price,
-      suggestedNextSlot: slots.length > 2 ? _slotLabel(slots[2]) : '',
-    );
-  }
-
-  final String name;
-  final String location;
-  final List<String> selectedSlots;
-  final List<String> facilities;
-  final double pricePerSlot;
-  final String suggestedNextSlot;
-
-  double get totalPrice => selectedSlots.length * pricePerSlot;
-
-  _CartGroundItem copyWith({List<String>? selectedSlots}) {
-    return _CartGroundItem(
-      name: name,
-      location: location,
-      selectedSlots: selectedSlots ?? this.selectedSlots,
-      facilities: facilities,
-      pricePerSlot: pricePerSlot,
-      suggestedNextSlot: suggestedNextSlot,
-    );
-  }
-
-  static double? _groundPrice(Map<String, dynamic> ground) {
-    final dynamic raw =
-        ground['hourlyPrice'] ?? ground['pricePerHour'] ?? ground['hourlyRate'];
-    if (raw is num) {
-      return raw.toDouble();
-    }
-    if (raw is String) {
-      return double.tryParse(raw.replaceAll(RegExp(r'[^0-9.]'), ''));
-    }
-    return null;
-  }
-
-  static String _slotLabel(Map<String, dynamic> slot) {
-    final String start = slot['startTime']?.toString() ?? '';
-    final String end = slot['endTime']?.toString() ?? '';
-    if (start.isEmpty && end.isEmpty) {
-      return '';
-    }
-    return end.isEmpty ? start : '$start - $end';
   }
 }

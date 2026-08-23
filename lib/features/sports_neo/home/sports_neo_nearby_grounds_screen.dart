@@ -1,28 +1,98 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import './sports_neo_facilities_dialog.dart';
 import '../../../core/utils/base64_image.dart';
 import 'sports_neo_ground_detail_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-class SportsNeoNearbyGroundsScreen extends StatelessWidget {
+class SportsNeoNearbyGroundsScreen extends StatefulWidget {
   const SportsNeoNearbyGroundsScreen({
     super.key,
     required this.grounds,
     required this.fallbackLocation,
+    this.initialQuery = '',
+    this.isAcademyView = false,
   });
 
   final List<Map<String, dynamic>> grounds;
   final String fallbackLocation;
+  final String initialQuery;
+  final bool isAcademyView;
+
+  @override
+  State<SportsNeoNearbyGroundsScreen> createState() =>
+      _SportsNeoNearbyGroundsScreenState();
+}
+
+class _SportsNeoNearbyGroundsScreenState
+    extends State<SportsNeoNearbyGroundsScreen> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.initialQuery);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<_NearbyGroundItem> get _items {
+    final List<Map<String, dynamic>> typeFiltered = widget.grounds
+        .where((Map<String, dynamic> raw) {
+          return _isAcademyRaw(raw) == widget.isAcademyView;
+        })
+        .toList();
+
+    final List<_NearbyGroundItem> mapped = typeFiltered.map((
+      Map<String, dynamic> raw,
+    ) {
+      return _NearbyGroundItem.fromMap(
+        raw,
+        fallbackLocation: widget.fallbackLocation,
+      );
+    }).toList();
+
+    final String query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      return mapped;
+    }
+
+    return mapped.where((_NearbyGroundItem item) {
+      final String text = [
+        item.name,
+        item.location,
+        item.facilities.join(' '),
+      ].join(' ').toLowerCase();
+      return text.contains(query);
+    }).toList();
+  }
+
+  bool _isAcademyRaw(Map<String, dynamic> item) {
+    final String entityType =
+        item['entityType']?.toString().trim().toLowerCase() ?? '';
+    final String offerType =
+        item['offerType']?.toString().trim().toLowerCase() ?? '';
+    final String type = item['type']?.toString().trim().toLowerCase() ?? '';
+    final String category =
+        item['category']?.toString().trim().toLowerCase() ?? '';
+    final bool isAcademyFlag = item['isAcademy'] == true;
+
+    return isAcademyFlag ||
+        entityType == 'academy' ||
+        type == 'academy' ||
+        offerType.contains('academy') ||
+        category.contains('academy');
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<_NearbyGroundItem> items = grounds.map((
-      Map<String, dynamic> raw,
-    ) {
-      return _NearbyGroundItem.fromMap(raw, fallbackLocation: fallbackLocation);
-    }).toList();
+    final List<_NearbyGroundItem> items = _items;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
@@ -50,27 +120,57 @@ class SportsNeoNearbyGroundsScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Row(
+                    child: Row(
                       children: <Widget>[
-                        Icon(Icons.search, color: Color(0xFF9CA3AF), size: 20),
-                        SizedBox(width: 12),
+                        const Icon(
+                          Icons.search,
+                          color: Color(0xFF9CA3AF),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            'Search Ground or location',
-                            style: TextStyle(
-                              color: Color(0xFF9CA3AF),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (_) => setState(() {}),
+                            style: const TextStyle(
+                              color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              isCollapsed: true,
+                              hintText: widget.isAcademyView
+                                  ? 'Search academy or location'
+                                  : 'Search ground or location',
+                              hintStyle: const TextStyle(
+                                color: Color(0xFF9CA3AF),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
                         ),
+                        if (_searchController.text.trim().isNotEmpty)
+                          InkWell(
+                            onTap: () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              color: Color(0xFF9CA3AF),
+                              size: 18,
+                            ),
+                          ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Nearby Ground',
-                    style: TextStyle(
+                  Text(
+                    widget.isAcademyView ? 'Nearby Academy' : 'Nearby Ground',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -85,9 +185,11 @@ class SportsNeoNearbyGroundsScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: const Color(0x1F242424)),
                       ),
-                      child: const Text(
-                        'No grounds available right now',
-                        style: TextStyle(
+                      child: Text(
+                        widget.isAcademyView
+                            ? 'No academies available right now'
+                            : 'No grounds available right now',
+                        style: const TextStyle(
                           color: Color(0xCCFFFFFF),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -164,6 +266,7 @@ class _NearbyGroundsHeader extends StatelessWidget {
     );
   }
 }
+
 class _CircleAction extends StatelessWidget {
   const _CircleAction({required this.icon, required this.color});
 
@@ -183,20 +286,23 @@ class _CircleAction extends StatelessWidget {
     );
   }
 }
+
 class _NearbyGroundListCard extends StatelessWidget {
   const _NearbyGroundListCard({required this.item});
 
   final _NearbyGroundItem item;
-  Future<void> _callOwner(String ownerPhone) async {
-    final phone = ownerPhone;
-    if (phone.isNotEmpty) {
-      final Uri callUri = Uri(scheme: 'tel', path: phone);
 
-      if (await canLaunchUrl(callUri)) {
-        await launchUrl(callUri);
-      }
+  Future<void> _callOwner(String ownerPhone) async {
+    if (ownerPhone.isEmpty) {
+      return;
+    }
+    final Uri callUri = Uri(scheme: 'tel', path: ownerPhone);
+
+    if (await canLaunchUrl(callUri)) {
+      await launchUrl(callUri);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final Widget imageFallback = Container(
@@ -310,78 +416,74 @@ class _NearbyGroundListCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-Wrap(
-  spacing: 4,
-  runSpacing: 4,
-  children: [
-
-    ...item.facilities.take(3).map(
-      (String feature) {
-        return Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            color: const Color(0x0AFFFFFF),
-          ),
-          child: Text(
-            feature,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        );
-      },
-    ),
-
-    if (item.facilities.length > 3)
-      InkWell(
-        onTap: () {
-          FacilitiesDialog.show(
-            context,
-            facilities: item.facilities,
-          );
-        },
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 5,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0x14FFFFFF),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: const Icon(
-            Icons.visibility_outlined,
-            color: Colors.white,
-            size: 18,
-          ),
-        ),
-      ),
-  ],
-),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    ...item.facilities.take(3).map((String feature) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          color: const Color(0x0AFFFFFF),
+                        ),
+                        child: Text(
+                          feature,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      );
+                    }),
+                    if (item.facilities.length > 3)
+                      InkWell(
+                        onTap: () {
+                          FacilitiesDialog.show(
+                            context,
+                            facilities: item.facilities,
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x14FFFFFF),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.visibility_outlined,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: InkWell(
-                        onTap: () => _callOwner(item.ownerPhone),
-                        borderRadius: BorderRadius.circular(30),
-                        child: const _CircleAction(
-                          icon: Icons.call,
-                          color: Color(0xFF08B36A),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: InkWell(
+                          onTap: () => _callOwner(item.ownerPhone),
+                          borderRadius: BorderRadius.circular(30),
+                          child: const _CircleAction(
+                            icon: Icons.call,
+                            color: Color(0xFF08B36A),
+                          ),
                         ),
                       ),
                     ),
-                  ),
                     const SizedBox(width: 8),
                     InkWell(
                       onTap: () {
@@ -460,6 +562,7 @@ class _NearbyGroundItem {
   final String price;
   final String ownerPhone;
   final String groundId;
+
   static List<double> _coordinatesFromMap(Map<String, dynamic> map) {
     final dynamic mapLocation = map['mapLocation'];
 

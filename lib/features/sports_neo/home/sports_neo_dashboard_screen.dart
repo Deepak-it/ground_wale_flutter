@@ -33,7 +33,7 @@ class SportsNeoDashboardScreen extends StatefulWidget {
 
 class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   static const List<String> _sportsTabs = ['Cricket', 'Football', 'Badminton'];
-
+  String _searchQuery = '';
   static const List<String> _drawerMenuItems = [
     'Ledger & Payments',
     'Booking History',
@@ -408,7 +408,26 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
   List<Map<String, dynamic>> get _filteredGroundsRaw {
     return _allGroundsRaw;
   }
+List<_GroundCardData> get _searchedGrounds {
 
+  final query = _searchQuery.trim().toLowerCase();
+
+  if (query.isEmpty) {
+    return _filteredGrounds;
+  }
+
+  return _filteredGrounds.where((ground) {
+
+    return ground.name.toLowerCase().contains(query) ||
+        ground.location.toLowerCase().contains(query) ||
+        ground.detail.toLowerCase().contains(query) ||
+        ground.facilities.any(
+          (facility) =>
+              facility.toString().toLowerCase().contains(query),
+        );
+
+  }).toList();
+}
   List<_GroundCardData> get _filteredGrounds => _displayGrounds;
 
   Future<void> _showLocationFilterSheet() async {
@@ -968,25 +987,54 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
               ),
             ],
           ),
-          child: const Row(
-            children: [
-              Icon(Icons.search_rounded, color: Color(0xFFCBD5E1), size: 22),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Search sports, academies or grounds',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Icon(Icons.tune_rounded, color: Color(0xFFCBD5E1), size: 21),
-            ],
+          child: Row(
+  children: [
+
+    const Icon(
+      Icons.search_rounded,
+      color: Color(0xFFCBD5E1),
+      size:22,
+    ),
+
+    const SizedBox(width:12),
+
+    Expanded(
+      child: TextField(
+        onChanged: (value){
+
+          setState(() {
+            _searchQuery = value;
+          });
+
+        },
+
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize:14,
+        ),
+
+        decoration: const InputDecoration(
+          hintText:
+              'Search grounds',
+
+          hintStyle: TextStyle(
+            color: Color(0xFF9CA3AF),
           ),
+
+          border: InputBorder.none,
+          isDense: true,
+        ),
+      ),
+    ),
+
+    const Icon(
+      Icons.tune_rounded,
+      color: Color(0xFFCBD5E1),
+      size:21,
+    ),
+
+  ],
+),
         ),
       ),
     );
@@ -1264,7 +1312,7 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
       return const _GroundsLoadingNotice();
     }
 
-    if (_filteredGrounds.isEmpty) {
+    if (_searchedGrounds.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1291,8 +1339,10 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
       );
     }
 
-    final int count = _filteredGrounds.length > 3 ? 3 : _filteredGrounds.length;
-
+  final int count =
+      _searchedGrounds.length > 3
+          ? 3
+          : _searchedGrounds.length;
     return SizedBox(
       height: 340,
       child: ListView.separated(
@@ -1301,7 +1351,9 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
         itemCount: count,
         separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (_, index) {
-          return _NearbyGroundShowcaseCard(item: _filteredGrounds[index]);
+          return _NearbyGroundShowcaseCard(
+              item: _searchedGrounds[index],
+          );
         },
       ),
     );

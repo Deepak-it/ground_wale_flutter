@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import './sports_neo_facilities_dialog.dart';
 import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/base64_image.dart';
+import 'sports_neo_booking_cart_screen.dart';
+import 'sports_neo_booking_cart_store.dart';
 import 'sports_neo_booking_summary_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -47,7 +49,7 @@ class _SportsNeoGroundDetailScreenState
   late DateTime _selectedDate;
   bool _isLoadingSlots = false;
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
-  String? _selectedSlotId;
+  final Set<String> _selectedSlotIds = <String>{};
   Set<String> _activeBookedSlotKeys = <String>{};
   bool _hasBookingLookup = false;
   @override
@@ -205,7 +207,7 @@ class _SportsNeoGroundDetailScreenState
 
     setState(() {
       _selectedDate = normalized;
-      _selectedSlotId = null;
+      _selectedSlotIds.clear();
     });
 
     await _loadSlots();
@@ -359,7 +361,7 @@ class _SportsNeoGroundDetailScreenState
         _slots = slots;
         _activeBookedSlotKeys = activeBookedKeys;
         _hasBookingLookup = true;
-        _selectedSlotId = null;
+        _selectedSlotIds.clear();
         _isLoadingSlots = false;
       });
     } catch (_) {
@@ -447,16 +449,49 @@ class _SportsNeoGroundDetailScreenState
     );
   }
 
-  Map<String, dynamic>? get _selectedSlot {
-    if (_selectedSlotId == null) {
-      return null;
+  List<Map<String, dynamic>> get _selectedSlots {
+    return _slots.where((Map<String, dynamic> slot) {
+      final String id = _slotId(slot);
+      return id.isNotEmpty && _selectedSlotIds.contains(id);
+    }).toList();
+  }
+
+  int get _selectedSlotsTotal {
+    return _selectedSlots.fold<int>(0, (int sum, Map<String, dynamic> slot) {
+      return sum + _slotPrice(slot);
+    });
+  }
+
+  void _addSelectedSlotsToCart() {
+    final List<Map<String, dynamic>> selected = _selectedSlots;
+    if (selected.isEmpty || widget.groundId.trim().isEmpty) {
+      return;
     }
-    for (final Map<String, dynamic> s in _slots) {
-      if (_slotId(s) == _selectedSlotId) {
-        return s;
-      }
+
+    final List<SportsNeoBookingCartSlot> cartSlots = selected
+        .map((Map<String, dynamic> slot) {
+          return SportsNeoBookingCartSlot(
+            slotId: _slotId(slot),
+            date: _apiDate(_selectedDate),
+            startTime: slot['startTime']?.toString() ?? '',
+            endTime: slot['endTime']?.toString() ?? '',
+            amount: _slotPrice(slot),
+          );
+        })
+        .where((SportsNeoBookingCartSlot slot) => slot.slotId.isNotEmpty)
+        .toList();
+
+    if (cartSlots.isEmpty) {
+      return;
     }
-    return null;
+
+    SportsNeoBookingCartStore.instance.addSlots(
+      groundId: widget.groundId,
+      groundName: widget.name,
+      location: widget.location,
+      facilities: widget.facilities,
+      slots: cartSlots,
+    );
   }
 
   Widget _buildSlotSections() {
@@ -508,15 +543,19 @@ class _SportsNeoGroundDetailScreenState
           slots: entry.value
               .map((Map<String, dynamic> slot) => _toSlotItem(slot))
               .toList(),
-          selectedId: _selectedSlotId,
+          selectedIds: _selectedSlotIds,
           slotIds: entry.value
               .map((Map<String, dynamic> s) => _slotId(s))
               .toList(),
           onSlotTap: (String id, String status) {
             if (status.toLowerCase() == 'available') {
-              setState(
-                () => _selectedSlotId = _selectedSlotId == id ? null : id,
-              );
+              setState(() {
+                if (_selectedSlotIds.contains(id)) {
+                  _selectedSlotIds.remove(id);
+                } else {
+                  _selectedSlotIds.add(id);
+                }
+              });
             }
           },
         ),
@@ -535,8 +574,8 @@ class _SportsNeoGroundDetailScreenState
     final List<String> shownFacilities = widget.facilities.isEmpty
         ? const <String>['Parking', 'Washroom', 'Water', 'Lighting']
         : widget.facilities;
-    final Map<String, dynamic>? selSlot = _selectedSlot;
-    final int selPrice = selSlot != null ? _slotPrice(selSlot) : 0;
+    final List<Map<String, dynamic>> selectedSlots = _selectedSlots;
+    final int selPrice = _selectedSlotsTotal;
 
     final Widget imageFallback = Container(
       color: const Color(0xFF1D2D4A),
@@ -565,8 +604,8 @@ class _SportsNeoGroundDetailScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      selSlot != null
-                          ? '1 slot(s) selected'
+                      selectedSlots.isNotEmpty
+                          ? '${selectedSlots.length} slot(s) selected'
                           : 'No slot selected',
                       style: const TextStyle(
                         color: Color(0x99FFFFFF),
@@ -589,22 +628,58 @@ class _SportsNeoGroundDetailScreenState
               Container(
                 width: 52,
                 height: 52,
+                child: InkWell(
+                  onTap: () {
+                    _addSelectedSlotsToCart();
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SportsNeoBookingCartScreen(),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Icon(
+                    Icons.shopping_cart_outlined,
+                    color: Colors.white,
+                  ),
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFF2563EB)),
-                ),
-                child: const Icon(
-                  Icons.shopping_cart_outlined,
-                  color: Colors.white,
                 ),
               ),
               const SizedBox(width: 10),
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: selSlot == null || _isSlotPassed(selSlot)
+                  onPressed: selectedSlots.isEmpty
                       ? null
                       : () {
+                          _addSelectedSlotsToCart();
+
+                          if (selectedSlots.length > 1) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'API accepts one slot per booking. Added all selected slots to cart for batch booking.',
+                                ),
+                              ),
+                            );
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    const SportsNeoBookingCartScreen(),
+                              ),
+                            );
+                            return;
+                          }
+
+                          final Map<String, dynamic> selSlot =
+                              selectedSlots.first;
+                          if (_isSlotPassed(selSlot)) {
+                            return;
+                          }
+
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => SportsNeoBookingSummaryScreen(
@@ -677,23 +752,23 @@ class _SportsNeoGroundDetailScreenState
                   ),
 
                   Positioned.fill(
-  child: IgnorePointer(
-    child: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[
-            Color(0x14000000),
-            Colors.transparent,
-            Color(0xFF0A0F1E),
-          ],
-          stops: <double>[0, 0.42, 1],
-        ),
-      ),
-    ),
-  ),
-),
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: <Color>[
+                              Color(0x14000000),
+                              Colors.transparent,
+                              Color(0xFF0A0F1E),
+                            ],
+                            stops: <double>[0, 0.42, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                   if (heroImages.length > 1)
                     Positioned(
@@ -890,62 +965,73 @@ class _SportsNeoGroundDetailScreenState
                                           ],
                                         ),
                                         const SizedBox(height: 12),
-Wrap(
-  spacing: 6,
-  runSpacing: 6,
-  children: [
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: [
+                                            ...shownFacilities.take(3).map((
+                                              String f,
+                                            ) {
+                                              return Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  color: const Color(
+                                                    0x14FFFFFF,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  f,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              );
+                                            }),
 
-    ...shownFacilities.take(3).map(
-      (String f) {
-        return Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            color: const Color(0x14FFFFFF),
-          ),
-          child: Text(
-            f,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-            ),
-          ),
-        );
-      },
-    ),
+                                            if (shownFacilities.length > 3)
+                                              InkWell(
+                                                onTap: () =>
+                                                    FacilitiesDialog.show(
+                                                      context,
+                                                      facilities:
+                                                          shownFacilities,
+                                                    ),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
 
-    if (shownFacilities.length > 3)
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 5,
+                                                      ),
 
-      InkWell(
-        onTap: () => FacilitiesDialog.show(
-          context,
-          facilities: shownFacilities,
-        ),
-        borderRadius: BorderRadius.circular(6),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          6,
+                                                        ),
+                                                    color: const Color(
+                                                      0x24FFFFFF,
+                                                    ),
+                                                  ),
 
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 5,
-          ),
-
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            color: const Color(0x24FFFFFF),
-          ),
-
-          child: const Icon(
-            Icons.visibility_outlined,
-            color: Colors.white,
-            size: 18,
-          ),
-        ),
-      ),
-  ],
-)
+                                                  child: const Icon(
+                                                    Icons.visibility_outlined,
+                                                    color: Colors.white,
+                                                    size: 18,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1497,14 +1583,14 @@ class _SlotSection extends StatelessWidget {
   const _SlotSection({
     required this.title,
     required this.slots,
-    this.selectedId,
+    this.selectedIds = const <String>{},
     this.slotIds = const <String>[],
     this.onSlotTap,
   });
 
   final String title;
   final List<_SlotItem> slots;
-  final String? selectedId;
+  final Set<String> selectedIds;
   final List<String> slotIds;
   final void Function(String id, String status)? onSlotTap;
 
@@ -1525,7 +1611,7 @@ class _SlotSection extends StatelessWidget {
         ...List<Widget>.generate(slots.length, (int i) {
           final _SlotItem slot = slots[i];
           final String id = i < slotIds.length ? slotIds[i] : '';
-          final bool selected = id.isNotEmpty && id == selectedId;
+          final bool selected = id.isNotEmpty && selectedIds.contains(id);
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: GestureDetector(

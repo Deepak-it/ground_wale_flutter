@@ -52,6 +52,7 @@ class _SportsNeoAcademyDetailScreenState
   String? _error;
   List<Map<String, dynamic>> _academies = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _enrollments = <Map<String, dynamic>>[];
+  String _academySearchQuery = '';
   String _selectedSport = 'Cricket';
   String _filterCity = '';
 
@@ -603,23 +604,34 @@ class _SportsNeoAcademyDetailScreenState
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             children: <Widget>[
-              Icon(Icons.search_rounded, color: Color(0xFFCBD5E1), size: 22),
-              SizedBox(width: 12),
+              const Icon(
+                Icons.search_rounded,
+                color: Color(0xFFCBD5E1),
+                size: 22,
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'Search sports, academies or grounds',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Color(0xFF9CA3AF),
+                child: TextField(
+                  onChanged: (String value) {
+                    setState(() {
+                      _academySearchQuery = value;
+                    });
+                  },
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Search academies',
+                    hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
+                    border: InputBorder.none,
+                    isDense: true,
                   ),
                 ),
               ),
-              Icon(Icons.tune_rounded, color: Color(0xFFCBD5E1), size: 21),
+              const Icon(Icons.tune_rounded, color: Color(0xFFCBD5E1), size: 21),
             ],
           ),
         ),
@@ -906,8 +918,31 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
         .toList();
   }
 
+  List<Map<String, dynamic>> get _searchedAcademies {
+    final String query = _academySearchQuery.trim().toLowerCase();
+
+    if (query.isEmpty) {
+      return _academies;
+    }
+
+    return _academies.where((Map<String, dynamic> academy) {
+      final String name = academy['name']?.toString().toLowerCase() ?? '';
+      final String location =
+          academy['location']?.toString().toLowerCase() ?? '';
+      final String sport = academy['sport']?.toString().toLowerCase() ?? '';
+      final String facilities =
+          academy['facilities']?.toString().toLowerCase() ?? '';
+
+      return name.contains(query) ||
+          location.contains(query) ||
+          sport.contains(query) ||
+          facilities.contains(query);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final List<Map<String, dynamic>> searchedAcademies = _searchedAcademies;
     final List<Map<String, dynamic>> enrolledAcademies = _enrolledAcademies;
 
     return Scaffold(
@@ -968,13 +1003,13 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
                                   ? 'Discover $_selectedSportLabel academies across all cities'
                                   : 'Discover $_selectedSportLabel academies in ${_selectedCityFilter!}',
                               actionText: 'See all',
-                              onTap: _academies.isEmpty
+                              onTap: searchedAcademies.isEmpty
                                   ? null
                                   : () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute<void>(
                                           builder: (_) => _AcademyListScreen(
-                                            academies: _academies,
+                                            academies: searchedAcademies,
                                             cityLabel: _selectedCityFilter,
                                             sportLabel: _selectedSportLabel,
                                             onOpenAcademy: _openAcademy,
@@ -984,7 +1019,7 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
                                     },
                             ),
                             const SizedBox(height: 12),
-                            if (_academies.isEmpty)
+                            if (searchedAcademies.isEmpty)
                               const _AcademyEmptyCard(
                                 message:
                                     'No academies found for the selected city.',
@@ -994,12 +1029,12 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
                                 height: 360,
                                 child: ListView.separated(
                                   scrollDirection: Axis.horizontal,
-                                  itemCount: _academies.length,
+                                  itemCount: searchedAcademies.length,
                                   separatorBuilder: (_, _) =>
                                       const SizedBox(width: 12),
                                   itemBuilder: (_, int index) {
                                     final Map<String, dynamic> academy =
-                                        _academies[index];
+                                        searchedAcademies[index];
                                     return SizedBox(
                                       width: 270,
                                       child: _AcademyListCard(
