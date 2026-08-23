@@ -45,6 +45,34 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
   final GroundWaleApi _api = GroundWaleApi.instance;
   Timer? _notificationRefreshTimer;
+  List<double> _coordinatesFromMap(Map<String, dynamic> map) {
+    final dynamic mapLocation = map['mapLocation'];
+
+    if (mapLocation is Map) {
+      final dynamic coordinates = mapLocation['coordinates'];
+
+      if (coordinates is List && coordinates.length >= 2) {
+        final double longitude =
+            double.tryParse(
+                  coordinates[0].toString(),
+                ) ??
+                0;
+
+        final double latitude =
+            double.tryParse(
+                  coordinates[1].toString(),
+                ) ??
+                0;
+
+        return <double>[
+          longitude,
+          latitude,
+        ];
+      }
+    }
+
+    return <double>[0, 0];
+  }
 Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
   final String contact =
       ApiSession.instance.contactNumber?.trim() ?? '';
@@ -1410,7 +1438,23 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
           _doubleFromAny(item, ['rating', 'groundRating']) ?? 0;
 
       final List facilities = _facilitiesFromAny(item);
+      final List<double> coordinates = _coordinatesFromMap(item);
 
+      final double latitude =
+          _doubleFromAny(item, [
+            'latitude',
+            'lat',
+            'locationLatitude',
+          ]) ??
+          coordinates[1];
+
+      final double longitude =
+          _doubleFromAny(item, [
+            'longitude',
+            'lng',
+            'locationLongitude',
+          ]) ??
+          coordinates[0];
       return _GroundCardData(
         name: name,
         location: location,
@@ -1421,6 +1465,9 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
         rating: rating,
         facilities: facilities,
         groundId: item['_id']?.toString() ?? item['id']?.toString() ?? '',
+        latitude: latitude,
+        longitude: longitude,
+        ownerPhone: _stringFromAny(item, ['ownerPhone']) ?? '',
       );
     }).toList();
   }
@@ -2176,6 +2223,9 @@ class _NearbyGroundShowcaseCard extends StatelessWidget {
                               ),
                               price: item.price,
                               groundId: item.groundId,
+                              latitude: item.latitude,
+                              longitude: item.longitude,
+                              ownerPhone: item.ownerPhone,
                             ),
                           ),
                         );
@@ -2191,7 +2241,7 @@ class _NearbyGroundShowcaseCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Text(
-                          'View Detail',
+                          'Book Slots',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -2931,6 +2981,9 @@ class _GroundCardData {
     this.rating = 0,
     this.facilities = const [],
     this.groundId = '',
+    this.ownerPhone = '',
+    this.latitude = 0,
+    this.longitude = 0,
   });
 
   final String name;
@@ -2943,6 +2996,9 @@ class _GroundCardData {
   final double rating;
   final List facilities;
   final String groundId;
+  final double latitude;
+  final double longitude;
+  final String ownerPhone;
 }
 
 class _InfoCardData {

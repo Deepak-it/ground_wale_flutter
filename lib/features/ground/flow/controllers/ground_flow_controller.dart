@@ -198,9 +198,10 @@ class GroundFlowController extends ChangeNotifier {
         : '${data.pitchType.name} pitch for ${data.matchType} with ${data.facilities.join(', ')}';
     return <String, dynamic>{
       'ownerId': _session.ownerId,
+      'ownerPhone': _session.contactNumber,
       'groundName': entityName,
       'location': '${data.city}, ${data.state}',
-      if (data.mapLocation.trim().isNotEmpty) 'mapLocation': data.mapLocation,
+      'mapLocation': data.mapLocation,
       'address': data.address,
       'areaLocation': data.areaLocation,
       'landmark': data.landmark,

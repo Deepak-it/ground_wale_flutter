@@ -339,6 +339,9 @@ class _NearbyGroundListCard extends StatelessWidget {
                               facilities: item.facilities,
                               price: item.price,
                               groundId: item.groundId,
+                              latitude: item.latitude,
+                              longitude: item.longitude,
+                              ownerPhone: item.ownerPhone,
                             ),
                           ),
                         );
@@ -383,16 +386,43 @@ class _NearbyGroundItem {
     required this.facilities,
     required this.price,
     this.groundId = '',
+    this.latitude = 0,
+    this.longitude = 0,
+    this.ownerPhone = '',
   });
 
   final String name;
   final String location;
+  final double latitude;
+  final double longitude;
   final String image;
   final double rating;
   final List<String> facilities;
   final String price;
+  final String ownerPhone;
   final String groundId;
+  static List<double> _coordinatesFromMap(Map<String, dynamic> map) {
+    final dynamic mapLocation = map['mapLocation'];
 
+    if (mapLocation is Map) {
+      final dynamic coordinates = mapLocation['coordinates'];
+
+      if (coordinates is List && coordinates.length >= 2) {
+        final double longitude =
+            double.tryParse(coordinates[0].toString()) ?? 0;
+
+        final double latitude =
+            double.tryParse(coordinates[1].toString()) ?? 0;
+
+        return <double>[
+          longitude,
+          latitude,
+        ];
+      }
+    }
+
+    return <double>[0, 0];
+  }
   factory _NearbyGroundItem.fromMap(
     Map<String, dynamic> map, {
     required String fallbackLocation,
@@ -419,6 +449,11 @@ class _NearbyGroundItem {
           : facilities,
       price: priceText ?? 'N/A',
       groundId: map['_id']?.toString() ?? map['id']?.toString() ?? '',
+      latitude: _doubleFromAny(map, <String>['latitude', 'lat']) ??
+          _coordinatesFromMap(map)[1],
+      longitude: _doubleFromAny(map, <String>['longitude', 'lng']) ??
+          _coordinatesFromMap(map)[0],
+      ownerPhone: _stringFromAny(map, <String>['ownerPhone']) ?? '',
     );
   }
 

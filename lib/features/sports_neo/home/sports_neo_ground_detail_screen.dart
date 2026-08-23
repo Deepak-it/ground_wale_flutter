@@ -3,6 +3,7 @@
 import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/base64_image.dart';
 import 'sports_neo_booking_summary_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SportsNeoGroundDetailScreen extends StatefulWidget {
   const SportsNeoGroundDetailScreen({
@@ -14,6 +15,9 @@ class SportsNeoGroundDetailScreen extends StatefulWidget {
     required this.facilities,
     required this.price,
     this.groundId = '',
+    this.ownerPhone = '',
+    this.latitude = 0.0,
+    this.longitude = 0.0,
   });
 
   final String name;
@@ -23,7 +27,9 @@ class SportsNeoGroundDetailScreen extends StatefulWidget {
   final List<String> facilities;
   final String price;
   final String groundId;
-
+  final double latitude;
+  final double longitude;
+  final String ownerPhone;
   @override
   State<SportsNeoGroundDetailScreen> createState() =>
       _SportsNeoGroundDetailScreenState();
@@ -90,6 +96,51 @@ class _SportsNeoGroundDetailScreenState
     );
 
     return !slotStart.isAfter(today);
+  }
+  Future<void> _openLocation() async {
+    if (widget.latitude == 0 || widget.longitude == 0) {
+      return;
+    }
+
+    final Uri googleMapUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${widget.latitude},${widget.longitude}',
+    );
+
+    if (await canLaunchUrl(googleMapUri)) {
+      await launchUrl(
+        googleMapUri,
+        mode: LaunchMode.externalApplication,
+      );
+    }
+  }
+  Future<void> _callOwner() async {
+    final phone = widget.ownerPhone;
+    if (phone.isNotEmpty) {
+      final Uri callUri = Uri(
+        scheme: 'tel',
+        path: phone,
+      );
+
+      if (await canLaunchUrl(callUri)) {
+        await launchUrl(callUri);
+      }
+    }
+  }
+  Future<void> _whatsappOwner() async {
+    final phone = widget.ownerPhone;
+
+    if (phone.isNotEmpty) {
+      final Uri whatsappUri = Uri.parse(
+        'https://wa.me/$phone',
+      );
+
+      if (await canLaunchUrl(whatsappUri)) {
+        await launchUrl(
+          whatsappUri,
+          mode: LaunchMode.externalApplication,
+        );
+      }
+    }
   }
   Future<void> _selectCalendarDate(DateTime date) async {
     final DateTime normalized = _dateOnly(date);
@@ -545,32 +596,42 @@ class _SportsNeoGroundDetailScreenState
       body: Stack(
         children: <Widget>[
           Positioned(
-            top: 104,
-            left: 0,
-            right: 0,
+            top:0,
+            left:0,
+            right:0,
             child: SizedBox(
-              height: 240,
-              child: buildBase64OrNetworkImage(
-                value: widget.image,
-                fit: BoxFit.cover,
-                fallback: Container(
-                  color: const Color(0xFF1E293B),
-                  child: const Icon(
-                    Icons.image_outlined,
-                    color: Colors.white54,
-                    size: 40,
+              height:320,
+              child: Stack(
+                children:[
+                  buildBase64OrNetworkImage(
+                      value: widget.image,
+                      fit: BoxFit.cover,
                   ),
-                ),
+
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors:[
+                          Colors.transparent,
+                          Color(0xFF0A0F1E)
+                        ],
+                      ),
+                    ),
+                  )
+                ],
               ),
             ),
           ),
           SafeArea(
             child: Column(
               children: <Widget>[
-                _TopHeader(
-                  title: 'Ground Detail',
-                  onBack: () => Navigator.of(context).pop(),
-                ),
+              _TopHeader(
+                title: 'Ground Detail',
+                groundName: widget.name,
+                onBack: () => Navigator.of(context).pop(),
+              ),
                 Expanded(
                   child: Stack(
                     children: <Widget>[
@@ -724,18 +785,6 @@ class _SportsNeoGroundDetailScreenState
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: <Widget>[
-                                      _PanelCard(
-                                        title: 'About Us',
-                                        child: const Text(
-                                          'Professional cricket ground with well-maintained turf pitch. '
-                                          'Suitable for practice matches and tournaments.',
-                                          style: TextStyle(
-                                            color: Color(0xFFDDDDDD),
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                        ),
-                                      ),
                                       const SizedBox(height: 12),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
@@ -754,19 +803,31 @@ class _SportsNeoGroundDetailScreenState
                                           mainAxisAlignment:
                                               MainAxisAlignment.spaceBetween,
                                           children: <Widget>[
-                                            _CircleAction(
+                                          InkWell(
+                                            onTap: _callOwner,
+                                            borderRadius: BorderRadius.circular(30),
+                                            child: const _CircleAction(
                                               icon: Icons.call,
-                                              color: const Color(0xFF08B36A),
+                                              color: Color(0xFF08B36A),
+                                            ),
+                                          ),
+                                            _divider(),
+                                            InkWell(
+                                              onTap: _openLocation,
+                                              borderRadius: BorderRadius.circular(30),
+                                              child: const _CircleAction(
+                                                icon: Icons.near_me_rounded,
+                                                color: Color(0xFFDA321F),
+                                              ),
                                             ),
                                             _divider(),
-                                            _CircleAction(
-                                              icon: Icons.near_me_rounded,
-                                              color: const Color(0xFFDA321F),
-                                            ),
-                                            _divider(),
-                                            _CircleAction(
-                                              icon: Icons.chat,
-                                              color: const Color(0xFF22C55E),
+                                            InkWell(
+                                              onTap: _whatsappOwner,
+                                              borderRadius: BorderRadius.circular(30),
+                                              child: const _CircleAction(
+                                                icon: Icons.chat,
+                                                color: Color(0xFF25D366),
+                                              ),
                                             ),
                                             _divider(),
                                             _CircleAction(
@@ -987,14 +1048,15 @@ class _SportsNeoGroundDetailScreenState
   }
 }
 
-
 class _TopHeader extends StatelessWidget {
   const _TopHeader({
     required this.title,
+    required this.groundName,
     required this.onBack,
   });
 
   final String title;
+  final String groundName;
   final VoidCallback onBack;
 
   @override
@@ -1009,39 +1071,52 @@ class _TopHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
       child: Row(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              InkWell(
-                onTap: onBack,
-                borderRadius: BorderRadius.circular(22),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
+          InkWell(
+            onTap: onBack,
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 18,
               ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+
+          const Spacer(),
+
+          Flexible(
+            child: Text(
+              groundName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 }
-
 class _RoundIcon extends StatelessWidget {
   const _RoundIcon({required this.icon});
 

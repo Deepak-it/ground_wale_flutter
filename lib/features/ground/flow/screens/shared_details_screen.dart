@@ -111,8 +111,14 @@ class _SharedDetailsScreenState extends State<SharedDetailsScreen> {
         if (result.pinCode.isNotEmpty) {
           _pinCodeController.text = result.pinCode;
         }
-        widget.controller.data.mapLocation =
-            '${result.latitude},${result.longitude}';
+
+        widget.controller.data.mapLocation = {
+          'type': 'Point',
+          'coordinates': [
+            result.longitude, // longitude first
+            result.latitude,  // latitude second
+          ],
+        };
         // Lock fields only when geocoding actually found city/state.
         // If geocodingSucceeded is false, GPS coordinates were saved but
         // city/state are empty → leave fields editable for manual entry.
