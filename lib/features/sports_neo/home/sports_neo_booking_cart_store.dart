@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/api/api_session.dart';
+import '../../../core/api/ground_wale_api.dart';
+
 class SportsNeoBookingCartSlot {
   const SportsNeoBookingCartSlot({
     required this.slotId,
@@ -61,6 +64,8 @@ class SportsNeoBookingCartStore {
   static final SportsNeoBookingCartStore instance =
       SportsNeoBookingCartStore._();
 
+  final GroundWaleApi _api = GroundWaleApi.instance;
+
   final ValueNotifier<List<SportsNeoBookingCartGround>> notifier =
       ValueNotifier<List<SportsNeoBookingCartGround>>(
         const <SportsNeoBookingCartGround>[],
@@ -78,81 +83,162 @@ class SportsNeoBookingCartStore {
         return sum + item.totalAmount;
       });
 
-  void addSlots({
+  Future<void> refreshFromServer() async {
+    final String ownerId = (ApiSession.instance.ownerId ?? '').trim();
+    if (ownerId.isEmpty) {
+      notifier.value = const <SportsNeoBookingCartGround>[];
+      return;
+    }
+
+    final Map<String, dynamic> response = await _api.getBookingCart(ownerId);
+    notifier.value = _mapItemsFromApi(response['items']);
+  }
+
+  Future<void> addSlots({
     required String groundId,
     required String groundName,
     required String location,
     required List<String> facilities,
     required List<SportsNeoBookingCartSlot> slots,
-  }) {
+  }) async {
     if (groundId.trim().isEmpty || slots.isEmpty) {
       return;
     }
 
-    final List<SportsNeoBookingCartGround> next =
-        List<SportsNeoBookingCartGround>.from(items);
-    final int existingIndex = next.indexWhere(
-      (SportsNeoBookingCartGround item) => item.groundId == groundId,
-    );
-
-    if (existingIndex == -1) {
-      notifier.value = <SportsNeoBookingCartGround>[
-        ...next,
-        SportsNeoBookingCartGround(
-          groundId: groundId,
-          groundName: groundName,
-          location: location,
-          facilities: facilities,
-          slots: _dedupeSlots(slots),
-        ),
-      ];
+    final String ownerId = (ApiSession.instance.ownerId ?? '').trim();
+    if (ownerId.isEmpty) {
       return;
     }
 
-    final SportsNeoBookingCartGround existing = next[existingIndex];
-    final List<SportsNeoBookingCartSlot> merged = _dedupeSlots(
-      <SportsNeoBookingCartSlot>[...existing.slots, ...slots],
-    );
+    final Map<String, dynamic> payload = <String, dynamic>{
+      'groundId': groundId,
+      'groundName': groundName,
+      'location': location,
+      'facilities': facilities,
+      'slots': slots
+          .map(
+            (SportsNeoBookingCartSlot slot) => <String, dynamic>{
+              'slotId': slot.slotId,
+              'date': slot.date,
+              'startTime': slot.startTime,
+              'endTime': slot.endTime,
+              'amount': slot.amount,
+            },
+          )
+          .toList(),
+    };
 
-    next[existingIndex] = existing.copyWith(
-      groundName: groundName,
-      location: location,
-      facilities: facilities,
-      slots: merged,
+    final Map<String, dynamic> response = await _api.addBookingCartSlots(
+      ownerId,
+      payload,
     );
-    notifier.value = next;
+    notifier.value = _mapItemsFromApi(response['items']);
   }
 
-  void removeGround(String groundId) {
-    notifier.value = items
-        .where((SportsNeoBookingCartGround item) => item.groundId != groundId)
+  Future<void> removeGround(String groundId) async {
+    final String ownerId = (ApiSession.instance.ownerId ?? '').trim();
+    if (ownerId.isEmpty || groundId.trim().isEmpty) {
+      return;
+    }
+
+    final Map<String, dynamic> response = await _api.removeBookingCartGround(
+      ownerId,
+      groundId,
+    );
+    notifier.value = _mapItemsFromApi(response['items']);
+  }
+
+  Future<void> removeSlot(String groundId, String slotKey) async {
+    final String ownerId = (ApiSession.instance.ownerId ?? '').trim();
+    if (ownerId.isEmpty || groundId.trim().isEmpty || slotKey.trim().isEmpty) {
+      return;
+    }
+
+    final Map<String, dynamic> response = await _api.removeBookingCartSlot(
+      ownerId,
+      groundId,
+      Uri.encodeComponent(slotKey),
+    );
+    notifier.value = _mapItemsFromApi(response['items']);
+  }
+
+  Future<void> clear() async {
+    final String ownerId = (ApiSession.instance.ownerId ?? '').trim();
+    if (ownerId.isEmpty) {
+      notifier.value = const <SportsNeoBookingCartGround>[];
+      return;
+    }
+
+    final Map<String, dynamic> response = await _api.clearBookingCart(ownerId);
+    notifier.value = _mapItemsFromApi(response['items']);
+  }
+
+  static List<SportsNeoBookingCartGround> _mapItemsFromApi(dynamic rawItems) {
+    if (rawItems is! List) {
+      return const <SportsNeoBookingCartGround>[];
+    }
+
+    return rawItems
+        .whereType<Map>()
+        .map((Map item) {
+          final Map<String, dynamic> map = Map<String, dynamic>.from(item);
+          final List<SportsNeoBookingCartSlot> slots = _mapSlotsFromApi(
+            map['slots'],
+          );
+
+          return SportsNeoBookingCartGround(
+            groundId: map['groundId']?.toString() ?? '',
+            groundName: map['groundName']?.toString() ?? 'Ground',
+            location: map['location']?.toString() ?? '',
+            facilities: _mapFacilitiesFromApi(map['facilities']),
+            slots: slots,
+          );
+        })
+        .where((SportsNeoBookingCartGround ground) {
+          return ground.groundId.trim().isNotEmpty && ground.slots.isNotEmpty;
+        })
         .toList();
   }
 
-  void removeSlot(String groundId, String slotKey) {
-    final List<SportsNeoBookingCartGround> next =
-        <SportsNeoBookingCartGround>[];
-
-    for (final SportsNeoBookingCartGround item in items) {
-      if (item.groundId != groundId) {
-        next.add(item);
-        continue;
-      }
-
-      final List<SportsNeoBookingCartSlot> slots = item.slots
-          .where((SportsNeoBookingCartSlot slot) => slot.key != slotKey)
-          .toList();
-
-      if (slots.isNotEmpty) {
-        next.add(item.copyWith(slots: slots));
-      }
+  static List<SportsNeoBookingCartSlot> _mapSlotsFromApi(dynamic rawSlots) {
+    if (rawSlots is! List) {
+      return const <SportsNeoBookingCartSlot>[];
     }
 
-    notifier.value = next;
+    final List<SportsNeoBookingCartSlot> slots = rawSlots
+        .whereType<Map>()
+        .map((Map item) {
+          final Map<String, dynamic> map = Map<String, dynamic>.from(item);
+          final dynamic amountValue = map['amount'];
+          final int amount = amountValue is num
+              ? amountValue.toInt()
+              : int.tryParse(amountValue?.toString() ?? '') ?? 0;
+
+          return SportsNeoBookingCartSlot(
+            slotId: map['slotId']?.toString() ?? '',
+            date: map['date']?.toString() ?? '',
+            startTime: map['startTime']?.toString() ?? '',
+            endTime: map['endTime']?.toString() ?? '',
+            amount: amount,
+          );
+        })
+        .where((SportsNeoBookingCartSlot slot) {
+          return slot.slotId.trim().isNotEmpty && slot.date.trim().isNotEmpty;
+        })
+        .toList();
+
+    return _dedupeSlots(slots);
   }
 
-  void clear() {
-    notifier.value = const <SportsNeoBookingCartGround>[];
+  static List<String> _mapFacilitiesFromApi(dynamic rawFacilities) {
+    if (rawFacilities is! List) {
+      return const <String>[];
+    }
+
+    return rawFacilities
+        .map((dynamic item) => item.toString().trim())
+        .where((String item) => item.isNotEmpty)
+        .toList();
   }
 
   static List<SportsNeoBookingCartSlot> _dedupeSlots(

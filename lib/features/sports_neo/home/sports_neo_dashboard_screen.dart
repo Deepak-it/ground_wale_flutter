@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:ground_wale/features/sports_neo/home/sports_neo_booking_cart_screen.dart';
 import 'package:ground_wale/features/sports_neo/home/sports_neo_side_bar_screen.dart';
 import './sports_neo_facilities_dialog.dart';
 import '../../../core/api/api_session.dart';
@@ -935,7 +936,7 @@ List<_GroundCardData> get _searchedGrounds {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) =>
-                                      const SportsNeoBookingHistoryScreen(),
+                                      const SportsNeoBookingCartScreen(),
                                 ),
                               );
                             },

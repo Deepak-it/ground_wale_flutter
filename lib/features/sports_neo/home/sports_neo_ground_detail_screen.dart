@@ -170,9 +170,12 @@ class _SportsNeoGroundDetailScreenState
       'https://www.google.com/maps/search/?api=1&query=${widget.latitude},${widget.longitude}',
     );
 
-    if (await canLaunchUrl(googleMapUri)) {
-      await launchUrl(googleMapUri, mode: LaunchMode.externalApplication);
-    }
+    final ok = await launchUrl(
+      googleMapUri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    debugPrint("Launch result: $ok");
   }
 
   Future<void> _callOwner() async {
@@ -180,21 +183,22 @@ class _SportsNeoGroundDetailScreenState
     if (phone.isNotEmpty) {
       final Uri callUri = Uri(scheme: 'tel', path: phone);
 
-      if (await canLaunchUrl(callUri)) {
-        await launchUrl(callUri);
-      }
+      final ok = await launchUrl(callUri, mode: LaunchMode.externalApplication);
     }
   }
 
   Future<void> _whatsappOwner() async {
-    final phone = widget.ownerPhone;
-
+    String phone = widget.ownerPhone;
     if (phone.isNotEmpty) {
+      if (phone.length == 10) {
+        phone = '91$phone';
+      }
       final Uri whatsappUri = Uri.parse('https://wa.me/$phone');
 
-      if (await canLaunchUrl(whatsappUri)) {
-        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
-      }
+      final ok = await launchUrl(
+        whatsappUri,
+        mode: LaunchMode.externalApplication,
+      );
     }
   }
 
@@ -462,10 +466,10 @@ class _SportsNeoGroundDetailScreenState
     });
   }
 
-  void _addSelectedSlotsToCart() {
+  Future<bool> _addSelectedSlotsToCart() async {
     final List<Map<String, dynamic>> selected = _selectedSlots;
     if (selected.isEmpty || widget.groundId.trim().isEmpty) {
-      return;
+      return false;
     }
 
     final List<SportsNeoBookingCartSlot> cartSlots = selected
@@ -482,16 +486,35 @@ class _SportsNeoGroundDetailScreenState
         .toList();
 
     if (cartSlots.isEmpty) {
-      return;
+      return false;
     }
 
-    SportsNeoBookingCartStore.instance.addSlots(
-      groundId: widget.groundId,
-      groundName: widget.name,
-      location: widget.location,
-      facilities: widget.facilities,
-      slots: cartSlots,
-    );
+    try {
+      await SportsNeoBookingCartStore.instance.addSlots(
+        groundId: widget.groundId,
+        groundName: widget.name,
+        location: widget.location,
+        facilities: widget.facilities,
+        slots: cartSlots,
+      );
+      return true;
+    } catch (error) {
+      if (!mounted) {
+        return false;
+      }
+
+      final String message = error
+          .toString()
+          .replaceFirst('Exception: ', '')
+          .trim();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message.isEmpty ? 'Failed to update cart.' : message),
+        ),
+      );
+      return false;
+    }
   }
 
   Widget _buildSlotSections() {
@@ -629,8 +652,11 @@ class _SportsNeoGroundDetailScreenState
                 width: 52,
                 height: 52,
                 child: InkWell(
-                  onTap: () {
-                    _addSelectedSlotsToCart();
+                  onTap: () async {
+                    final bool added = await _addSelectedSlotsToCart();
+                    if (!added || !mounted) {
+                      return;
+                    }
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => const SportsNeoBookingCartScreen(),
@@ -654,8 +680,11 @@ class _SportsNeoGroundDetailScreenState
                 child: ElevatedButton(
                   onPressed: selectedSlots.isEmpty
                       ? null
-                      : () {
-                          _addSelectedSlotsToCart();
+                      : () async {
+                          final bool added = await _addSelectedSlotsToCart();
+                          if (!added || !mounted) {
+                            return;
+                          }
 
                           if (selectedSlots.length > 1) {
                             ScaffoldMessenger.of(context).showSnackBar(

@@ -690,6 +690,72 @@ class GroundWaleApi {
     }
   }
 
+  Future<Map<String, dynamic>> getBookingCart(String ownerId) async {
+    try {
+      final Response<dynamic> response = await _dio.get<dynamic>(
+        '/cart/$ownerId',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> addBookingCartSlots(
+    String ownerId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/cart/$ownerId/slots',
+        data: payload,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> removeBookingCartGround(
+    String ownerId,
+    String groundId,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.delete<dynamic>(
+        '/cart/$ownerId/grounds/$groundId',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> removeBookingCartSlot(
+    String ownerId,
+    String groundId,
+    String slotKey,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.delete<dynamic>(
+        '/cart/$ownerId/grounds/$groundId/slots/$slotKey',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> clearBookingCart(String ownerId) async {
+    try {
+      final Response<dynamic> response = await _dio.delete<dynamic>(
+        '/cart/$ownerId',
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<Map<String, dynamic>> getBookingSummary(
     String groundId, {
     String? status,

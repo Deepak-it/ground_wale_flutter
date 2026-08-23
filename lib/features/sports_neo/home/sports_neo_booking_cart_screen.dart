@@ -20,6 +20,20 @@ class _SportsNeoBookingCartScreenState
       SportsNeoBookingCartStore.instance;
   bool _isSubmitting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _syncCart();
+  }
+
+  Future<void> _syncCart() async {
+    try {
+      await _cartStore.refreshFromServer();
+    } catch (_) {
+      // Keep current state if cart sync fails.
+    }
+  }
+
   int _bookingTotal(List<SportsNeoBookingCartGround> items) {
     return items.fold<int>(0, (int sum, SportsNeoBookingCartGround item) {
       return sum + item.totalAmount;
@@ -76,9 +90,13 @@ class _SportsNeoBookingCartScreenState
         for (final SportsNeoBookingCartSlot slot in item.slots) {
           final String key = '${item.groundId}|${slot.key}';
           if (successKeys.contains(key)) {
-            _cartStore.removeSlot(item.groundId, slot.key);
+            await _cartStore.removeSlot(item.groundId, slot.key);
           }
         }
+      }
+
+      if (failedCount == 0) {
+        await _cartStore.clear();
       }
 
       if (!mounted) {
@@ -159,8 +177,11 @@ class _SportsNeoBookingCartScreenState
                                   padding: const EdgeInsets.only(bottom: 16),
                                   child: _CartGroundCard(
                                     item: item,
-                                    onRemoveGround: () =>
-                                        _cartStore.removeGround(item.groundId),
+                                    onRemoveGround: () async {
+                                      await _cartStore.removeGround(
+                                        item.groundId,
+                                      );
+                                    },
                                     onRemoveSlot: (String slotKey) {
                                       _cartStore.removeSlot(
                                         item.groundId,

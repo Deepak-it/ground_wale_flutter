@@ -561,7 +561,6 @@ class _SlotManagementScreenState extends State<SlotManagementScreen> {
       if (widget.controller != null) {
         if (!widget.controller!.isAcademyFlow &&
             widget.controller!.skipOwnershipVerification) {
-          await widget.controller!.submitGroundForVerification();
         }
         if (!mounted) {
           return;

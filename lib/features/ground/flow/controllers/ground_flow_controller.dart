@@ -374,6 +374,11 @@ class GroundFlowController extends ChangeNotifier {
           ground['_id']?.toString() ?? ground['id']?.toString(),
         );
 
+        // A new draft/ground may be created during skip-verification flows
+        // (for example from day-wise pricing). Clear this flag so later
+        // steps update the same ground instead of trying to create again.
+        forceCreateGround = false;
+
         await _api.submitGroundForReview(_session.groundId!);
       }
     } catch (error) {
