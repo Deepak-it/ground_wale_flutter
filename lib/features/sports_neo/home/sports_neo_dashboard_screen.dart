@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:ground_wale/features/sports_neo/home/sports_neo_side_bar_screen.dart';
-
+import './sports_neo_facilities_dialog.dart';
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
 import '../../../core/utils/base64_image.dart';
@@ -21,6 +21,7 @@ import 'sports_neo_onboarding_flow.dart';
 import 'sports_neo_split_payment_flow_screens.dart';
 import 'sports_neo_settings_screen.dart';
 import '../../../core/utils/sport_icons_util.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SportsNeoDashboardScreen extends StatefulWidget {
   const SportsNeoDashboardScreen({super.key});
@@ -53,124 +54,101 @@ class _SportsNeoDashboardScreenState extends State<SportsNeoDashboardScreen> {
 
       if (coordinates is List && coordinates.length >= 2) {
         final double longitude =
-            double.tryParse(
-                  coordinates[0].toString(),
-                ) ??
-                0;
+            double.tryParse(coordinates[0].toString()) ?? 0;
 
-        final double latitude =
-            double.tryParse(
-                  coordinates[1].toString(),
-                ) ??
-                0;
+        final double latitude = double.tryParse(coordinates[1].toString()) ?? 0;
 
-        return <double>[
-          longitude,
-          latitude,
-        ];
+        return <double>[longitude, latitude];
       }
     }
 
     return <double>[0, 0];
   }
-Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
-  final String contact =
-      ApiSession.instance.contactNumber?.trim() ?? '';
 
-  final String ownerName =
-      ApiSession.instance.ownerName?.trim().toLowerCase() ?? '';
+  Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
+    final String contact = ApiSession.instance.contactNumber?.trim() ?? '';
 
-  if (contact.isEmpty && ownerName.isEmpty) {
-    return [];
-  }
+    final String ownerName =
+        ApiSession.instance.ownerName?.trim().toLowerCase() ?? '';
 
-  final List<Map<String, dynamic>> grounds =
-      await _api.listGrounds();
-
-  final List<Map<String, dynamic>> bookings = [];
-
-  for (final ground in grounds) {
-    final String groundId =
-        ground['_id']?.toString() ??
-        ground['id']?.toString() ??
-        '';
-
-    if (groundId.isEmpty) {
-      continue;
+    if (contact.isEmpty && ownerName.isEmpty) {
+      return [];
     }
 
-    try {
-      final List<Map<String, dynamic>> groundBookings =
-          await _api.listBookings(groundId);
+    final List<Map<String, dynamic>> grounds = await _api.listGrounds();
 
-      final String groundName =
-          ground['groundName']?.toString() ??
-          ground['name']?.toString() ??
-          'Ground';
+    final List<Map<String, dynamic>> bookings = [];
 
-      final String groundSport =
-          ground['sports'] is List &&
-                  (ground['sports'] as List).isNotEmpty
-              ? (ground['sports'] as List)
-                  .first
-                  .toString()
-                  .trim()
-              : '';
+    for (final ground in grounds) {
+      final String groundId =
+          ground['_id']?.toString() ?? ground['id']?.toString() ?? '';
 
-      for (final booking in groundBookings) {
-        final String captainPhone =
-            booking['captainPhone']?.toString().trim() ?? '';
-
-        final String captainName =
-            booking['captainName']?.toString().trim().toLowerCase() ?? '';
-
-        final bool belongsToUser =
-            (contact.isNotEmpty && captainPhone == contact) ||
-            (ownerName.isNotEmpty && captainName == ownerName);
-
-        if (!belongsToUser) {
-          continue;
-        }
-
-        final String status =
-            (booking['bookingStatus'] ?? '')
-                .toString()
-                .toLowerCase();
-
-        if (status == 'cancelled' ||
-            status == 'completed' ||
-            status == 'refunded') {
-          continue;
-        }
-
-        booking['groundName'] = groundName;
-        booking['groundSport'] = groundSport;
-
-        bookings.add(booking);
+      if (groundId.isEmpty) {
+        continue;
       }
-    } catch (_) {
-      // Ignore failed ground booking requests.
+
+      try {
+        final List<Map<String, dynamic>> groundBookings = await _api
+            .listBookings(groundId);
+
+        final String groundName =
+            ground['groundName']?.toString() ??
+            ground['name']?.toString() ??
+            'Ground';
+
+        final String groundSport =
+            ground['sports'] is List && (ground['sports'] as List).isNotEmpty
+            ? (ground['sports'] as List).first.toString().trim()
+            : '';
+
+        for (final booking in groundBookings) {
+          final String captainPhone =
+              booking['captainPhone']?.toString().trim() ?? '';
+
+          final String captainName =
+              booking['captainName']?.toString().trim().toLowerCase() ?? '';
+
+          final bool belongsToUser =
+              (contact.isNotEmpty && captainPhone == contact) ||
+              (ownerName.isNotEmpty && captainName == ownerName);
+
+          if (!belongsToUser) {
+            continue;
+          }
+
+          final String status = (booking['bookingStatus'] ?? '')
+              .toString()
+              .toLowerCase();
+
+          if (status == 'cancelled' ||
+              status == 'completed' ||
+              status == 'refunded') {
+            continue;
+          }
+
+          booking['groundName'] = groundName;
+          booking['groundSport'] = groundSport;
+
+          bookings.add(booking);
+        }
+      } catch (_) {
+        // Ignore failed ground booking requests.
+      }
     }
+
+    bookings.sort((a, b) {
+      final DateTime da =
+          DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime(2100);
+
+      final DateTime db =
+          DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime(2100);
+
+      return da.compareTo(db);
+    });
+
+    return bookings.take(3).toList();
   }
 
-  bookings.sort((a, b) {
-    final DateTime da =
-        DateTime.tryParse(
-              a['date']?.toString() ?? '',
-            ) ??
-            DateTime(2100);
-
-    final DateTime db =
-        DateTime.tryParse(
-              b['date']?.toString() ?? '',
-            ) ??
-            DateTime(2100);
-
-    return da.compareTo(db);
-  });
-
-  return bookings.take(3).toList();
-}
   String _profileName = '';
   String _profilePhone = '';
   String? _profileImage;
@@ -218,6 +196,7 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
 
     _startNotificationRefreshTimer();
   }
+
   void _startNotificationRefreshTimer() {
     _notificationRefreshTimer?.cancel();
 
@@ -239,8 +218,8 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
     }
 
     try {
-      final List<Map<String, dynamic>> notifications =
-          await _api.listNotifications(ownerId);
+      final List<Map<String, dynamic>> notifications = await _api
+          .listNotifications(ownerId);
 
       if (!mounted) {
         return;
@@ -259,176 +238,168 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
       // Keep the existing badge count if the refresh fails.
     }
   }
+
   @override
   void dispose() {
     _notificationRefreshTimer?.cancel();
     super.dispose();
   }
 
-
- Future<void> _loadSportsNeoData() async {
-  if (mounted) {
-    setState(() {
-      _isGroundsLoading = true;
-    });
-  }
-
-  try {
-    final String? ownerId = ApiSession.instance.ownerId;
-
-    Map<String, dynamic>? profile;
-    Map<String, dynamic>? dashboard;
-
-    List<Map<String, dynamic>> grounds = <Map<String, dynamic>>[];
-    List<Map<String, dynamic>> teams = <Map<String, dynamic>>[];
-    List<Map<String, dynamic>> ownerBookings =
-        <Map<String, dynamic>>[];
-    List<Map<String, dynamic>> ownerLedger = <Map<String, dynamic>>[];
-
-    Future<T?> safely<T>(Future<T> Function() fn) async {
-      try {
-        return await fn();
-      } catch (e, st) {
-        debugPrint(e.toString());
-        debugPrint(st.toString());
-        return null;
-      }
-    }
-
-    if (ownerId != null && ownerId.isNotEmpty) {
-      final List<dynamic> batch1 = await Future.wait<dynamic>([
-        safely(
-          () => _api.listGrounds(
-            city: _selectedCityFilter,
-            sport: _selectedSportFilter,
-          ),
-        ),
-        safely(() => _api.getOwnerProfile(ownerId)),
-        safely(() => _api.getDashboard(ownerId)),
-        safely(() => _api.listTeams(ownerId)),
-        safely(() => _api.listNotifications(ownerId)),
-        safely(() => _loadUpcomingBookings()), // NEW
-      ]);
-
-      grounds =
-          (batch1[0] as List<Map<String, dynamic>>?) ??
-          <Map<String, dynamic>>[];
-
-      profile = batch1[1] as Map<String, dynamic>?;
-
-      dashboard = batch1[2] as Map<String, dynamic>?;
-
-      teams =
-          (batch1[3] as List<Map<String, dynamic>>?) ??
-          <Map<String, dynamic>>[];
-      ownerBookings =
-          (batch1[5] as List<Map<String, dynamic>>?) ??
-          <Map<String, dynamic>>[];
-      final List<Map<String, dynamic>>? notifications =
-          batch1[4] as List<Map<String, dynamic>>?;
-
-      if (notifications != null) {
-        _unreadNotifications = notifications
-            .where((item) => item['isRead'] != true)
-            .length;
-      }
-    } else {
-      grounds = await _api.listGrounds(
-        city: _selectedCityFilter,
-        sport: _selectedSportFilter,
-      );
-    }
-
-    if (!mounted) return;
-
-    final String profileName =
-        _stringValue(profile, ['ownerName', 'name', 'fullName']) ??
-        _profileName;
-
-    final String profilePhone =
-        _stringValue(profile, ['contactNumber', 'phone', 'mobile']) ??
-        ApiSession.instance.contactNumber ??
-        _profilePhone;
-
-    final String location =
-        _stringValue(profile, ['address', 'city', 'location']) ??
-        _location;
-
-    final String profileCity =
-        _stringValue(profile, ['city']) ??
-        location.split(',').first.trim();
-
-    final List<_InfoCardData> mappedTeams = teams.isNotEmpty
-        ? _mapTeamsFromOwnerEndpoint(teams)
-        : _mapInfoCards(
-            _extractMapList(dashboard, [
-              'myTeams',
-              'teams',
-              'teamList',
-            ]),
-            defaultStatus: 'Active',
-            fallbackSubtitle: 'No details available',
-          );
-
-        final List<_InfoCardData> mappedBookings =
-            _mapBookingsFromGroundEndpoint(ownerBookings);
-
-    final List<_LedgerCardData> mappedLedger = ownerLedger.isNotEmpty
-        ? _mapLedgerCards(ownerLedger)
-        : _mapLedgerCards(
-            _extractMapList(dashboard, [
-              'ledger',
-              'transactions',
-              'walletTransactions',
-            ]),
-          );
-
-    final int teamsCount =
-        _intValue(dashboard, ['teamsCount']) ?? mappedTeams.length;
-
-    final int bookingsCount =
-        _intValue(dashboard, ['bookingsCount']) ??
-        mappedBookings.length;
-
-    final int matchesCount =
-        _intValue(dashboard, ['matchesCount']) ??
-        _intValue(dashboard, ['matches']) ??
-        _matchesCount;
-
-    setState(() {
-      _profileName = profileName;
-      _profilePhone = profilePhone;
-      _profileImage =
-          _stringValue(profile, ['profileImage', 'image']);
-
-      _location = location;
-
-      if (_filterCity.isEmpty && profileCity.isNotEmpty) {
-        _filterCity = profileCity;
-      }
-
-      _allGroundsRaw = grounds;
-      _displayGrounds = _buildDisplayGrounds(grounds);
-
-      _teams = mappedTeams;
-      _bookings = mappedBookings;
-      _ledger = mappedLedger;
-
-      _matchesCount = matchesCount;
-      _teamsCount = teamsCount;
-      _bookingsCount = bookingsCount;
-    });
-  } catch (e, st) {
-    debugPrint("Dashboard Load Error: $e");
-    debugPrintStack(stackTrace: st);
-  } finally {
+  Future<void> _loadSportsNeoData() async {
     if (mounted) {
       setState(() {
-        _isGroundsLoading = false;
+        _isGroundsLoading = true;
       });
     }
+
+    try {
+      final String? ownerId = ApiSession.instance.ownerId;
+
+      Map<String, dynamic>? profile;
+      Map<String, dynamic>? dashboard;
+
+      List<Map<String, dynamic>> grounds = <Map<String, dynamic>>[];
+      List<Map<String, dynamic>> teams = <Map<String, dynamic>>[];
+      List<Map<String, dynamic>> ownerBookings = <Map<String, dynamic>>[];
+      List<Map<String, dynamic>> ownerLedger = <Map<String, dynamic>>[];
+
+      Future<T?> safely<T>(Future<T> Function() fn) async {
+        try {
+          return await fn();
+        } catch (e, st) {
+          debugPrint(e.toString());
+          debugPrint(st.toString());
+          return null;
+        }
+      }
+
+      if (ownerId != null && ownerId.isNotEmpty) {
+        final List<dynamic> batch1 = await Future.wait<dynamic>([
+          safely(
+            () => _api.listGrounds(
+              city: _selectedCityFilter,
+              sport: _selectedSportFilter,
+            ),
+          ),
+          safely(() => _api.getOwnerProfile(ownerId)),
+          safely(() => _api.getDashboard(ownerId)),
+          safely(() => _api.listTeams(ownerId)),
+          safely(() => _api.listNotifications(ownerId)),
+          safely(() => _loadUpcomingBookings()), // NEW
+        ]);
+
+        grounds =
+            (batch1[0] as List<Map<String, dynamic>>?) ??
+            <Map<String, dynamic>>[];
+
+        profile = batch1[1] as Map<String, dynamic>?;
+
+        dashboard = batch1[2] as Map<String, dynamic>?;
+
+        teams =
+            (batch1[3] as List<Map<String, dynamic>>?) ??
+            <Map<String, dynamic>>[];
+        ownerBookings =
+            (batch1[5] as List<Map<String, dynamic>>?) ??
+            <Map<String, dynamic>>[];
+        final List<Map<String, dynamic>>? notifications =
+            batch1[4] as List<Map<String, dynamic>>?;
+
+        if (notifications != null) {
+          _unreadNotifications = notifications
+              .where((item) => item['isRead'] != true)
+              .length;
+        }
+      } else {
+        grounds = await _api.listGrounds(
+          city: _selectedCityFilter,
+          sport: _selectedSportFilter,
+        );
+      }
+
+      if (!mounted) return;
+
+      final String profileName =
+          _stringValue(profile, ['ownerName', 'name', 'fullName']) ??
+          _profileName;
+
+      final String profilePhone =
+          _stringValue(profile, ['contactNumber', 'phone', 'mobile']) ??
+          ApiSession.instance.contactNumber ??
+          _profilePhone;
+
+      final String location =
+          _stringValue(profile, ['address', 'city', 'location']) ?? _location;
+
+      final String profileCity =
+          _stringValue(profile, ['city']) ?? location.split(',').first.trim();
+
+      final List<_InfoCardData> mappedTeams = teams.isNotEmpty
+          ? _mapTeamsFromOwnerEndpoint(teams)
+          : _mapInfoCards(
+              _extractMapList(dashboard, ['myTeams', 'teams', 'teamList']),
+              defaultStatus: 'Active',
+              fallbackSubtitle: 'No details available',
+            );
+
+      final List<_InfoCardData> mappedBookings = _mapBookingsFromGroundEndpoint(
+        ownerBookings,
+      );
+
+      final List<_LedgerCardData> mappedLedger = ownerLedger.isNotEmpty
+          ? _mapLedgerCards(ownerLedger)
+          : _mapLedgerCards(
+              _extractMapList(dashboard, [
+                'ledger',
+                'transactions',
+                'walletTransactions',
+              ]),
+            );
+
+      final int teamsCount =
+          _intValue(dashboard, ['teamsCount']) ?? mappedTeams.length;
+
+      final int bookingsCount =
+          _intValue(dashboard, ['bookingsCount']) ?? mappedBookings.length;
+
+      final int matchesCount =
+          _intValue(dashboard, ['matchesCount']) ??
+          _intValue(dashboard, ['matches']) ??
+          _matchesCount;
+
+      setState(() {
+        _profileName = profileName;
+        _profilePhone = profilePhone;
+        _profileImage = _stringValue(profile, ['profileImage', 'image']);
+
+        _location = location;
+
+        if (_filterCity.isEmpty && profileCity.isNotEmpty) {
+          _filterCity = profileCity;
+        }
+
+        _allGroundsRaw = grounds;
+        _displayGrounds = _buildDisplayGrounds(grounds);
+
+        _teams = mappedTeams;
+        _bookings = mappedBookings;
+        _ledger = mappedLedger;
+
+        _matchesCount = matchesCount;
+        _teamsCount = teamsCount;
+        _bookingsCount = bookingsCount;
+      });
+    } catch (e, st) {
+      debugPrint("Dashboard Load Error: $e");
+      debugPrintStack(stackTrace: st);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGroundsLoading = false;
+        });
+      }
+    }
   }
-}
 
   List<_GroundCardData> _buildDisplayGrounds(List<Map<String, dynamic>> raw) {
     return _mapGrounds(raw);
@@ -657,8 +628,6 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
 
                         _buildNearbyGrounds(),
 
-
-
                         const SizedBox(height: 22),
 
                         _SectionHeader(
@@ -702,9 +671,9 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
 
                         const SizedBox(height: 12),
 
-                          const _EmptySectionNotice(
-                            message: 'No scheduled matches',
-                          ),
+                        const _EmptySectionNotice(
+                          message: 'No scheduled matches',
+                        ),
 
                         const SizedBox(height: 22),
 
@@ -799,7 +768,6 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
   // ---------------------------------------------------------------------------
   // HERO HEADER
   // ---------------------------------------------------------------------------
-
   Widget _buildHeroHeader(BuildContext context) {
     return SizedBox(
       height: 200,
@@ -928,7 +896,8 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
                             onTap: () async {
                               await Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => const SportsNeoNotificationsScreen(),
+                                  builder: (_) =>
+                                      const SportsNeoNotificationsScreen(),
                                 ),
                               );
 
@@ -1027,93 +996,90 @@ Future<List<Map<String, dynamic>>> _loadUpcomingBookings() async {
   // SPORTS / ACADEMIES
   // ---------------------------------------------------------------------------
 
-Widget _buildSportsAcademySwitcher(BuildContext context) {
-  return Container(
-    height: 58,
-    padding: const EdgeInsets.all(4),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF8FAFC),
-      borderRadius: BorderRadius.circular(17),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x12000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: 8,
-                horizontal: 12,
+  Widget _buildSportsAcademySwitcher(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(17),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Row(
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.sports_soccer_rounded,
+                      color: Color(0xFF2563EB),
+                      size: 22,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Sports',
+                      style: TextStyle(
+                        color: Color(0xFF2563EB),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SportsNeoAcademyDetailScreen(
+                      selectedCity: _selectedCityFilter,
+                    ),
+                  ),
+                );
+              },
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.sports_soccer_rounded,
-                    color: Color(0xFF2563EB),
+                    Icons.school_outlined,
+                    color: Color(0xFF475569),
                     size: 22,
                   ),
                   SizedBox(width: 8),
                   Text(
-                    'Sports',
+                    'Academies',
                     style: TextStyle(
-                      color: Color(0xFF2563EB),
+                      color: Color(0xFF475569),
                       fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => SportsNeoAcademyDetailScreen(
-                    selectedCity: _selectedCityFilter,
-                  ),
-                ),
-              );
-            },
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.school_outlined,
-                  color: Color(0xFF475569),
-                  size: 22,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Academies',
-                  style: TextStyle(
-                    color: Color(0xFF475569),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // SPORTS
@@ -1441,19 +1407,11 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
       final List<double> coordinates = _coordinatesFromMap(item);
 
       final double latitude =
-          _doubleFromAny(item, [
-            'latitude',
-            'lat',
-            'locationLatitude',
-          ]) ??
+          _doubleFromAny(item, ['latitude', 'lat', 'locationLatitude']) ??
           coordinates[1];
 
       final double longitude =
-          _doubleFromAny(item, [
-            'longitude',
-            'lng',
-            'locationLongitude',
-          ]) ??
+          _doubleFromAny(item, ['longitude', 'lng', 'locationLongitude']) ??
           coordinates[0];
       return _GroundCardData(
         name: name,
@@ -1535,24 +1493,25 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
     return values.first.toString();
   }
 
-  List _facilitiesFromAny(Map<String, dynamic> item) {
+  List<String> _facilitiesFromAny(Map<String, dynamic> item) {
     final dynamic raw = item['facilities'];
 
     if (raw is List) {
       return raw
-          .map((dynamic value) => value.toString().trim())
+          .map<String>((dynamic value) {
+            if (value is Map) {
+              return value['name']?.toString().trim() ??
+                  value['title']?.toString().trim() ??
+                  '';
+            }
+
+            return value.toString().trim();
+          })
           .where((String text) => text.isNotEmpty)
-          .take(4)
           .toList();
     }
 
-    final String? one = _facilityText(item);
-
-    if (one != null && one.isNotEmpty) {
-      return <String>[one];
-    }
-
-    return <String>[];
+    return [];
   }
 
   String? _facilityText(Map<String, dynamic> item) {
@@ -1635,59 +1594,49 @@ Widget _buildSportsAcademySwitcher(BuildContext context) {
     }).toList();
   }
 
-List<_InfoCardData> _mapBookingsFromGroundEndpoint(
-  List<Map<String, dynamic>> items,
-) {
-  return items.map((item) {
-    final String title =
-        item['groundName']?.toString() ?? 'Booking';
+  List<_InfoCardData> _mapBookingsFromGroundEndpoint(
+    List<Map<String, dynamic>> items,
+  ) {
+    return items.map((item) {
+      final String title = item['groundName']?.toString() ?? 'Booking';
 
-    final String date =
-        item['date']?.toString() ?? '';
+      final String date = item['date']?.toString() ?? '';
 
-    final String start =
-        item['startTime']?.toString() ?? '';
+      final String start = item['startTime']?.toString() ?? '';
 
-    final String end =
-        item['endTime']?.toString() ?? '';
+      final String end = item['endTime']?.toString() ?? '';
 
-    final String subtitle =
-        [
-          date,
-          if (start.isNotEmpty)
-            '$start${end.isNotEmpty ? ' - $end' : ''}',
-        ].where((e) => e.isNotEmpty).join(' • ');
+      final String subtitle = [
+        date,
+        if (start.isNotEmpty) '$start${end.isNotEmpty ? ' - $end' : ''}',
+      ].where((e) => e.isNotEmpty).join(' • ');
 
-    final dynamic rawAmount = item['amount'];
+      final dynamic rawAmount = item['amount'];
 
-    final double amountValue = rawAmount is num
-        ? rawAmount.toDouble()
-        : double.tryParse(
-              rawAmount?.toString() ?? '',
-            ) ??
-            0;
+      final double amountValue = rawAmount is num
+          ? rawAmount.toDouble()
+          : double.tryParse(rawAmount?.toString() ?? '') ?? 0;
 
-    final String amount = _formatAmount(amountValue);
+      final String amount = _formatAmount(amountValue);
 
-    final String status =
-        item['bookingStatus']?.toString() ?? 'Upcoming';
+      final String status = item['bookingStatus']?.toString() ?? 'Upcoming';
 
-    final String sport =
-        item['groundSport']?.toString() ??
-        item['sport']?.toString() ??
-        item['sportName']?.toString() ??
-        item['sports']?.toString() ??
-        '';
+      final String sport =
+          item['groundSport']?.toString() ??
+          item['sport']?.toString() ??
+          item['sportName']?.toString() ??
+          item['sports']?.toString() ??
+          '';
 
-    return _InfoCardData(
-      title: title,
-      subtitle: subtitle,
-      amount: amount,
-      status: status,
-      sportIcon: sportIcon(sport),
-    );
-  }).toList();
-}
+      return _InfoCardData(
+        title: title,
+        subtitle: subtitle,
+        amount: amount,
+        status: status,
+        sportIcon: sportIcon(sport),
+      );
+    }).toList();
+  }
 
   List<_LedgerCardData> _mapLedgerCards(List<Map<String, dynamic>> items) {
     return items.take(2).map((Map<String, dynamic> item) {
@@ -2011,12 +1960,39 @@ class _SectionHeader extends StatelessWidget {
 // =============================================================================
 // GROUND CARD
 // =============================================================================
+class _CircleAction extends StatelessWidget {
+  const _CircleAction({required this.icon, required this.color});
 
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: const BoxDecoration(
+        color: Color(0x0AFFFFFF),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: color, size: 26),
+    );
+  }
+}
 class _NearbyGroundShowcaseCard extends StatelessWidget {
   const _NearbyGroundShowcaseCard({required this.item});
 
   final _GroundCardData item;
+  Future<void> _callOwner(String ownerPhone) async {
+    final phone = ownerPhone;
+    if (phone.isNotEmpty) {
+      final Uri callUri = Uri(scheme: 'tel', path: phone);
 
+      if (await canLaunchUrl(callUri)) {
+        await launchUrl(callUri);
+      }
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final Widget imageFallback = Container(
@@ -2161,49 +2137,79 @@ class _NearbyGroundShowcaseCard extends StatelessWidget {
 
                 const SizedBox(height: 10),
 
-                SizedBox(
-                  height: 28,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: facilities.take(3).map((String feature) {
-                      return Container(
-                        margin: const EdgeInsets.only(right: 5),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          color: const Color(0x12FFFFFF),
-                        ),
-                        child: Text(
-                          feature,
-                          style: const TextStyle(
-                            color: Color(0xE6FFFFFF),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
+Wrap(
+  spacing: 4,
+  runSpacing: 4,
+  children: [
+
+    ...facilities.take(3).map(
+      (String feature) {
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: const Color(0x0AFFFFFF),
+          ),
+          child: Text(
+            feature,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        );
+      },
+    ),
+
+    if (item.facilities.length > 3)
+      InkWell(
+        onTap: () {
+          FacilitiesDialog.show(
+            context,
+            facilities: facilities,
+          );
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 5,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0x14FFFFFF),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Icon(
+            Icons.visibility_outlined,
+            color: Colors.white,
+            size: 18,
+          ),
+        ),
+      ),
+  ],
+),
 
                 const SizedBox(height: 12),
 
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        item.price,
-                        style: const TextStyle(
-                          color: Color(0xFF4F8CFF),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: InkWell(
+                        onTap: () => _callOwner(item.ownerPhone),
+                        borderRadius: BorderRadius.circular(30),
+                        child: const _CircleAction(
+                          icon: Icons.call,
+                          color: Color(0xFF08B36A),
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                  ),
 
                     const SizedBox(width: 8),
 
@@ -2215,6 +2221,11 @@ class _NearbyGroundShowcaseCard extends StatelessWidget {
                               name: item.name,
                               location: item.location,
                               image: item.imageUrl,
+                              imageValues: List<String>.from(
+                                item.imageValues.map(
+                                  (dynamic value) => value.toString(),
+                                ),
+                              ),
                               rating: item.rating,
                               facilities: List<String>.from(
                                 item.facilities.map(
@@ -2297,12 +2308,7 @@ class _CompactBookingCard extends StatelessWidget {
               color: const Color(0x202563EB),
             ),
             child: Center(
-              child: Text(
-                item.sportIcon,
-                style: const TextStyle(
-                  fontSize: 22,
-                ),
-              ),
+              child: Text(item.sportIcon, style: const TextStyle(fontSize: 22)),
             ),
           ),
 
@@ -3014,7 +3020,7 @@ class _InfoCardData {
   final String subtitle;
   final String amount;
   final String status;
-final String sportIcon;
+  final String sportIcon;
 }
 
 class _LedgerCardData {

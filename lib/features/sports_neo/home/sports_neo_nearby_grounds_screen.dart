@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import './sports_neo_facilities_dialog.dart';
 import '../../../core/utils/base64_image.dart';
 import 'sports_neo_ground_detail_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SportsNeoNearbyGroundsScreen extends StatelessWidget {
   const SportsNeoNearbyGroundsScreen({
@@ -15,14 +18,11 @@ class SportsNeoNearbyGroundsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<_NearbyGroundItem> items = grounds
-        .map((Map<String, dynamic> raw) {
-          return _NearbyGroundItem.fromMap(
-            raw,
-            fallbackLocation: fallbackLocation,
-          );
-        })
-        .toList();
+    final List<_NearbyGroundItem> items = grounds.map((
+      Map<String, dynamic> raw,
+    ) {
+      return _NearbyGroundItem.fromMap(raw, fallbackLocation: fallbackLocation);
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
@@ -52,11 +52,7 @@ class SportsNeoNearbyGroundsScreen extends StatelessWidget {
                     ),
                     child: const Row(
                       children: <Widget>[
-                        Icon(
-                          Icons.search,
-                          color: Color(0xFF9CA3AF),
-                          size: 20,
-                        ),
+                        Icon(Icons.search, color: Color(0xFF9CA3AF), size: 20),
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
@@ -168,12 +164,39 @@ class _NearbyGroundsHeader extends StatelessWidget {
     );
   }
 }
+class _CircleAction extends StatelessWidget {
+  const _CircleAction({required this.icon, required this.color});
 
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: const BoxDecoration(
+        color: Color(0x0AFFFFFF),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: color, size: 26),
+    );
+  }
+}
 class _NearbyGroundListCard extends StatelessWidget {
   const _NearbyGroundListCard({required this.item});
 
   final _NearbyGroundItem item;
+  Future<void> _callOwner(String ownerPhone) async {
+    final phone = ownerPhone;
+    if (phone.isNotEmpty) {
+      final Uri callUri = Uri(scheme: 'tel', path: phone);
 
+      if (await canLaunchUrl(callUri)) {
+        await launchUrl(callUri);
+      }
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final Widget imageFallback = Container(
@@ -205,9 +228,9 @@ class _NearbyGroundListCard extends StatelessWidget {
             child: Stack(
               children: <Widget>[
                 Positioned.fill(
-                  child: buildBase64OrNetworkImage(
-                    value: item.image,
-                    fit: BoxFit.cover,
+                  child: _NearbyGroundImageCarousel(
+                    imageValues: item.imageValues,
+                    fallbackValue: item.image,
                     fallback: imageFallback,
                   ),
                 ),
@@ -287,45 +310,78 @@ class _NearbyGroundListCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: item.facilities.map((String feature) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(6),
-                        color: const Color(0x0AFFFFFF),
-                      ),
-                      child: Text(
-                        feature,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+Wrap(
+  spacing: 4,
+  runSpacing: 4,
+  children: [
+
+    ...item.facilities.take(3).map(
+      (String feature) {
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            color: const Color(0x0AFFFFFF),
+          ),
+          child: Text(
+            feature,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        );
+      },
+    ),
+
+    if (item.facilities.length > 3)
+      InkWell(
+        onTap: () {
+          FacilitiesDialog.show(
+            context,
+            facilities: item.facilities,
+          );
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 5,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0x14FFFFFF),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Icon(
+            Icons.visibility_outlined,
+            color: Colors.white,
+            size: 18,
+          ),
+        ),
+      ),
+  ],
+),
                 const SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        item.price,
-                        style: const TextStyle(
-                          color: Color(0xFF2563EB),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: InkWell(
+                        onTap: () => _callOwner(item.ownerPhone),
+                        borderRadius: BorderRadius.circular(30),
+                        child: const _CircleAction(
+                          icon: Icons.call,
+                          color: Color(0xFF08B36A),
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                  ),
                     const SizedBox(width: 8),
                     InkWell(
                       onTap: () {
@@ -335,6 +391,7 @@ class _NearbyGroundListCard extends StatelessWidget {
                               name: item.name,
                               location: item.location,
                               image: item.image,
+                              imageValues: item.imageValues,
                               rating: item.rating,
                               facilities: item.facilities,
                               price: item.price,
@@ -357,7 +414,7 @@ class _NearbyGroundListCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text(
-                          'View Detail',
+                          'Book Slots',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -382,6 +439,7 @@ class _NearbyGroundItem {
     required this.name,
     required this.location,
     required this.image,
+    required this.imageValues,
     required this.rating,
     required this.facilities,
     required this.price,
@@ -396,6 +454,7 @@ class _NearbyGroundItem {
   final double latitude;
   final double longitude;
   final String image;
+  final List<String> imageValues;
   final double rating;
   final List<String> facilities;
   final String price;
@@ -411,27 +470,26 @@ class _NearbyGroundItem {
         final double longitude =
             double.tryParse(coordinates[0].toString()) ?? 0;
 
-        final double latitude =
-            double.tryParse(coordinates[1].toString()) ?? 0;
+        final double latitude = double.tryParse(coordinates[1].toString()) ?? 0;
 
-        return <double>[
-          longitude,
-          latitude,
-        ];
+        return <double>[longitude, latitude];
       }
     }
 
     return <double>[0, 0];
   }
+
   factory _NearbyGroundItem.fromMap(
     Map<String, dynamic> map, {
     required String fallbackLocation,
   }) {
     final String name =
-        _stringFromAny(map, <String>['name', 'groundName', 'title']) ?? 'Ground';
+        _stringFromAny(map, <String>['name', 'groundName', 'title']) ??
+        'Ground';
     final String location =
         _stringFromAny(map, <String>['location', 'address', 'city']) ??
         fallbackLocation;
+    final List<String> imageValues = _groundImageValuesFromAny(map);
     final String image = _groundImageFromAny(map) ?? '';
     final double rating =
         _doubleFromAny(map, <String>['rating', 'groundRating']) ?? 0;
@@ -443,15 +501,18 @@ class _NearbyGroundItem {
       name: name,
       location: location,
       image: image,
+      imageValues: imageValues,
       rating: rating,
       facilities: facilities.isEmpty
           ? const <String>['No facility details']
           : facilities,
       price: priceText ?? 'N/A',
       groundId: map['_id']?.toString() ?? map['id']?.toString() ?? '',
-      latitude: _doubleFromAny(map, <String>['latitude', 'lat']) ??
+      latitude:
+          _doubleFromAny(map, <String>['latitude', 'lat']) ??
           _coordinatesFromMap(map)[1],
-      longitude: _doubleFromAny(map, <String>['longitude', 'lng']) ??
+      longitude:
+          _doubleFromAny(map, <String>['longitude', 'lng']) ??
           _coordinatesFromMap(map)[0],
       ownerPhone: _stringFromAny(map, <String>['ownerPhone']) ?? '',
     );
@@ -476,7 +537,6 @@ class _NearbyGroundItem {
       return raw
           .map((dynamic value) => value.toString().trim())
           .where((String text) => text.isNotEmpty)
-          .take(4)
           .toList();
     }
     final String? one = _stringFromAny(item, <String>['detail', 'feature']);
@@ -525,6 +585,53 @@ class _NearbyGroundItem {
     return null;
   }
 
+  static List<String> _groundImageValuesFromAny(Map<String, dynamic> item) {
+    final List<String> values = <String>[];
+
+    void addIfValid(dynamic raw) {
+      final String value = raw?.toString().trim() ?? '';
+      if (value.isNotEmpty && !values.contains(value)) {
+        values.add(value);
+      }
+    }
+
+    final dynamic groundImages = item['groundImages'];
+    if (groundImages is List) {
+      for (final dynamic entry in groundImages) {
+        if (entry is String) {
+          addIfValid(entry);
+        } else if (entry is Map) {
+          addIfValid(entry['url']);
+          addIfValid(entry['image']);
+        }
+      }
+    }
+
+    final dynamic imageUrls = item['imageUrls'];
+    if (imageUrls is List) {
+      for (final dynamic entry in imageUrls) {
+        addIfValid(entry);
+      }
+    }
+
+    final dynamic photos = item['photos'];
+    if (photos is List) {
+      for (final dynamic entry in photos) {
+        if (entry is String) {
+          addIfValid(entry);
+        } else if (entry is Map) {
+          addIfValid(entry['url']);
+          addIfValid(entry['image']);
+        }
+      }
+    }
+
+    addIfValid(item['image']);
+    addIfValid(item['imageUrl']);
+
+    return values;
+  }
+
   static String? _stringFromAny(Map<String, dynamic> map, List<String> keys) {
     for (final String key in keys) {
       final dynamic value = map[key];
@@ -554,5 +661,129 @@ class _NearbyGroundItem {
       }
     }
     return null;
+  }
+}
+
+class _NearbyGroundImageCarousel extends StatefulWidget {
+  const _NearbyGroundImageCarousel({
+    required this.imageValues,
+    required this.fallbackValue,
+    required this.fallback,
+  });
+
+  final List<String> imageValues;
+  final String fallbackValue;
+  final Widget fallback;
+
+  @override
+  State<_NearbyGroundImageCarousel> createState() =>
+      _NearbyGroundImageCarouselState();
+}
+
+class _NearbyGroundImageCarouselState
+    extends State<_NearbyGroundImageCarousel> {
+  late final PageController _controller;
+  Timer? _timer;
+  int _index = 0;
+
+  List<String> get _values {
+    if (widget.imageValues.isNotEmpty) {
+      return widget.imageValues;
+    }
+    final String trimmed = widget.fallbackValue.trim();
+    return trimmed.isEmpty ? const <String>[] : <String>[trimmed];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+    _startAutoSlide();
+  }
+
+  @override
+  void didUpdateWidget(covariant _NearbyGroundImageCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageValues != widget.imageValues ||
+        oldWidget.fallbackValue != widget.fallbackValue) {
+      _index = 0;
+      if (_controller.hasClients) {
+        _controller.jumpToPage(0);
+      }
+      _startAutoSlide();
+    }
+  }
+
+  void _startAutoSlide() {
+    _timer?.cancel();
+    if (_values.length <= 1) {
+      return;
+    }
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_controller.hasClients || _values.isEmpty) {
+        return;
+      }
+      final int next = (_index + 1) % _values.length;
+      _controller.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> values = _values;
+    if (values.isEmpty) {
+      return widget.fallback;
+    }
+
+    return Stack(
+      children: <Widget>[
+        PageView.builder(
+          controller: _controller,
+          itemCount: values.length,
+          onPageChanged: (int value) {
+            if (_index != value) {
+              setState(() => _index = value);
+            }
+          },
+          itemBuilder: (_, int i) {
+            return buildBase64OrNetworkImage(
+              value: values[i],
+              fit: BoxFit.cover,
+              fallback: widget.fallback,
+            );
+          },
+        ),
+        if (values.length > 1)
+          Positioned(
+            left: 10,
+            bottom: 10,
+            child: Row(
+              children: List<Widget>.generate(values.length, (int i) {
+                final bool active = i == _index;
+                return Container(
+                  width: active ? 16 : 6,
+                  height: 6,
+                  margin: const EdgeInsets.only(right: 5),
+                  decoration: BoxDecoration(
+                    color: active ? Colors.white : const Color(0xA6FFFFFF),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
+    );
   }
 }
