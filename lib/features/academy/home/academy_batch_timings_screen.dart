@@ -102,6 +102,7 @@ class _AcademyBatchTimingsScreenState extends State<AcademyBatchTimingsScreen> {
           batchName: batch?['name']?.toString() ?? '',
           coachName: batch?['coachName']?.toString() ?? '',
           coachExperience: (batch?['coachExperience'] as num?)?.toInt() ?? 0,
+          coachNumber: batch?['coachNumber']?.toString() ?? '',
           startTime: batch?['startTime']?.toString() ?? '09:00',
           endTime: batch?['endTime']?.toString() ?? '10:00',
           days: _batchDays(batch ?? <String, dynamic>{}),

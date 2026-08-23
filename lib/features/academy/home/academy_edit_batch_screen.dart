@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ground_wale/core/widgets/app_text_field.dart';
+import 'package:ground_wale/core/widgets/labeled_text_field.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
@@ -19,6 +20,7 @@ class AcademyEditBatchScreen extends StatefulWidget {
     this.monthlyFee = 0,
     this.feePlans = const <Map<String, String>>[],
     this.coachExperience = 0,
+    this.coachNumber = '',
     this.enrolledStudents = 0,
     this.isCreate = false,
   });
@@ -34,6 +36,7 @@ class AcademyEditBatchScreen extends StatefulWidget {
   final double monthlyFee;
   final List<Map<String, String>> feePlans;
   final int coachExperience;
+  final String coachNumber;
   final int enrolledStudents;
   final bool isCreate;
 
@@ -47,6 +50,7 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
   late final TextEditingController _startTimeController;
   late final TextEditingController _endTimeController;
   late final TextEditingController _monthlyFeeController;
+  late final TextEditingController _coachNumberController;
 
   late bool _active;
   late Set<String> _selectedDays;
@@ -98,6 +102,7 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
     _active = widget.status.toLowerCase() != 'inactive';
     _capacity = widget.capacity < 1 ? 1 : widget.capacity;
     _coachExperience = widget.coachExperience < 0 ? 0 : widget.coachExperience;
+    _coachNumberController = TextEditingController(text: widget.coachNumber.trim());
     _enrolledStudents = widget.enrolledStudents < 0
         ? 0
         : widget.enrolledStudents;
@@ -319,6 +324,7 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
         'name': _batchNameController.text.trim(),
         'coachName': _coachController.text.trim(),
         'coachExperience': _coachExperience,
+        'coachNumber': _coachNumberController.text.trim(),
         'startTime': _startTimeController.text.trim(),
         'endTime': _endTimeController.text.trim(),
         'days': _days
@@ -528,6 +534,15 @@ class _AcademyEditBatchScreenState extends State<AcademyEditBatchScreen> {
               const _DarkLabel('Coach / Trainer (Optional)'),
               const SizedBox(height: 12),
               _DarkInputField(controller: _coachController, hintText: 'Rahul'),
+
+              const SizedBox(height: 14),
+                LabeledTextField(
+                  label: 'Coach Number (Optional)',
+                  controller: _coachNumberController,
+                  hint: '+91 9876543210',
+                  keyboardType: TextInputType.phone,
+                  onChanged: (_) {},
+                ),
               const SizedBox(height: 12),
               // Coach Experience stepper
               const _DarkLabel('Coach Experience'),

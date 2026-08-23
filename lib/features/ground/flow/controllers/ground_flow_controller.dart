@@ -336,6 +336,7 @@ class GroundFlowController extends ChangeNotifier {
                   'name': data.academyBatchName.trim(),
                   'coachName': data.academyCoachName.trim(),
                   'coachExperience': data.academyCoachExperience,
+                  'coachNumber': data.contactNumber.trim(),
                   'startTime': data.academyStartTime,
                   'endTime': data.academyEndTime,
                   'days': data.academyRecurringDays.toList(),
