@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import 'sports_neo_booking_cart_store.dart';
 import 'sports_neo_match_details_screen.dart';
 
 class SportsNeoBookingSummaryScreen extends StatefulWidget {
@@ -34,6 +35,8 @@ class SportsNeoBookingSummaryScreen extends StatefulWidget {
 class _SportsNeoBookingSummaryScreenState
     extends State<SportsNeoBookingSummaryScreen> {
   final GroundWaleApi _api = GroundWaleApi.instance;
+  final SportsNeoBookingCartStore _cartStore =
+      SportsNeoBookingCartStore.instance;
 
   int _balls = 1;
   int _umpires = 0;
@@ -106,6 +109,17 @@ class _SportsNeoBookingSummaryScreenState
         'source': 'player',
         'requestedByUserId': ApiSession.instance.ownerId,
       });
+
+      // If this slot already exists in cart from an earlier add action,
+      // remove it after successful direct booking.
+      final String slotKey = '${widget.slotId}|${widget.date}';
+      if (widget.groundId.trim().isNotEmpty && slotKey.trim().isNotEmpty) {
+        try {
+          await _cartStore.removeSlot(widget.groundId, slotKey);
+        } catch (_) {
+          // Booking is already successful; ignore cart cleanup failures.
+        }
+      }
 
       if (!mounted) {
         return;

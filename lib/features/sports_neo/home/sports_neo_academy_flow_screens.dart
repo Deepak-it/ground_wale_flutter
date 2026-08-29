@@ -101,98 +101,124 @@ class _SportsNeoAcademyDetailScreenState
     _load();
   }
 
-  Future<void> _load() async {
+Future<void> _load() async {
+  setState(() {
+    _isLoading = true;
+    _error = null;
+  });
+
+  try {
+    final String? playerId = _playerId;
+
+    final List<dynamic> results = await Future.wait<dynamic>([
+      _api.discoverAcademies(
+        playerId: playerId,
+        city: _selectedCityFilter,
+        sport: _selectedSportFilter,
+      ),
+      if (playerId != null && playerId.isNotEmpty)
+        _api.listPlayerAcademyEnrollments(playerId)
+      else
+        Future<List<Map<String, dynamic>>>.value(<Map<String, dynamic>>[]),
+      if (playerId != null && playerId.isNotEmpty)
+        _api.getOwnerProfile(playerId)
+      else
+        Future<Map<String, dynamic>?>.value(null),
+      if (playerId != null && playerId.isNotEmpty)
+        _api.getDashboard(playerId)
+      else
+        Future<Map<String, dynamic>?>.value(null),
+    ]);
+
+    if (!mounted) return;
+
     setState(() {
-      _isLoading = true;
-      _error = null;
+      final Map<String, dynamic>? profile =
+          results[2] as Map<String, dynamic>?;
+      final Map<String, dynamic>? dashboard =
+          results[3] as Map<String, dynamic>?;
+
+      final String profileName =
+          _stringFromAny(profile, <String>[
+                'ownerName',
+                'name',
+                'fullName',
+              ]) ??
+              (ApiSession.instance.ownerName ?? _profileName);
+
+      final String profilePhone =
+          _stringFromAny(profile, <String>[
+                'contactNumber',
+                'phone',
+                'mobile',
+              ]) ??
+              (ApiSession.instance.contactNumber ?? _profilePhone);
+
+      _academies = (results[0] as List<dynamic>)
+          .whereType<Map>()
+          .map((Map item) => Map<String, dynamic>.from(item))
+          .toList();
+ 
+      _enrollments = (results[1] as List<dynamic>)
+          .whereType<Map>()
+          .map((Map item) => Map<String, dynamic>.from(item))
+          .toList();
+
+      // -----------------------------
+      // MARK ENROLLED ACADEMIES
+      // -----------------------------
+      final Set<String> enrolledBatchIds = _enrollments
+          .map((e) => e['batchId']?.toString() ?? '')
+          .where((e) => e.isNotEmpty)
+          .toSet();
+
+      for (final academy in _academies) {
+        academy['_isCurrentBatchEnrolled'] = false;
+
+        final List<Map<String, dynamic>> batches =
+            _mapList(academy['batches']);
+
+        for (final batch in batches) {
+          final String batchId = batch['_id']?.toString() ?? '';
+
+          if (enrolledBatchIds.contains(batchId)) {
+            academy['_isCurrentBatchEnrolled'] = true;
+            break;
+          }
+        }
+      }
+      // -----------------------------
+
+      _profileName = profileName;
+      _profilePhone = profilePhone;
+      _profileImage = _stringFromAny(profile, <String>[
+        'profileImage',
+        'image',
+      ]);
+
+      _matchesCount =
+          _intFromAny(dashboard, <String>['matchesCount', 'matches']) ??
+              _matchesCount;
+
+      _teamsCount =
+          _intFromAny(dashboard, <String>['teamsCount']) ??
+              _teamsCount;
+
+      _bookingsCount =
+          _intFromAny(dashboard, <String>['bookingsCount']) ??
+              _bookingsCount;
+
+      _isLoading = false;
     });
+  } catch (error) {
+    if (!mounted) return;
 
-    try {
-      final String? playerId = _playerId;
-      final List<dynamic> results = await Future.wait<dynamic>(
-        <Future<dynamic>>[
-          _api.discoverAcademies(
-            playerId: playerId,
-            city: _selectedCityFilter,
-            sport: _selectedSportFilter,
-          ),
-          if (playerId != null && playerId.isNotEmpty)
-            _api.listPlayerAcademyEnrollments(playerId)
-          else
-            Future<List<Map<String, dynamic>>>.value(<Map<String, dynamic>>[]),
-          if (playerId != null && playerId.isNotEmpty)
-            _api.getOwnerProfile(playerId)
-          else
-            Future<Map<String, dynamic>?>.value(null),
-          if (playerId != null && playerId.isNotEmpty)
-            _api.getDashboard(playerId)
-          else
-            Future<Map<String, dynamic>?>.value(null),
-        ],
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        final Map<String, dynamic>? profile =
-            results[2] as Map<String, dynamic>?;
-        final Map<String, dynamic>? dashboard =
-            results[3] as Map<String, dynamic>?;
-
-        final String profileName =
-            _stringFromAny(profile, <String>[
-              'ownerName',
-              'name',
-              'fullName',
-            ]) ??
-            (ApiSession.instance.ownerName ?? _profileName);
-        final String profilePhone =
-            _stringFromAny(profile, <String>[
-              'contactNumber',
-              'phone',
-              'mobile',
-            ]) ??
-            (ApiSession.instance.contactNumber ?? _profilePhone);
-
-        _academies = (results[0] as List<dynamic>)
-            .whereType<Map>()
-            .map((Map item) => Map<String, dynamic>.from(item))
-            .toList();
-        _enrollments = (results[1] as List<dynamic>)
-            .whereType<Map>()
-            .map((Map item) => Map<String, dynamic>.from(item))
-            .toList();
-
-        _profileName = profileName;
-        _profilePhone = profilePhone;
-        _profileImage = _stringFromAny(profile, <String>[
-          'profileImage',
-          'image',
-        ]);
-
-        _matchesCount =
-            _intFromAny(dashboard, <String>['matchesCount', 'matches']) ??
-            _matchesCount;
-        _teamsCount =
-            _intFromAny(dashboard, <String>['teamsCount']) ?? _teamsCount;
-        _bookingsCount =
-            _intFromAny(dashboard, <String>['bookingsCount']) ?? _bookingsCount;
-
-        _isLoading = false;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _error = error.toString().replaceFirst('Exception: ', '');
-        _isLoading = false;
-      });
-    }
+    setState(() {
+      _error = error.toString().replaceFirst('Exception: ', '');
+      _isLoading = false;
+    });
   }
+}
 
   Future<void> _showLocationFilterSheet() async {
     final GoogleCitySelection? selection = await showGoogleCityPickerSheet(
@@ -1299,15 +1325,36 @@ class _SportsNeoAcademyOverviewScreenState
       if (!mounted) return;
 
       setState(() {
-        final enrollments = List<Map<String, dynamic>>.from(_enrollments);
+        final List<Map<String, dynamic>> enrollments =
+            List<Map<String, dynamic>>.from(_enrollments);
 
-        enrollments.add(student);
+        final Map<String, dynamic> localEnrollment = <String, dynamic>{
+          ...student,
+          'academyId': _text(_academy['_id']),
+          'batchId': _text(_selectedBatch['_id']),
+          'batchName': _text(_selectedBatch['name']),
+          'joinDate': formattedDate,
+          'status': 'active',
+        };
+
+        // Upsert by batch so this screen reflects enrollment instantly.
+        final int existingIndex = enrollments.indexWhere(
+          (Map<String, dynamic> enrollment) =>
+              _text(enrollment['batchId']) ==
+              _text(localEnrollment['batchId']),
+        );
+
+        if (existingIndex >= 0) {
+          enrollments[existingIndex] = localEnrollment;
+        } else {
+          enrollments.add(localEnrollment);
+        }
 
         _academy = {
           ..._academy,
           'enrollments': enrollments,
           '_isCurrentBatchEnrolled': true,
-          'enrollment': student,
+          'enrollment': localEnrollment,
         };
 
         _didChange = true;

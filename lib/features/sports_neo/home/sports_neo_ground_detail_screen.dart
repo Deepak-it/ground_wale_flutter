@@ -49,7 +49,8 @@ class _SportsNeoGroundDetailScreenState
   late DateTime _selectedDate;
   bool _isLoadingSlots = false;
   List<Map<String, dynamic>> _slots = <Map<String, dynamic>>[];
-  final Set<String> _selectedSlotIds = <String>{};
+  final Map<String, SportsNeoBookingCartSlot> _selectedSlotsByKey =
+      <String, SportsNeoBookingCartSlot>{};
   Set<String> _activeBookedSlotKeys = <String>{};
   bool _hasBookingLookup = false;
   @override
@@ -65,6 +66,14 @@ class _SportsNeoGroundDetailScreenState
   @override
   void didUpdateWidget(covariant SportsNeoGroundDetailScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.groundId != widget.groundId) {
+      _selectedSlotsByKey.clear();
+      _slots = <Map<String, dynamic>>[];
+      _activeBookedSlotKeys = <String>{};
+      _hasBookingLookup = false;
+      _loadSlots();
+    }
+
     if (oldWidget.imageValues != widget.imageValues ||
         oldWidget.image != widget.image) {
       _heroImageIndex = 0;
@@ -211,7 +220,6 @@ class _SportsNeoGroundDetailScreenState
 
     setState(() {
       _selectedDate = normalized;
-      _selectedSlotIds.clear();
     });
 
     await _loadSlots();
@@ -290,6 +298,63 @@ class _SportsNeoGroundDetailScreenState
     return '$slotId|$dateKey';
   }
 
+  Set<String> _selectedIdsForDate(String dateKey) {
+    final Set<String> ids = <String>{};
+
+    for (final SportsNeoBookingCartSlot slot in _selectedSlotsByKey.values) {
+      if (slot.date == dateKey) {
+        ids.add(slot.slotId);
+      }
+    }
+
+    return ids;
+  }
+
+  bool _isCartSlotPassed(SportsNeoBookingCartSlot slot) {
+    final DateTime now = DateTime.now();
+    final DateTime? slotDate = DateTime.tryParse(slot.date);
+
+    if (slotDate == null) {
+      return false;
+    }
+
+    final DateTime onlyDate = DateTime(slotDate.year, slotDate.month, slotDate.day);
+    final DateTime today = DateTime(now.year, now.month, now.day);
+
+    if (!DateUtils.isSameDay(onlyDate, today)) {
+      return onlyDate.isBefore(today);
+    }
+
+    final RegExpMatch? match = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*(AM|PM)?',
+      caseSensitive: false,
+    ).firstMatch(slot.startTime.trim());
+
+    if (match == null) {
+      return false;
+    }
+
+    int hour = int.tryParse(match.group(1) ?? '') ?? 0;
+    final int minute = int.tryParse(match.group(2) ?? '') ?? 0;
+    final String period = (match.group(3) ?? '').toUpperCase();
+
+    if (period == 'PM' && hour < 12) {
+      hour += 12;
+    } else if (period == 'AM' && hour == 12) {
+      hour = 0;
+    }
+
+    final DateTime slotStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+
+    return !slotStart.isAfter(now);
+  }
+
   String _effectiveSlotStatus(Map<String, dynamic> slot) {
     // A slot whose start time has passed cannot be selected.
     if (_isSlotPassed(slot)) {
@@ -365,7 +430,6 @@ class _SportsNeoGroundDetailScreenState
         _slots = slots;
         _activeBookedSlotKeys = activeBookedKeys;
         _hasBookingLookup = true;
-        _selectedSlotIds.clear();
         _isLoadingSlots = false;
       });
     } catch (_) {
@@ -453,39 +517,22 @@ class _SportsNeoGroundDetailScreenState
     );
   }
 
-  List<Map<String, dynamic>> get _selectedSlots {
-    return _slots.where((Map<String, dynamic> slot) {
-      final String id = _slotId(slot);
-      return id.isNotEmpty && _selectedSlotIds.contains(id);
-    }).toList();
+  List<SportsNeoBookingCartSlot> get _selectedCartSlots {
+    return _selectedSlotsByKey.values.toList();
   }
 
   int get _selectedSlotsTotal {
-    return _selectedSlots.fold<int>(0, (int sum, Map<String, dynamic> slot) {
-      return sum + _slotPrice(slot);
+    return _selectedCartSlots.fold<int>(0, (
+      int sum,
+      SportsNeoBookingCartSlot slot,
+    ) {
+      return sum + slot.amount;
     });
   }
 
   Future<bool> _addSelectedSlotsToCart() async {
-    final List<Map<String, dynamic>> selected = _selectedSlots;
+    final List<SportsNeoBookingCartSlot> selected = _selectedCartSlots;
     if (selected.isEmpty || widget.groundId.trim().isEmpty) {
-      return false;
-    }
-
-    final List<SportsNeoBookingCartSlot> cartSlots = selected
-        .map((Map<String, dynamic> slot) {
-          return SportsNeoBookingCartSlot(
-            slotId: _slotId(slot),
-            date: _apiDate(_selectedDate),
-            startTime: slot['startTime']?.toString() ?? '',
-            endTime: slot['endTime']?.toString() ?? '',
-            amount: _slotPrice(slot),
-          );
-        })
-        .where((SportsNeoBookingCartSlot slot) => slot.slotId.isNotEmpty)
-        .toList();
-
-    if (cartSlots.isEmpty) {
       return false;
     }
 
@@ -495,7 +542,7 @@ class _SportsNeoGroundDetailScreenState
         groundName: widget.name,
         location: widget.location,
         facilities: widget.facilities,
-        slots: cartSlots,
+        slots: selected,
       );
       return true;
     } catch (error) {
@@ -566,17 +613,37 @@ class _SportsNeoGroundDetailScreenState
           slots: entry.value
               .map((Map<String, dynamic> slot) => _toSlotItem(slot))
               .toList(),
-          selectedIds: _selectedSlotIds,
+          selectedIds: _selectedIdsForDate(_apiDate(_selectedDate)),
           slotIds: entry.value
               .map((Map<String, dynamic> s) => _slotId(s))
               .toList(),
           onSlotTap: (String id, String status) {
             if (status.toLowerCase() == 'available') {
               setState(() {
-                if (_selectedSlotIds.contains(id)) {
-                  _selectedSlotIds.remove(id);
+                final String dateKey = _apiDate(_selectedDate);
+                final String key = _slotDateKey(id, dateKey);
+
+                if (_selectedSlotsByKey.containsKey(key)) {
+                  _selectedSlotsByKey.remove(key);
                 } else {
-                  _selectedSlotIds.add(id);
+                  final Map<String, dynamic>? slot = entry.value
+                      .cast<Map<String, dynamic>?>()
+                      .firstWhere(
+                        (Map<String, dynamic>? s) => s != null && _slotId(s) == id,
+                        orElse: () => null,
+                      );
+
+                  if (slot == null) {
+                    return;
+                  }
+
+                  _selectedSlotsByKey[key] = SportsNeoBookingCartSlot(
+                    slotId: id,
+                    date: dateKey,
+                    startTime: slot['startTime']?.toString() ?? '',
+                    endTime: slot['endTime']?.toString() ?? '',
+                    amount: _slotPrice(slot),
+                  );
                 }
               });
             }
@@ -597,7 +664,7 @@ class _SportsNeoGroundDetailScreenState
     final List<String> shownFacilities = widget.facilities.isEmpty
         ? const <String>['Parking', 'Washroom', 'Water', 'Lighting']
         : widget.facilities;
-    final List<Map<String, dynamic>> selectedSlots = _selectedSlots;
+    final List<SportsNeoBookingCartSlot> selectedSlots = _selectedCartSlots;
     final int selPrice = _selectedSlotsTotal;
 
     final Widget imageFallback = Container(
@@ -681,16 +748,16 @@ class _SportsNeoGroundDetailScreenState
                   onPressed: selectedSlots.isEmpty
                       ? null
                       : () async {
-                          final bool added = await _addSelectedSlotsToCart();
-                          if (!added || !mounted) {
-                            return;
-                          }
-
                           if (selectedSlots.length > 1) {
+                            final bool added = await _addSelectedSlotsToCart();
+                            if (!added || !mounted) {
+                              return;
+                            }
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'API accepts one slot per booking. Added all selected slots to cart for batch booking.',
+                                  'Your selected slots have been added to the cart.',
                                 ),
                               ),
                             );
@@ -703,9 +770,9 @@ class _SportsNeoGroundDetailScreenState
                             return;
                           }
 
-                          final Map<String, dynamic> selSlot =
+                          final SportsNeoBookingCartSlot selSlot =
                               selectedSlots.first;
-                          if (_isSlotPassed(selSlot)) {
+                          if (_isCartSlotPassed(selSlot)) {
                             return;
                           }
 
@@ -714,12 +781,11 @@ class _SportsNeoGroundDetailScreenState
                               builder: (_) => SportsNeoBookingSummaryScreen(
                                 groundName: widget.name,
                                 location: widget.location,
-                                slotId: _slotId(selSlot),
-                                date: _apiDate(_selectedDate),
-                                startTime:
-                                    selSlot['startTime']?.toString() ?? '',
-                                endTime: selSlot['endTime']?.toString() ?? '',
-                                amount: selPrice,
+                                slotId: selSlot.slotId,
+                                date: selSlot.date,
+                                startTime: selSlot.startTime,
+                                endTime: selSlot.endTime,
+                                amount: selSlot.amount,
                                 groundId: widget.groundId,
                               ),
                             ),
@@ -853,8 +919,7 @@ class _SportsNeoGroundDetailScreenState
             child: Column(
               children: <Widget>[
                 _TopHeader(
-                  title: 'Ground Detail',
-                  groundName: widget.name,
+                  title: widget.name,
                   onBack: () => Navigator.of(context).pop(),
                 ),
                 Expanded(
@@ -912,15 +977,6 @@ class _SportsNeoGroundDetailScreenState
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: <Widget>[
-                                                  Text(
-                                                    widget.name,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
                                                   const SizedBox(height: 0),
                                                   Row(
                                                     children: <Widget>[
@@ -1402,12 +1458,10 @@ class _SportsNeoGroundDetailScreenState
 class _TopHeader extends StatelessWidget {
   const _TopHeader({
     required this.title,
-    required this.groundName,
     required this.onBack,
   });
 
   final String title;
-  final String groundName;
   final VoidCallback onBack;
 
   @override
@@ -1450,19 +1504,6 @@ class _TopHeader extends StatelessWidget {
 
           const Spacer(),
 
-          Flexible(
-            child: Text(
-              groundName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
         ],
       ),
     );
