@@ -46,6 +46,25 @@
 				</dict>
 			</array>
 		</dict>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		</dict>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		</dict>
+
+		<!-- UPI App schemes -->
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+		<string>gpay</string>
+		<string>phonepe</string>
+		<string>paytm</string>
+		<string>bhim</string>
+		</array>
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
