@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/payments/cashfree_checkout.dart';
 import '../../../core/utils/base64_image.dart';
 import '../../../core/widgets/google_city_picker_sheet.dart';
 import '../../ground/flow/controllers/ground_flow_controller.dart';
@@ -1285,6 +1286,44 @@ class _SportsNeoAcademyOverviewScreenState
       final double monthlyFee =
           double.tryParse(priceValue.toString()) ?? 0;
 
+      final String academyOwnerId = _text(_academy['ownerId']);
+      if (academyOwnerId.isEmpty) {
+        throw Exception('Academy owner details are missing');
+      }
+
+      if (monthlyFee > 0) {
+        final String phone = widget.playerPhone.trim();
+        final String name = widget.playerName.trim().isEmpty
+            ? 'Sports Neo Player'
+            : widget.playerName.trim();
+
+        if (phone.isEmpty) {
+          throw Exception('Contact number is missing for Cashfree payment');
+        }
+
+        final Map<String, dynamic> token =
+            await _api.createAcademyCashfreeToken(
+          academyOwnerId,
+          <String, dynamic>{
+            'orderAmount': monthlyFee,
+            'orderCurrency': 'INR',
+            'customerPhone': phone,
+            'customerName': name,
+            'orderNote':
+                'Academy join fee ${_text(_academy['name'])} - ${_text(_selectedBatch['name'])}',
+          },
+        );
+
+        await CashfreeCheckout.payWithToken(
+          token,
+          fallbackPhone: phone,
+          fallbackName: name,
+          fallbackOrderNote: 'Academy joining payment',
+          color1: '#2563EB',
+          color2: '#0A0F1E',
+        );
+      }
+
       final DateTime joinDateOnly = DateTime(
         DateTime.now().year,
         DateTime.now().month,
@@ -1312,6 +1351,9 @@ class _SportsNeoAcademyOverviewScreenState
           'joinDate': formattedDate,
           'monthlyFee': monthlyFee,
           'planIndex': _selectedPlanIndex,
+          'paymentMethod': 'cashfree',
+          'paymentStatus': monthlyFee > 0 ? 'paid' : 'pending',
+          'paidAmount': monthlyFee > 0 ? monthlyFee : 0,
 
           // These fields allow the backend to create the first fee record.
           'monthKey': monthKey,
@@ -1747,7 +1789,7 @@ Future<void> _showAllPlans() async {
                   _isCurrentBatchEnrolled
                     ? 'Already Enrolled'
                     : isBatchActive
-                        ? 'Join Batch'
+                        ? 'Pay & Join Batch'
                         : 'Admissions Closed',
                     style: const TextStyle(
                       color: Colors.white,
