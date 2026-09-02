@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/payments/cashfree_checkout.dart';
 import 'sports_neo_booking_cart_store.dart';
 import 'sports_neo_match_details_screen.dart';
 
@@ -38,9 +39,10 @@ class _SportsNeoBookingSummaryScreenState
   final SportsNeoBookingCartStore _cartStore =
       SportsNeoBookingCartStore.instance;
 
-  int _balls = 1;
-  int _umpires = 0;
   bool _isSubmitting = false;
+  String _paymentMethod = 'CASHFREE';
+
+  static const List<String> _paymentMethods = <String>['CASHFREE', 'COD'];
 
   String _formatDate(String isoDate) {
     try {
@@ -94,6 +96,34 @@ class _SportsNeoBookingSummaryScreenState
 
     setState(() => _isSubmitting = true);
     try {
+      if (_paymentMethod == 'CASHFREE' && totalAmount > 0) {
+        if (playerPhone.isEmpty) {
+          throw Exception('Contact number is missing for Cashfree payment');
+        }
+
+        final Map<String, dynamic>
+        token = await _api.createCashfreeToken(widget.groundId, <
+          String,
+          dynamic
+        >{
+          'orderAmount': totalAmount,
+          'orderCurrency': 'INR',
+          'customerPhone': playerPhone,
+          'customerName': playerName,
+          'orderNote':
+              'Ground booking ${widget.date} ${widget.startTime}-${widget.endTime}',
+        });
+
+        await CashfreeCheckout.payWithToken(
+          token,
+          fallbackPhone: playerPhone,
+          fallbackName: playerName,
+          fallbackOrderNote: 'Ground booking payment',
+          color1: '#2563EB',
+          color2: '#0A0F1E',
+        );
+      }
+
       await _api.createBooking(widget.groundId, <String, dynamic>{
         'slotId': widget.slotId,
         'teamName': playerName,
@@ -103,7 +133,7 @@ class _SportsNeoBookingSummaryScreenState
         'startTime': widget.startTime,
         'endTime': widget.endTime,
         'amount': totalAmount,
-        'paymentMethod': 'cod',
+        'paymentMethod': _paymentMethod == 'CASHFREE' ? 'cashfree' : 'cod',
         'notes': 'User booking request',
         'playerCount': 0,
         'source': 'player',
@@ -156,7 +186,6 @@ class _SportsNeoBookingSummaryScreenState
   @override
   Widget build(BuildContext context) {
     final int groundFee = widget.amount > 0 ? widget.amount : 0;
-    final int ballCost = _balls * 150;
     final int total = groundFee;
 
     return Scaffold(
@@ -256,6 +285,48 @@ class _SportsNeoBookingSummaryScreenState
                     //     ],
                     //   ),
                     // ),
+                    const SizedBox(height: 16),
+                    _Card(
+                      title: 'Payment Method',
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _paymentMethods.map((String method) {
+                          final bool selected = _paymentMethod == method;
+                          return GestureDetector(
+                            onTap: () =>
+                                setState(() => _paymentMethod = method),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(18),
+                                color: selected
+                                    ? const Color(0xFF2563EB)
+                                    : const Color(0x0DFFFFFF),
+                                border: Border.all(
+                                  color: selected
+                                      ? const Color(0xFF2563EB)
+                                      : const Color(0x1FFFFFFF),
+                                ),
+                              ),
+                              child: Text(
+                                method,
+                                style: TextStyle(
+                                  color: selected
+                                      ? Colors.white
+                                      : const Color(0xCCFFFFFF),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     _Card(
                       title: 'Payment Summary',
@@ -552,82 +623,6 @@ class _Card extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           child,
-        ],
-      ),
-    );
-  }
-}
-
-class _AddonItem extends StatelessWidget {
-  const _AddonItem({
-    required this.title,
-    required this.count,
-    required this.active,
-    required this.onMinus,
-    required this.onPlus,
-  });
-
-  final String title;
-  final int count;
-  final bool active;
-  final VoidCallback onMinus;
-  final VoidCallback onPlus;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: active ? const Color(0xFF2563EB) : const Color(0x1FFFFFFF),
-        ),
-        color: active ? null : const Color(0x99FFFFFF),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: active ? 1 : 0.6),
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: const Color(0x0AF4F7FF),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                InkWell(
-                  onTap: onMinus,
-                  child: const Icon(
-                    Icons.remove,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-                Text(
-                  '$count',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                InkWell(
-                  onTap: onPlus,
-                  child: const Icon(Icons.add, color: Colors.white, size: 22),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

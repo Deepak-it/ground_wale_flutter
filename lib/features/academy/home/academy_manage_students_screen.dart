@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/payments/cashfree_checkout.dart';
 import '../../../core/utils/base64_image.dart';
 import 'academy_add_student_screen.dart';
 import 'academy_edit_student_screen.dart';
@@ -87,34 +88,36 @@ class _AcademyManageStudentsScreenState
           .listAcademies(ownerId);
       String? academyId = _selectedAcademyId;
       if (academyId == null ||
-          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+          !academies.any(
+            (Map<String, dynamic> item) => _academyId(item) == academyId,
+          )) {
         academyId = ApiSession.instance.selectedAcademyId;
       }
       if (academyId == null ||
-          !academies.any((Map<String, dynamic> item) => _academyId(item) == academyId)) {
+          !academies.any(
+            (Map<String, dynamic> item) => _academyId(item) == academyId,
+          )) {
         academyId = academies.isEmpty ? null : _academyId(academies.first);
       }
 
-      final List<dynamic> responses =
-          await Future.wait<dynamic>(<Future<dynamic>>[
-            GroundWaleApi.instance.listAcademyStudents(
-              ownerId,
-              limit: 200,
-              academyId: academyId,
-            ),
-            GroundWaleApi.instance.listAcademyBatches(
-              ownerId,
-              academyId: academyId,
-            ),
-            GroundWaleApi.instance.listAcademyFees(
-              ownerId,
-              academyId: academyId,
-            ),
-            GroundWaleApi.instance.listAcademyAttendance(
-              ownerId,
-              academyId: academyId,
-            ),
-          ]);
+      final List<dynamic> responses = await Future.wait<dynamic>(
+        <Future<dynamic>>[
+          GroundWaleApi.instance.listAcademyStudents(
+            ownerId,
+            limit: 200,
+            academyId: academyId,
+          ),
+          GroundWaleApi.instance.listAcademyBatches(
+            ownerId,
+            academyId: academyId,
+          ),
+          GroundWaleApi.instance.listAcademyFees(ownerId, academyId: academyId),
+          GroundWaleApi.instance.listAcademyAttendance(
+            ownerId,
+            academyId: academyId,
+          ),
+        ],
+      );
 
       final Map<String, dynamic> studentResponse =
           responses[0] as Map<String, dynamic>;
@@ -160,8 +163,8 @@ class _AcademyManageStudentsScreenState
       final Map<String, String> latestAttendanceByStudent = <String, String>{};
       for (final Map<String, dynamic> dayRecord in attendance) {
         final DateTime dayDate =
-          _parseApiDate(dayRecord['date']) ??
-          DateTime.fromMillisecondsSinceEpoch(0);
+            _parseApiDate(dayRecord['date']) ??
+            DateTime.fromMillisecondsSinceEpoch(0);
         final List<dynamic> entries =
             dayRecord['entries'] as List<dynamic>? ?? <dynamic>[];
 
@@ -538,14 +541,10 @@ class _AcademyManageStudentsScreenState
       return;
     }
 
-    final double totalAmount =
-        (fee['amount'] as num?)?.toDouble() ?? 0;
-    final double alreadyPaid =
-        (fee['paidAmount'] as num?)?.toDouble() ?? 0;
-    final double due =
-        (totalAmount - alreadyPaid).clamp(0, double.infinity);
-    final String feeId =
-        fee['_id']?.toString() ?? fee['id']?.toString() ?? '';
+    final double totalAmount = (fee['amount'] as num?)?.toDouble() ?? 0;
+    final double alreadyPaid = (fee['paidAmount'] as num?)?.toDouble() ?? 0;
+    final double due = (totalAmount - alreadyPaid).clamp(0, double.infinity);
+    final String feeId = fee['_id']?.toString() ?? fee['id']?.toString() ?? '';
 
     final TextEditingController amountCtrl = TextEditingController();
     String paymentMode = 'Cash';
@@ -592,15 +591,12 @@ class _AcademyManageStudentsScreenState
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(
-                          Icons.close,
-                          color: Colors.white54,
-                        ),
+                        icon: const Icon(Icons.close, color: Colors.white54),
                       ),
                     ],
                   ),
                   Text(
-                    'Total: Rs ${totalAmount.toStringAsFixed(0)}'  
+                    'Total: Rs ${totalAmount.toStringAsFixed(0)}'
                     '  •  Paid: Rs ${alreadyPaid.toStringAsFixed(0)}'
                     '  •  Due: Rs ${due.toStringAsFixed(0)}',
                     style: const TextStyle(
@@ -630,10 +626,7 @@ class _AcademyManageStudentsScreenState
                       controller: amountCtrl,
                       keyboardType: TextInputType.number,
                       autofocus: true,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Enter amount',
@@ -654,47 +647,45 @@ class _AcademyManageStudentsScreenState
                   ),
                   const SizedBox(height: 8),
                   Row(
-                    children: <String>['Cash', 'UPI', 'Card']
-                        .map((String mode) {
-                          final bool sel = paymentMode == mode;
-                          return Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: GestureDetector(
-                                onTap: () =>
-                                    setSheetState(() => paymentMode = mode),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: sel
-                                          ? const Color(0xFF00C9A7)
-                                          : const Color(0x1FFFFFFF),
-                                    ),
-                                    color: sel
-                                        ? const Color(0x1400C9A7)
-                                        : const Color(0x0FFFFFFF),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    mode,
-                                    style: TextStyle(
-                                      color: sel
-                                          ? const Color(0xFF00C9A7)
-                                          : Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                    children: <String>['Cash', 'UPI', 'Card', 'Cashfree'].map((
+                      String mode,
+                    ) {
+                      final bool sel = paymentMode == mode;
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () =>
+                                setSheetState(() => paymentMode = mode),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: sel
+                                      ? const Color(0xFF00C9A7)
+                                      : const Color(0x1FFFFFFF),
+                                ),
+                                color: sel
+                                    ? const Color(0x1400C9A7)
+                                    : const Color(0x0FFFFFFF),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                mode,
+                                style: TextStyle(
+                                  color: sel
+                                      ? const Color(0xFF00C9A7)
+                                      : Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
-                          );
-                        })
-                        .toList(),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -704,7 +695,8 @@ class _AcademyManageStudentsScreenState
                       onPressed: isSaving
                           ? null
                           : () async {
-                              final double paying = double.tryParse(
+                              final double paying =
+                                  double.tryParse(
                                     amountCtrl.text.replaceAll(
                                       RegExp(r'[^0-9.]'),
                                       '',
@@ -721,25 +713,61 @@ class _AcademyManageStudentsScreenState
                               }
                               setSheetState(() => isSaving = true);
                               try {
-                                final double newPaid =
-                                    (alreadyPaid + paying).clamp(
-                                      0,
-                                      totalAmount,
+                                if (paymentMode == 'Cashfree') {
+                                  final String phone =
+                                      (ApiSession.instance.contactNumber ?? '')
+                                          .trim();
+                                  if (phone.isEmpty) {
+                                    throw Exception(
+                                      'Contact number is missing for Cashfree payment',
                                     );
-                                final String newStatus =
-                                    newPaid >= totalAmount
-                                        ? 'paid'
-                                        : 'partial';
-                                await GroundWaleApi.instance
-                                    .updateAcademyFee(
-                                      ownerId,
-                                      feeId,
-                                      <String, dynamic>{
-                                        'paidAmount': newPaid,
-                                        'status': newStatus,
-                                        'paymentMode': paymentMode,
-                                      },
-                                    );
+                                  }
+
+                                  final dynamic academyRaw =
+                                      fee['academyId'] ?? _selectedAcademyId;
+                                  final String academyId =
+                                      academyRaw is Map<String, dynamic>
+                                      ? academyRaw['_id']?.toString() ?? ''
+                                      : academyRaw?.toString() ?? '';
+
+                                  final Map<String, dynamic>
+                                  token = await GroundWaleApi.instance
+                                      .createAcademyCashfreeToken(ownerId, <
+                                        String,
+                                        dynamic
+                                      >{
+                                        if (academyId.isNotEmpty)
+                                          'academyId': academyId,
+                                        'orderAmount': paying,
+                                        'orderCurrency': 'INR',
+                                        'customerPhone': phone,
+                                        'customerName': item.name,
+                                        'orderNote':
+                                            'Academy fee payment ${fee['monthKey'] ?? ''}',
+                                      });
+
+                                  await CashfreeCheckout.payWithToken(
+                                    token,
+                                    fallbackPhone: phone,
+                                    fallbackName: item.name,
+                                    fallbackOrderNote: 'Academy fee payment',
+                                  );
+                                }
+
+                                final double newPaid = (alreadyPaid + paying)
+                                    .clamp(0, totalAmount);
+                                final String newStatus = newPaid >= totalAmount
+                                    ? 'paid'
+                                    : 'partial';
+                                await GroundWaleApi.instance.updateAcademyFee(
+                                  ownerId,
+                                  feeId,
+                                  <String, dynamic>{
+                                    'paidAmount': newPaid,
+                                    'status': newStatus,
+                                    'paymentMode': paymentMode,
+                                  },
+                                );
                                 if (ctx.mounted) {
                                   Navigator.of(ctx).pop();
                                 }
@@ -757,9 +785,10 @@ class _AcademyManageStudentsScreenState
                                   ScaffoldMessenger.of(ctx).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        error
-                                            .toString()
-                                            .replaceFirst('Exception: ', ''),
+                                        error.toString().replaceFirst(
+                                          'Exception: ',
+                                          '',
+                                        ),
                                       ),
                                     ),
                                   );
@@ -996,16 +1025,19 @@ class _AcademyDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, String>> options = academies
-        .map((Map<String, dynamic> academy) => <String, String>{
-              'id': _academyId(academy),
-              'name': academy['name']?.toString() ?? 'Academy',
-            })
+        .map(
+          (Map<String, dynamic> academy) => <String, String>{
+            'id': _academyId(academy),
+            'name': academy['name']?.toString() ?? 'Academy',
+          },
+        )
         .where((Map<String, String> academy) => academy['id']!.isNotEmpty)
         .toList();
 
-    final String? normalizedValue = options.any(
-      (Map<String, String> item) => item['id'] == selectedAcademyId,
-    )
+    final String? normalizedValue =
+        options.any(
+          (Map<String, String> item) => item['id'] == selectedAcademyId,
+        )
         ? selectedAcademyId
         : null;
 
@@ -1027,7 +1059,10 @@ class _AcademyDropdown extends StatelessWidget {
         isDense: true,
         filled: true,
         fillColor: const Color(0x0FFFFFFF),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0x1FFFFFFF)),
@@ -1040,7 +1075,10 @@ class _AcademyDropdown extends StatelessWidget {
       items: options.map((Map<String, String> item) {
         return DropdownMenuItem<String>(
           value: item['id'],
-          child: Text(item['name']!, style: const TextStyle(color: Colors.white)),
+          child: Text(
+            item['name']!,
+            style: const TextStyle(color: Colors.white),
+          ),
         );
       }).toList(),
       onChanged: onChanged,
@@ -1102,6 +1140,7 @@ class _StudentCard extends StatelessWidget {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final String attendance = item.attendance;
@@ -1157,37 +1196,37 @@ class _StudentCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: <Widget>[
-                    _Badge(
-                      icon: present
-                          ? Icons.check_circle
-                          : absent
-                              ? Icons.cancel
-                              : Icons.event_busy,
-                      label: attendance,
-                      textColor: present
-                          ? const Color(0xFF00C9A7)
-                          : absent
-                              ? const Color(0xFFE3220D)
-                              : const Color(0xFFF59E0B),
-                      background: present
-                          ? const Color(0x1F00C9A7)
-                          : absent
-                              ? const Color(0x1FE3220D)
-                              : const Color(0x1FF59E0B),
-                    ),
+                      _Badge(
+                        icon: present
+                            ? Icons.check_circle
+                            : absent
+                            ? Icons.cancel
+                            : Icons.event_busy,
+                        label: attendance,
+                        textColor: present
+                            ? const Color(0xFF00C9A7)
+                            : absent
+                            ? const Color(0xFFE3220D)
+                            : const Color(0xFFF59E0B),
+                        background: present
+                            ? const Color(0x1F00C9A7)
+                            : absent
+                            ? const Color(0x1FE3220D)
+                            : const Color(0x1FF59E0B),
+                      ),
                       const SizedBox(width: 6),
-                    _Badge(
-                      icon: paid
-                          ? Icons.currency_rupee
-                          : Icons.payments_outlined,
-                      label: item.fee,
-                      textColor: paid
-                          ? const Color(0xFF08B36A)
-                          : const Color(0xFFF59E0B),
-                      background: paid
-                          ? const Color(0x1F08B36A)
-                          : const Color(0x1FF59E0B),
-                    ),
+                      _Badge(
+                        icon: paid
+                            ? Icons.currency_rupee
+                            : Icons.payments_outlined,
+                        label: item.fee,
+                        textColor: paid
+                            ? const Color(0xFF08B36A)
+                            : const Color(0xFFF59E0B),
+                        background: paid
+                            ? const Color(0x1F08B36A)
+                            : const Color(0x1FF59E0B),
+                      ),
                     ],
                   ),
                 ],
@@ -1198,23 +1237,23 @@ class _StudentCard extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                    InkWell(
-                      onTap: _callPhone,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          color: const Color(0x0800C9A7),
-                        ),
-                        child: const Icon(
-                          Icons.phone,
-                          color: Color(0xFF00C9A7),
-                          size: 20,
-                        ),
+                  InkWell(
+                    onTap: _callPhone,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0x0800C9A7),
+                      ),
+                      child: const Icon(
+                        Icons.phone,
+                        color: Color(0xFF00C9A7),
+                        size: 20,
                       ),
                     ),
+                  ),
                   const SizedBox(height: 8),
                   InkWell(
                     onTap: _openWhatsApp,
@@ -1234,7 +1273,7 @@ class _StudentCard extends StatelessWidget {
                     ),
                   ),
 
-    const SizedBox(height: 8), // <-- Add this
+                  const SizedBox(height: 8), // <-- Add this
 
                   InkWell(
                     onTap: onMoreTap,
@@ -1254,7 +1293,7 @@ class _StudentCard extends StatelessWidget {
                   ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -1269,7 +1308,12 @@ class _StudentCard extends StatelessWidget {
     return '${p.first[0]}${p.last[0]}'.toUpperCase();
   }
 
-  Widget _buildAvatar(String? photoBase64, String name, double size, double fontSize) {
+  Widget _buildAvatar(
+    String? photoBase64,
+    String name,
+    double size,
+    double fontSize,
+  ) {
     final Uint8List? bytes = decodeBase64ImageBytes(photoBase64);
     if (bytes != null) {
       return Image.memory(bytes, fit: BoxFit.cover, width: size, height: size);
@@ -1315,11 +1359,7 @@ class _Badge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           if (icon != null) ...[
-            Icon(
-              icon,
-              size: 15,
-              color: textColor,
-            ),
+            Icon(icon, size: 15, color: textColor),
             const SizedBox(width: 5),
           ],
           Text(
@@ -1335,5 +1375,3 @@ class _Badge extends StatelessWidget {
     );
   }
 }
-
-

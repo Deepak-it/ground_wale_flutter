@@ -6,6 +6,7 @@ import 'package:ground_wale/core/widgets/app_text_field.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/payments/cashfree_checkout.dart';
 
 class AcademyFeeDetailsScreen extends StatefulWidget {
   const AcademyFeeDetailsScreen({super.key});
@@ -136,110 +137,101 @@ class _AcademyFeeDetailsScreenState extends State<AcademyFeeDetailsScreen> {
     return '-';
   }
 
-Future<void> _load() async {
-  final String? ownerId = _ownerId;
-  if (ownerId == null || ownerId.isEmpty) {
-    if (mounted) {
+  Future<void> _load() async {
+    final String? ownerId = _ownerId;
+    if (ownerId == null || ownerId.isEmpty) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Academies
+      final List<Map<String, dynamic>> academies = await GroundWaleApi.instance
+          .listAcademies(ownerId);
+
+      academies.insert(0, {'_id': 'ALL', 'name': 'All Academies'});
+
+      if (_selectedAcademyIds.isEmpty) {
+        _selectedAcademyIds.addAll(
+          academies.where((e) => _academyId(e) != 'ALL').map(_academyId),
+        );
+      }
+
+      // Batches
+      final List<Map<String, dynamic>> batches = [];
+
+      for (final academyId in _selectedAcademyIds) {
+        final result = await GroundWaleApi.instance.listAcademyBatches(
+          ownerId,
+          academyId: academyId,
+        );
+
+        batches.addAll(result);
+      }
+
+      if (_selectedBatchIds.isEmpty) {
+        _selectedBatchIds.addAll(batches.map(_batchId));
+      }
+
+      // Students
+      final List<Map<String, dynamic>> students = [];
+
+      for (final academyId in _selectedAcademyIds) {
+        final response = await GroundWaleApi.instance.listAcademyStudents(
+          ownerId,
+          academyId: academyId,
+          limit: 500,
+        );
+
+        students.addAll(
+          (response['items'] as List<dynamic>? ?? []).whereType<Map>().map(
+            _safeStringMap,
+          ),
+        );
+      }
+
+      // Fees
+      final List<Map<String, dynamic>> fees = [];
+
+      for (final academyId in _selectedAcademyIds) {
+        final result = await GroundWaleApi.instance.listAcademyFees(
+          ownerId,
+          academyId: academyId,
+        );
+
+        fees.addAll(result);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _academies = academies;
+        _batches = batches;
+        _students = students;
+        _allFees = fees;
+
+        _selectedReminderFeeIds.removeWhere(
+          (id) => !_allFees.any((fee) => _feeId(fee) == id),
+        );
+
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
       setState(() => _isLoading = false);
-    }
-    return;
-  }
 
-  setState(() => _isLoading = true);
-
-  try {
-    // Academies
-    final List<Map<String, dynamic>> academies =
-        await GroundWaleApi.instance.listAcademies(ownerId);
-
-    academies.insert(0, {
-      '_id': 'ALL',
-      'name': 'All Academies',
-    });
-
-    if (_selectedAcademyIds.isEmpty) {
-      _selectedAcademyIds.addAll(
-        academies
-            .where((e) => _academyId(e) != 'ALL')
-            .map(_academyId),
-      );
-    }
-
-    // Batches
-    final List<Map<String, dynamic>> batches = [];
-
-    for (final academyId in _selectedAcademyIds) {
-      final result = await GroundWaleApi.instance.listAcademyBatches(
-        ownerId,
-        academyId: academyId,
-      );
-
-      batches.addAll(result);
-    }
-
-    if (_selectedBatchIds.isEmpty) {
-      _selectedBatchIds.addAll(
-        batches.map(_batchId),
-      );
-    }
-
-    // Students
-    final List<Map<String, dynamic>> students = [];
-
-    for (final academyId in _selectedAcademyIds) {
-      final response = await GroundWaleApi.instance.listAcademyStudents(
-        ownerId,
-        academyId: academyId,
-        limit: 500,
-      );
-
-      students.addAll(
-        (response['items'] as List<dynamic>? ?? [])
-            .whereType<Map>()
-            .map(_safeStringMap),
-      );
-    }
-
-    // Fees
-    final List<Map<String, dynamic>> fees = [];
-
-    for (final academyId in _selectedAcademyIds) {
-      final result = await GroundWaleApi.instance.listAcademyFees(
-        ownerId,
-        academyId: academyId,
-      );
-
-      fees.addAll(result);
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      _academies = academies;
-      _batches = batches;
-      _students = students;
-      _allFees = fees;
-
-      _selectedReminderFeeIds.removeWhere(
-        (id) => !_allFees.any((fee) => _feeId(fee) == id),
-      );
-
-      _isLoading = false;
-    });
-  } catch (error) {
-    if (!mounted) return;
-
-    setState(() => _isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          error.toString().replaceFirst('Exception: ', ''),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
-      ),
-    );
+      );
+    }
   }
-}
 
   List<Map<String, dynamic>> _batchScopedFees() {
     if (_selectedBatchIds.isEmpty) {
@@ -271,8 +263,8 @@ Future<void> _load() async {
       final bool matchesStatus = _status == 'All'
           ? true
           : _status == 'Pending'
-              ? (status == 'pending' || status == 'partial')
-              : status == _status.toLowerCase();
+          ? (status == 'pending' || status == 'partial')
+          : status == _status.toLowerCase();
       if (!matchesStatus) {
         return false;
       }
@@ -574,10 +566,7 @@ Future<void> _load() async {
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(
-                          Icons.close,
-                          color: Colors.white54,
-                        ),
+                        icon: const Icon(Icons.close, color: Colors.white54),
                       ),
                     ],
                   ),
@@ -612,10 +601,7 @@ Future<void> _load() async {
                       controller: amountCtrl,
                       keyboardType: TextInputType.number,
                       autofocus: true,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Enter amount',
@@ -636,47 +622,45 @@ Future<void> _load() async {
                   ),
                   const SizedBox(height: 8),
                   Row(
-                    children: <String>['Cash', 'UPI', 'Card']
-                        .map((String mode) {
-                          final bool sel = paymentMode == mode;
-                          return Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: GestureDetector(
-                                onTap: () =>
-                                    setSheetState(() => paymentMode = mode),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: sel
-                                          ? const Color(0xFF00C9A7)
-                                          : const Color(0x1FFFFFFF),
-                                    ),
-                                    color: sel
-                                        ? const Color(0x1400C9A7)
-                                        : const Color(0x0FFFFFFF),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    mode,
-                                    style: TextStyle(
-                                      color: sel
-                                          ? const Color(0xFF00C9A7)
-                                          : Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                    children: <String>['Cash', 'UPI', 'Card', 'Cashfree'].map((
+                      String mode,
+                    ) {
+                      final bool sel = paymentMode == mode;
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () =>
+                                setSheetState(() => paymentMode = mode),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: sel
+                                      ? const Color(0xFF00C9A7)
+                                      : const Color(0x1FFFFFFF),
+                                ),
+                                color: sel
+                                    ? const Color(0x1400C9A7)
+                                    : const Color(0x0FFFFFFF),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                mode,
+                                style: TextStyle(
+                                  color: sel
+                                      ? const Color(0xFF00C9A7)
+                                      : Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
-                          );
-                        })
-                        .toList(),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -686,7 +670,8 @@ Future<void> _load() async {
                       onPressed: isSaving
                           ? null
                           : () async {
-                              final double paying = double.tryParse(
+                              final double paying =
+                                  double.tryParse(
                                     amountCtrl.text.replaceAll(
                                       RegExp(r'[^0-9.]'),
                                       '',
@@ -703,13 +688,60 @@ Future<void> _load() async {
                               }
                               setSheetState(() => isSaving = true);
                               try {
-                                final double newPaid =
-                                    (alreadyPaid + paying).clamp(
-                                      0,
-                                      totalAmount,
+                                if (paymentMode == 'Cashfree') {
+                                  final String phone =
+                                      (ApiSession.instance.contactNumber ?? '')
+                                          .trim();
+                                  if (phone.isEmpty) {
+                                    throw Exception(
+                                      'Contact number is missing for Cashfree payment',
                                     );
-                                final String newStatus =
-                                    newPaid >= totalAmount ? 'paid' : 'partial';
+                                  }
+                                  final Map<String, dynamic> student =
+                                      _studentFromFee(fee);
+                                  final String customerName =
+                                      student['fullName']
+                                              ?.toString()
+                                              .trim()
+                                              .isNotEmpty ==
+                                          true
+                                      ? student['fullName']!.toString().trim()
+                                      : 'Academy Parent';
+                                  final dynamic academyRaw = fee['academyId'];
+                                  final String academyId =
+                                      academyRaw is Map<String, dynamic>
+                                      ? academyRaw['_id']?.toString() ?? ''
+                                      : academyRaw?.toString() ?? '';
+
+                                  final Map<String, dynamic>
+                                  token = await GroundWaleApi.instance
+                                      .createAcademyCashfreeToken(ownerId, <
+                                        String,
+                                        dynamic
+                                      >{
+                                        if (academyId.isNotEmpty)
+                                          'academyId': academyId,
+                                        'orderAmount': paying,
+                                        'orderCurrency': 'INR',
+                                        'customerPhone': phone,
+                                        'customerName': customerName,
+                                        'orderNote':
+                                            'Academy fee payment ${fee['monthKey'] ?? ''}',
+                                      });
+
+                                  await CashfreeCheckout.payWithToken(
+                                    token,
+                                    fallbackPhone: phone,
+                                    fallbackName: customerName,
+                                    fallbackOrderNote: 'Academy fee payment',
+                                  );
+                                }
+
+                                final double newPaid = (alreadyPaid + paying)
+                                    .clamp(0, totalAmount);
+                                final String newStatus = newPaid >= totalAmount
+                                    ? 'paid'
+                                    : 'partial';
                                 await GroundWaleApi.instance.updateAcademyFee(
                                   ownerId,
                                   feeId,
@@ -736,9 +768,10 @@ Future<void> _load() async {
                                   ScaffoldMessenger.of(ctx).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        error
-                                            .toString()
-                                            .replaceFirst('Exception: ', ''),
+                                        error.toString().replaceFirst(
+                                          'Exception: ',
+                                          '',
+                                        ),
                                       ),
                                     ),
                                   );
@@ -856,15 +889,22 @@ Future<void> _load() async {
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
-  Widget _studentAvatarWidget(Map<String, dynamic> student, String studentName) {
+  Widget _studentAvatarWidget(
+    Map<String, dynamic> student,
+    String studentName,
+  ) {
     final String raw = student['photoBase64']?.toString() ?? '';
     if (raw.isNotEmpty) {
       try {
         String base64Part = raw;
-        if (raw.contains(',')) base64Part = raw.split(',').last;
+        if (raw.contains(',')) {
+          base64Part = raw.split(',').last;
+        }
         base64Part = base64Part.trim().replaceAll(RegExp(r'\s+'), '');
         final int rem = base64Part.length % 4;
-        if (rem != 0) base64Part = base64Part.padRight(base64Part.length + (4 - rem), '=');
+        if (rem != 0) {
+          base64Part = base64Part.padRight(base64Part.length + (4 - rem), '=');
+        }
         final Uint8List bytes = base64Decode(base64Part);
         return Container(
           width: 52,
@@ -905,8 +945,18 @@ Future<void> _load() async {
     if (d == null) return raw;
     final DateTime local = d.toLocal();
     const List<String> months = <String>[
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${local.day} ${months[local.month - 1]} ${local.year}';
   }
@@ -1049,14 +1099,14 @@ Future<void> _load() async {
                     ],
                   ),
                   const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: null,
-                      hint: Text(
-                        _selectedAcademyIds.isEmpty
-                            ? 'Select Academies'
-                            : '${_selectedAcademyIds.length} Academies Selected',
-                        style: const TextStyle(color: Colors.white),
-                      ),
+                  DropdownButtonFormField<String>(
+                    value: null,
+                    hint: Text(
+                      _selectedAcademyIds.isEmpty
+                          ? 'Select Academies'
+                          : '${_selectedAcademyIds.length} Academies Selected',
+                      style: const TextStyle(color: Colors.white),
+                    ),
                     icon: const Icon(
                       Icons.keyboard_arrow_down_rounded,
                       color: Color(0x99FFFFFF),
@@ -1086,7 +1136,8 @@ Future<void> _load() async {
                     ),
                     items: _academies.map((Map<String, dynamic> academy) {
                       final String id = _academyId(academy);
-                      final String name = academy['name']?.toString() ?? 'Academy';
+                      final String name =
+                          academy['name']?.toString() ?? 'Academy';
                       return DropdownMenuItem<String>(
                         value: id,
                         child: Text(
@@ -1129,7 +1180,9 @@ Future<void> _load() async {
                         itemBuilder: (BuildContext context, int index) {
                           final Map<String, dynamic> batch = _batches[index];
                           final String batchId = _batchId(batch);
-                          final bool selected = _selectedBatchIds.contains(batchId);
+                          final bool selected = _selectedBatchIds.contains(
+                            batchId,
+                          );
                           return InkWell(
                             borderRadius: BorderRadius.circular(12),
                             onTap: () {
@@ -1485,12 +1538,17 @@ Future<void> _load() async {
                                         fontSize: 12,
                                       ),
                                     ),
-                                    if (fee['subscriptionEndDate'] != null) ...<Widget>[
+                                    if (fee['subscriptionEndDate'] !=
+                                        null) ...<Widget>[
                                       const SizedBox(height: 2),
                                       Text(
                                         'Expires: ${_fmtExpiry(fee['subscriptionEndDate']?.toString())}',
                                         style: TextStyle(
-                                          color: _isExpiredStr(fee['subscriptionEndDate']?.toString())
+                                          color:
+                                              _isExpiredStr(
+                                                fee['subscriptionEndDate']
+                                                    ?.toString(),
+                                              )
                                               ? const Color(0xFFEF4444)
                                               : const Color(0xFF9FB9B3),
                                           fontSize: 11,
@@ -1508,8 +1566,9 @@ Future<void> _load() async {
                                         onPressed: () =>
                                             _showAddPaymentSheet(fee),
                                         style: TextButton.styleFrom(
-                                          foregroundColor:
-                                              const Color(0xFF22C55E),
+                                          foregroundColor: const Color(
+                                            0xFF22C55E,
+                                          ),
                                           padding: EdgeInsets.zero,
                                           minimumSize: Size.zero,
                                           tapTargetSize:
@@ -1522,8 +1581,9 @@ Future<void> _load() async {
                                     TextButton(
                                       onPressed: () => _openFeeDetails(fee),
                                       style: TextButton.styleFrom(
-                                        foregroundColor:
-                                            const Color(0xFF00C9A7),
+                                        foregroundColor: const Color(
+                                          0xFF00C9A7,
+                                        ),
                                         padding: EdgeInsets.zero,
                                         minimumSize: Size.zero,
                                         tapTargetSize:
@@ -1652,5 +1712,3 @@ Future<void> _load() async {
     );
   }
 }
-
-

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cashfree_pg/cashfree_pg.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
@@ -11,32 +12,129 @@ class BoxCricketPaymentScreen extends StatefulWidget {
   final BoxCricketBookingDraft draft;
 
   @override
-  State<BoxCricketPaymentScreen> createState() => _BoxCricketPaymentScreenState();
+  State<BoxCricketPaymentScreen> createState() =>
+      _BoxCricketPaymentScreenState();
 }
 
 class _BoxCricketPaymentScreenState extends State<BoxCricketPaymentScreen> {
   bool _submitting = false;
   late String _paymentMethod;
 
+  static const List<String> _supportedMethods = <String>[
+    'CASHFREE',
+    'COD',
+    'CASH',
+  ];
+
   @override
   void initState() {
     super.initState();
-    _paymentMethod = widget.draft.paymentMethod;
+    _paymentMethod = _labelForMethod(widget.draft.paymentMethod);
+    if (!_supportedMethods.contains(_paymentMethod)) {
+      _paymentMethod = 'CASHFREE';
+    }
+  }
+
+  String _labelForMethod(String method) {
+    final String value = method.trim().toLowerCase();
+    if (value == 'cashfree') {
+      return 'CASHFREE';
+    }
+    if (value == 'cod') {
+      return 'COD';
+    }
+    if (value == 'cash') {
+      return 'CASH';
+    }
+    return 'CASHFREE';
+  }
+
+  String _apiMethod(String label) {
+    switch (label) {
+      case 'COD':
+        return 'cod';
+      case 'CASH':
+        return 'cash';
+      case 'CASHFREE':
+      default:
+        return 'cashfree';
+    }
+  }
+
+  Future<void> _runCashfreeCheckout(String groundId) async {
+    final String phone = (ApiSession.instance.contactNumber ?? '').trim();
+    if (phone.isEmpty) {
+      throw Exception('Contact number is missing for Cashfree payment');
+    }
+
+    final Map<String, dynamic>
+    token = await GroundWaleApi.instance.createCashfreeToken(groundId, <
+      String,
+      dynamic
+    >{
+      'orderAmount': widget.draft.amount,
+      'orderCurrency': 'INR',
+      'customerPhone': phone,
+      'customerName': widget.draft.captainName.isNotEmpty
+          ? widget.draft.captainName
+          : (widget.draft.teamName.isNotEmpty
+                ? widget.draft.teamName
+                : 'Sports Neo User'),
+      'orderNote':
+          'Booking ${widget.draft.date} ${widget.draft.startTime}-${widget.draft.endTime}',
+    });
+
+    final Map<String, dynamic> checkoutInput = <String, dynamic>{
+      'stage': token['stage']?.toString() ?? 'TEST',
+      'appId': token['appId']?.toString() ?? '',
+      'orderId': token['orderId']?.toString() ?? '',
+      'orderAmount': '${token['orderAmount']}',
+      'orderCurrency': token['orderCurrency']?.toString() ?? 'INR',
+      'customerName': token['customerName']?.toString() ?? 'Sports Neo User',
+      'customerPhone': token['customerPhone']?.toString() ?? phone,
+      'customerEmail':
+          token['customerEmail']?.toString() ?? 'customer@sportsneo.app',
+      'orderNote': token['orderNote']?.toString() ?? 'Booking payment',
+      'tokenData': token['tokenData']?.toString() ?? '',
+      'color1': '#08B36A',
+      'color2': '#1C333B',
+      if ((token['notifyUrl']?.toString() ?? '').isNotEmpty)
+        'notifyUrl': token['notifyUrl']?.toString() ?? '',
+    };
+
+    final Map<dynamic, dynamic>? response = await CashfreePGSDK.doPayment(
+      checkoutInput,
+    );
+    if (response == null) {
+      throw Exception('Cashfree payment did not return any response');
+    }
+
+    final String txStatus =
+        response['txStatus']?.toString().toUpperCase() ?? 'FAILED';
+    if (txStatus != 'SUCCESS') {
+      final String message =
+          response['txMsg']?.toString() ?? 'Payment failed or cancelled';
+      throw Exception(message);
+    }
   }
 
   Future<void> _confirmBooking() async {
     final String? groundId = ApiSession.instance.groundId;
     if (groundId == null || groundId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ground id is missing.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ground id is missing.')));
       return;
     }
 
     setState(() => _submitting = true);
     try {
+      if (_paymentMethod == 'CASHFREE') {
+        await _runCashfreeCheckout(groundId);
+      }
+
       final BoxCricketBookingDraft ready = widget.draft.copyWith(
-        paymentMethod: _paymentMethod,
+        paymentMethod: _apiMethod(_paymentMethod),
       );
       final Map<String, dynamic> booking = await GroundWaleApi.instance
           .createBooking(groundId, ready.toPayload());
@@ -53,7 +151,9 @@ class _BoxCricketPaymentScreenState extends State<BoxCricketPaymentScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
       );
     } finally {
       if (mounted) {
@@ -91,7 +191,10 @@ class _BoxCricketPaymentScreenState extends State<BoxCricketPaymentScreen> {
                 const SizedBox(height: 12),
                 _row('Team', widget.draft.teamName),
                 _row('Captain', widget.draft.captainName),
-                _row('Time', '${widget.draft.startTime} - ${widget.draft.endTime}'),
+                _row(
+                  'Time',
+                  '${widget.draft.startTime} - ${widget.draft.endTime}',
+                ),
                 _row('Date', widget.draft.date),
                 _row('Players', '${widget.draft.playerCount}'),
                 const Divider(color: Color(0x33FFFFFF), height: 22),
@@ -122,13 +225,15 @@ class _BoxCricketPaymentScreenState extends State<BoxCricketPaymentScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  // children: <String>['upi', 'cod', 'cash', 'netbanking'].map((String method) {
-                  children: <String>['COD', 'Cash'].map((String method) {
+                  children: _supportedMethods.map((String method) {
                     final bool selected = _paymentMethod == method;
                     return GestureDetector(
                       onTap: () => setState(() => _paymentMethod = method),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
                           color: selected
@@ -137,9 +242,11 @@ class _BoxCricketPaymentScreenState extends State<BoxCricketPaymentScreen> {
                           border: Border.all(color: const Color(0x1FFFFFFF)),
                         ),
                         child: Text(
-                          method.toUpperCase(),
+                          method,
                           style: TextStyle(
-                            color: selected ? const Color(0xFF1C333B) : Colors.white,
+                            color: selected
+                                ? const Color(0xFF1C333B)
+                                : Colors.white,
                             fontWeight: FontWeight.w700,
                           ),
                         ),

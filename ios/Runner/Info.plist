@@ -61,6 +61,7 @@
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
 		<string>gpay</string>
+		<string>tez</string>
 		<string>phonepe</string>
 		<string>paytm</string>
 		<string>bhim</string>

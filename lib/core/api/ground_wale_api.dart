@@ -690,6 +690,21 @@ class GroundWaleApi {
     }
   }
 
+  Future<Map<String, dynamic>> createCashfreeToken(
+    String groundId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/grounds/$groundId/payments/cashfree/token',
+        data: payload,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<Map<String, dynamic>> getBookingCart(String ownerId) async {
     try {
       final Response<dynamic> response = await _dio.get<dynamic>(
@@ -1441,6 +1456,21 @@ class GroundWaleApi {
     try {
       final Response<dynamic> response = await _dio.patch<dynamic>(
         '/academy/$ownerId/fees/$feeId',
+        data: payload,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> createAcademyCashfreeToken(
+    String ownerId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/academy/$ownerId/payments/cashfree/token',
         data: payload,
       );
       return Map<String, dynamic>.from(response.data as Map);
