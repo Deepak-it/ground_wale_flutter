@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_session.dart';
 import '../../../core/api/ground_wale_api.dart';
+import '../../../core/payments/cashfree_checkout.dart';
 import 'sports_neo_booking_cart_store.dart';
 import 'sports_neo_booking_history_screen.dart';
 
@@ -19,6 +20,9 @@ class _SportsNeoBookingCartScreenState
   final SportsNeoBookingCartStore _cartStore =
       SportsNeoBookingCartStore.instance;
   bool _isSubmitting = false;
+  String _paymentMethod = 'CASHFREE';
+
+  static const List<String> _paymentMethods = <String>['CASHFREE', 'COD'];
 
   @override
   void initState() {
@@ -50,6 +54,8 @@ class _SportsNeoBookingCartScreenState
         ? 'Sports Neo Player'
         : ApiSession.instance.ownerName!.trim();
     final String playerPhone = (ApiSession.instance.contactNumber ?? '').trim();
+    final String ownerId = (ApiSession.instance.ownerId ?? '').trim();
+    final int totalAmount = _bookingTotal(items);
 
     setState(() => _isSubmitting = true);
 
@@ -59,6 +65,35 @@ class _SportsNeoBookingCartScreenState
     String? firstError;
 
     try {
+      if (_paymentMethod == 'CASHFREE' && totalAmount > 0) {
+        if (ownerId.isEmpty) {
+          throw Exception('Owner ID is missing for cart payment');
+        }
+        if (playerPhone.isEmpty) {
+          throw Exception('Contact number is missing for Cashfree payment');
+        }
+
+        final Map<String, dynamic> token = await _api.createCartCashfreeToken(
+          ownerId,
+          <String, dynamic>{
+            'orderAmount': totalAmount,
+            'orderCurrency': 'INR',
+            'customerPhone': playerPhone,
+            'customerName': playerName,
+            'orderNote': 'Cart booking payment (${items.length} ground(s))',
+          },
+        );
+
+        await CashfreeCheckout.payWithToken(
+          token,
+          fallbackPhone: playerPhone,
+          fallbackName: playerName,
+          fallbackOrderNote: 'Cart booking payment',
+          color1: '#2563EB',
+          color2: '#0A0F1E',
+        );
+      }
+
       for (final SportsNeoBookingCartGround item in items) {
         for (final SportsNeoBookingCartSlot slot in item.slots) {
           try {
@@ -71,7 +106,9 @@ class _SportsNeoBookingCartScreenState
               'startTime': slot.startTime,
               'endTime': slot.endTime,
               'amount': slot.amount,
-              'paymentMethod': 'cod',
+              'paymentMethod': _paymentMethod == 'CASHFREE'
+                  ? 'cashfree'
+                  : 'cod',
               'notes': 'User booking request from cart',
               'playerCount': 0,
               'source': 'player',
@@ -197,6 +234,14 @@ class _SportsNeoBookingCartScreenState
                               discount: 0,
                               total: subtotal.toDouble(),
                             ),
+                            const SizedBox(height: 12),
+                            _CartPaymentMethodCard(
+                              selectedMethod: _paymentMethod,
+                              methods: _paymentMethods,
+                              onChanged: (String method) {
+                                setState(() => _paymentMethod = method);
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -217,7 +262,11 @@ class _SportsNeoBookingCartScreenState
                               ? null
                               : () => _submitCart(items),
                           child: Text(
-                            _isSubmitting ? 'Booking...' : 'Book Now',
+                            _isSubmitting
+                                ? 'Booking...'
+                                : (_paymentMethod == 'CASHFREE'
+                                      ? 'Pay & Book Now'
+                                      : 'Book Now (COD)'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -231,6 +280,82 @@ class _SportsNeoBookingCartScreenState
                 );
               },
         ),
+      ),
+    );
+  }
+}
+
+class _CartPaymentMethodCard extends StatelessWidget {
+  const _CartPaymentMethodCard({
+    required this.selectedMethod,
+    required this.methods,
+    required this.onChanged,
+  });
+
+  final String selectedMethod;
+  final List<String> methods;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0x1FFFFFFF)),
+        color: const Color(0x0AFFFFFF),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Payment Method',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: methods.map((String method) {
+              final bool selected = selectedMethod == method;
+              return InkWell(
+                onTap: () => onChanged(method),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: selected
+                        ? const Color(0xFF2563EB)
+                        : const Color(0x12000000),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFF2563EB)
+                          : const Color(0x33FFFFFF),
+                    ),
+                  ),
+                  child: Text(
+                    method,
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xCCFFFFFF),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

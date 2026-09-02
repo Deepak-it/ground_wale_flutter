@@ -705,6 +705,21 @@ class GroundWaleApi {
     }
   }
 
+  Future<Map<String, dynamic>> createCartCashfreeToken(
+    String ownerId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/cart/$ownerId/payments/cashfree/token',
+        data: payload,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (error) {
+      throw _mapError(error);
+    }
+  }
+
   Future<Map<String, dynamic>> getBookingCart(String ownerId) async {
     try {
       final Response<dynamic> response = await _dio.get<dynamic>(
